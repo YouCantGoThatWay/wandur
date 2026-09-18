@@ -33,7 +33,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _toolbarStatus = Ui.TextKey(nameof(L.ReadyToWander), 11, "muted");
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
-    private readonly CheckBox _privateToggle = new() { Name = "PrivateInputToggle", [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11 };
+    private readonly CheckBox _privateToggle = new() { Name = "PrivateInputToggle", [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11, MinHeight = 0, Height = 22, Padding = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
     private readonly Border _notice;
     private readonly Border _toolbar;
     private bool _syncingPrivate;
