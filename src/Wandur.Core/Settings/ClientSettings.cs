@@ -56,6 +56,8 @@ public sealed record ClientSettings
     public bool LocalEcho { get; init; }
     public bool AllowBlinkingText { get; init; }
     public bool UseWorldThemes { get; init; } = true;
+    public bool ClassifyRoomsLocally { get; init; } = true;
+    public double RoomClassificationThreshold { get; init; } = 0.8;
     public List<UserTheme> CustomThemes { get; init; } = [];
     public List<ConnectionProfile> Profiles { get; init; } = [];
     public void Validate()
@@ -68,6 +70,7 @@ public sealed record ClientSettings
             throw new ArgumentException(L.ThemeNameUnique);
         if (!UserTheme.PresetNames.Contains(Theme) && !CustomThemes.Any(t => t.Id == Theme)) throw new ArgumentException(L.UnknownColorScheme);
         if (!double.IsFinite(FontSize) || FontSize is < 11 or > 28) throw new ArgumentException(L.TextSizeMustBeBetween11And28);
+        if (!double.IsFinite(RoomClassificationThreshold) || RoomClassificationThreshold is < 0.5 or > 0.99) throw new ArgumentException(L.RoomClassificationThresholdRange);
         foreach (var color in new[] { Foreground, Background })
             if (color is not null && !Regex.IsMatch(color, "^#[0-9a-fA-F]{6}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
                 throw new ArgumentException(L.CustomColorsMustUseRRGGBBOrBeLeftBlank);

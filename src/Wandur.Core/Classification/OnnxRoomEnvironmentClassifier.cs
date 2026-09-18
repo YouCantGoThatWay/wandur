@@ -11,6 +11,7 @@ public sealed class OnnxRoomEnvironmentClassifier : IRoomEnvironmentClassifier, 
     private readonly BertTokenizer _tokenizer;
     private readonly InferenceSession _session;
     private readonly object _gate = new();
+    private bool _disposed;
 
     public OnnxRoomEnvironmentClassifier(ModelPackage package)
     {
@@ -60,6 +61,7 @@ public sealed class OnnxRoomEnvironmentClassifier : IRoomEnvironmentClassifier, 
         int width;
         lock (_gate)
         {
+            if (_disposed) throw new ObjectDisposedException(nameof(OnnxRoomEnvironmentClassifier));
             using var results = _session.Run([NamedOnnxValue.CreateFromTensor("input_ids", inputIds), NamedOnnxValue.CreateFromTensor("attention_mask", mask)]);
             var tensor = results.First().AsTensor<float>();
             width = tensor.Dimensions[2];
@@ -91,5 +93,5 @@ public sealed class OnnxRoomEnvironmentClassifier : IRoomEnvironmentClassifier, 
         return exp.Select(e => (float)(e / total)).ToArray();
     }
 
-    public void Dispose() => _session.Dispose();
+    public void Dispose() { lock (_gate) { if (_disposed) return; _disposed = true; _session.Dispose(); } }
 }

@@ -311,6 +311,9 @@ Version 0.1</value>
   <data name="TextSizeMustBeBetween11And28" xml:space="preserve">
     <value>Die Textgröße muss zwischen 11 und 28 liegen.</value>
   </data>
+  <data name="RoomClassificationThresholdRange" xml:space="preserve">
+    <value>Die Konfidenz der Raumklassifizierung muss zwischen 0,5 und 0,99 liegen.</value>
+  </data>
   <data name="CustomColorsMustUseRRGGBBOrBeLeftBlank" xml:space="preserve">
     <value>Benutzerdefinierte Farben müssen das Format #RRGGBB haben oder leer bleiben.</value>
   </data>

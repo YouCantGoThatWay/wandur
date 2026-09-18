@@ -11,19 +11,19 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
     public string ModelsRoot { get; } = modelsRoot;
 
     /// <summary>The highest version directory that loads and verifies, or null.</summary>
-    public string? InstalledDirectory
+    public string? InstalledDirectory => LoadInstalled()?.Directory;
+
+    /// <summary>The highest version package that loads and verifies, or null. Loads (and hashes) at most once per candidate.</summary>
+    public ModelPackage? LoadInstalled()
     {
-        get
+        if (!Directory.Exists(ModelsRoot)) return null;
+        foreach (var dir in Directory.GetDirectories(ModelsRoot).Where(d => !Path.GetFileName(d).StartsWith('.'))
+                     .OrderByDescending(d => Version.TryParse(Path.GetFileName(d), out var v) ? v : new Version(0, 0)))
         {
-            if (!Directory.Exists(ModelsRoot)) return null;
-            foreach (var dir in Directory.GetDirectories(ModelsRoot).Where(d => !Path.GetFileName(d).StartsWith('.'))
-                         .OrderByDescending(d => Version.TryParse(Path.GetFileName(d), out var v) ? v : new Version(0, 0)))
-            {
-                try { ModelPackage.Load(dir); return dir; }
-                catch (Exception ex) when (ex is InvalidDataException or IOException or System.Text.Json.JsonException or UnauthorizedAccessException) { }
-            }
-            return null;
+            try { return ModelPackage.Load(dir); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or System.Text.Json.JsonException or UnauthorizedAccessException) { }
         }
+        return null;
     }
 
     public Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken cancellation)

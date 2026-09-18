@@ -311,6 +311,9 @@ Versión 0.1</value>
   <data name="TextSizeMustBeBetween11And28" xml:space="preserve">
     <value>El tamaño del texto debe estar entre 11 y 28.</value>
   </data>
+  <data name="RoomClassificationThresholdRange" xml:space="preserve">
+    <value>La confianza de la clasificación de salas debe estar entre 0,5 y 0,99.</value>
+  </data>
   <data name="CustomColorsMustUseRRGGBBOrBeLeftBlank" xml:space="preserve">
     <value>Los colores personalizados deben usar #RRGGBB o dejarse en blanco.</value>
   </data>

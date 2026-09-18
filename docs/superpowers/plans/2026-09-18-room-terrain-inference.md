@@ -653,7 +653,10 @@ public sealed class OnnxRoomEnvironmentClassifier : IRoomEnvironmentClassifier, 
         return exp.Select(e => (float)(e / total)).ToArray();
     }
 
-    public void Dispose() => _session.Dispose();
+    private bool _disposed;
+    public void Dispose() { lock (_gate) { if (_disposed) return; _disposed = true; _session.Dispose(); } }
+    // Embed checks _disposed inside its lock and throws ObjectDisposedException, so a classifier swap can never
+    // dispose the session under an in-flight Run; later callers get a catchable InvalidOperationException subtype.
 }
 ```
 Adaptation note: if `Microsoft.ML.Tokenizers 2.0.0` names the `EncodeToIds` parameters differently, use the overload that encodes **without** special tokens (check `BertTokenizer` members with `dotnet` IntelliSense or the package XML docs in `~/.nuget/packages/microsoft.ml.tokenizers/2.0.0/lib/net8.0/`); the fixture test is the oracle. Do not change the `[CLS] + ≤254 + [SEP]` semantics.
@@ -673,7 +676,7 @@ Run the Step 2 command (with the env var). Expected: 2 passed, every fixture's i
 - Test: `tests/Wandur.Core.Tests/ModelPackageInstallerTests.cs`
 
 **Interfaces:**
-- Produces: `sealed class ModelPackageInstaller { ModelPackageInstaller(string modelsRoot, HttpClient http); string? InstalledDirectory /*best verified version*/; Task<ModelPackage> InstallAsync(Stream zip, CancellationToken); Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken); const long MaxPackageBytes = 200L * 1024 * 1024; }`
+- Produces: `sealed class ModelPackageInstaller { ModelPackageInstaller(string modelsRoot, HttpClient http); ModelPackage? LoadInstalled() /*highest verifying version, single Load per candidate*/; string? InstalledDirectory => LoadInstalled()?.Directory; Task<ModelPackage> InstallAsync(Stream zip, CancellationToken); Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken); const long MaxPackageBytes = 200L * 1024 * 1024; }`
 - Layout: `<modelsRoot>/<version>/…` with the package files; extraction to `<modelsRoot>/.staging-<guid>` then atomic `Directory.Move`.
 
 - [ ] **Step 1: Write the failing test**
@@ -996,18 +999,26 @@ public sealed class RoomClassificationService : IDisposable
 
     private void Set(RoomClassificationStatus status) { Status = status; Changed?.Invoke(); }
 
-    /// <summary>Creates the classifier on first use; returns null unless the package is installed and loads.</summary>
+    /// <summary>Creates the classifier on first use from the cached, already-verified package; returns null unless Ready.</summary>
     public IRoomEnvironmentClassifier? TryGetClassifier()
     {
+        RoomClassificationStatus? failure = null;
+        IRoomEnvironmentClassifier? classifier = null;
         lock (_gate)
         {
             if (_classifier is not null) return _classifier;
-            if (Status.State != RoomClassificationState.Ready || _installer?.InstalledDirectory is not { } dir) return null;
-            try { return _classifier = _factory(ModelPackage.Load(dir)); }
-            catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException)
-            { Set(new(RoomClassificationState.Failed, 0, null, ex.Message)); return null; }
+            if (Status.State == RoomClassificationState.Ready && (_package ??= _installer?.LoadInstalled()) is { } package)
+            {
+                try { classifier = _classifier = _factory(package); }
+                catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException)
+                { _package = null; failure = new(RoomClassificationState.Failed, 0, null, ex.Message); }
+            }
         }
+        if (failure is not null) Set(failure); // never raise Changed while holding _gate
+        return classifier;
     }
+    // _package (ModelPackage?) is set by InstalledStatus() via installer.LoadInstalled() and by RunInstall on success,
+    // so the model is hash-verified once per install/startup rather than on every access.
 
     public Task DownloadAsync(CancellationToken cancellation) =>
         RunInstall(progress => _installer!.DownloadAsync(_packageUrl, progress, cancellation));

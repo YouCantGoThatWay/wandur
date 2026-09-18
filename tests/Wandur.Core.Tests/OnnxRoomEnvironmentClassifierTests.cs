@@ -37,4 +37,13 @@ public sealed class OnnxRoomEnvironmentClassifierTests
         Assert.NotNull(classifier.Classify("Void", "Nothing.", threshold: 0.0));
         Assert.Equal("0.1.1", classifier.ModelVersion);
     }
+
+    [Fact]
+    public void ClassifyAfterDisposeThrowsObjectDisposed()
+    {
+        if (ModelDirectory is not { } dir) return;
+        var classifier = new OnnxRoomEnvironmentClassifier(ModelPackage.Load(dir));
+        classifier.Dispose(); classifier.Dispose(); // idempotent
+        Assert.Throws<ObjectDisposedException>(() => classifier.Classify("Void", "Nothing.", 0));
+    }
 }

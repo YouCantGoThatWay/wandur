@@ -110,6 +110,7 @@ public static class Strings
     public static string InvalidLoginPromptPatternUseASimpleRegularExpression => Get(nameof(InvalidLoginPromptPatternUseASimpleRegularExpression));
     public static string UnknownColorScheme => Get(nameof(UnknownColorScheme));
     public static string TextSizeMustBeBetween11And28 => Get(nameof(TextSizeMustBeBetween11And28));
+    public static string RoomClassificationThresholdRange => Get(nameof(RoomClassificationThresholdRange));
     public static string CustomColorsMustUseRRGGBBOrBeLeftBlank => Get(nameof(CustomColorsMustUseRRGGBBOrBeLeftBlank));
     public static string AtMost200WorldProfilesAreSupported => Get(nameof(AtMost200WorldProfilesAreSupported));
     public static string InvalidWorldProfile => Get(nameof(InvalidWorldProfile));
