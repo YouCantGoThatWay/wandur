@@ -59,6 +59,9 @@ The initial translations have automated coverage and layout checks; they have no
 
 `WorkspaceController.Mapping` coordinates room observations and movement evidence for each session. Its `RoomMapTracker` and protocol/text decoders live in Core. `IRoomMapStore` is injected from startup through the window and session factory; `MapViewModel` owns presentation and an isolated offline recognition exercise. See [the mapper guide](mapper.md) for supported formats and inference limits. `MapViewModel` partials separate editing and navigation commands; `RoomMapControl` draws a north-up viewport and forwards explicit edit gestures. Core owns validated JSON, directed weighted routes, map revisions/deletion tombstones, merge aliases and bounded undo. `WorkspaceController.Navigation` binds a verified walk to one session and its privacy epoch, with room acknowledgements queued beside transcript output before the next movement is sent.
 
+### Room terrain inference
+
+`Wandur.Core.Classification` runs the room-classifier model package locally: `RoomTextPreprocessor` reproduces the package's `preprocessing_spec.json`, `OnnxRoomEnvironmentClassifier` runs the encoder through ONNX Runtime one room at a time and applies the logistic head, and `ModelPackageInstaller` downloads/verifies packages by manifest hash into `models/room-classifier/<version>/`. `WorkspaceController.Inference` queues rooms without terrain onto a background worker and applies results on the UI thread through `RoomMapTracker.ApplyInference`, which stores `InferredEnvironment`/`InferredConfidence`/`InferredKey` on `MapRoom`. Presentation precedence lives in `MapEnvironmentPalette`: server or manual terrain first, inference second.
 
 ### ANSI palettes
 
