@@ -1196,6 +1196,7 @@ Add `MapTerrainInferred` to the five resx files (values above) and regenerate `S
 **Interfaces:**
 - Consumes: `RoomClassificationService`, `IRoomEnvironmentClassifier`, `RoomMapTracker.RoomsNeedingInference/ApplyInference`, `RoomTextPreprocessor.InferenceKey`, `Settings.ClassifyRoomsLocally/RoomClassificationThreshold`.
 - Produces: `WorkspaceController.Classification` property; `internal void ScheduleInference()`; `internal Task? InferenceWorkerForTests` (the running worker task, for deterministic tests).
+- **Rulings applied during review (2026-09-18):** (1) no scheduling and no result application while a map walk is in progress — `ApplyInference` bumps `Revision`, which `SameWalkGraph` treats as a graph change; (2) the worker body is wrapped in a catch-all that releases the queued id; (3) after `CancelInference()` a fresh worker starts even if the old one has not yet observed cancellation; (4) the queue is a `LinkedList` and the current room is `AddFirst`; (5) `ScheduleInference()` uses `RoomClassificationService.ModelVersion` (no model load on the UI thread — the worker calls `TryGetClassifier()`), `ObserveRoom` uses the O(1) fast path `ScheduleInference(string roomId)`, and a full rescan runs at `StartMapping`, on the settings toggle, and once whenever the worker drains the queue.
 
 - [ ] **Step 1: Write the failing test**
 

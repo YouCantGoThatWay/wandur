@@ -41,6 +41,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     private readonly IWorldScriptLibraryStore _scriptLibraryStore;
     private readonly IWorldKnowledgeStore? _knowledge;
     private readonly Wandur.Core.Discovery.WorldCatalog? _catalog;
+    private readonly Wandur.Core.Classification.RoomClassificationService? _classification;
     private bool _disposed;
     private readonly Wandur.Desktop.Terminal.ITranscriptDisplayFactory _displays;
     public ObservableCollection<SessionTab> Tabs { get; } = [];
@@ -60,9 +61,9 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null)
+    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
     {
-        _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog;
+        _classification = classification; _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog;
         _passwords = passwords;
         _maps = maps;
         _scriptRuntimes = scriptRuntimes;
@@ -74,7 +75,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
 
     private SessionTab CreateTab()
     {
-        var controller = new WorkspaceController(_displays, _store, _passwords, _maps, _scriptRuntimes, _scriptLibraryStore, _knowledge, _agents);
+        var controller = new WorkspaceController(_displays, _store, _passwords, _maps, _scriptRuntimes, _scriptLibraryStore, _knowledge, _agents, _classification);
         var tab = new SessionTab(controller);
         controller.Changed += () => OnChanged(tab);
         controller.SettingsSaved += settings =>

@@ -59,6 +59,8 @@ public sealed partial class WorkspaceController
         _tentativeTextRoom = null;
         _mapDirty = false;
         Map.Changed += () => { _mapDirty = true; if (_mapWalk is { } walk) CanContinueMapWalk(walk); };
+        CancelInference();
+        ScheduleInference();
         if (session is TelnetSession telnet)
         {
             var previousProtocols = telnet.ProtocolState;
@@ -150,6 +152,7 @@ public sealed partial class WorkspaceController
             _pendingMapDirection = null;
             ObserveMapWalkArrival(room);
         }
+        if (Map.Snapshot.CurrentRoomId is { } observedId) ScheduleInference(observedId);
     }
 
     private void TrackMapCommand(string command, bool isPrivate)

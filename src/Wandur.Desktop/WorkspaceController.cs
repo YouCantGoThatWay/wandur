@@ -34,9 +34,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     private bool _droppedOutput;
     private readonly DispatcherTimer _outputTimer;
 
-    public WorkspaceController(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, IAgentClientServices? agents = null)
+    public WorkspaceController(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
     {
-        _store = store; _knowledge = knowledge;
+        _store = store; _knowledge = knowledge; Classification = classification;
         Display = displays.Create(Terminal);
         Passwords = passwords;
         _maps = maps;
@@ -61,6 +61,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     private ViewModels.SessionPagesViewModel? _pages;
     public ViewModels.SessionPagesViewModel Pages => _pages ??= new(ScriptLibrary);
     public ClientSettings Settings { get; private set; }
+    public Wandur.Core.Classification.RoomClassificationService? Classification { get; }
     public AnsiTerminal Terminal { get; } = new();
     public Wandur.Desktop.Terminal.ITranscriptDisplay Display { get; }
     public CommandHistory History { get; private set; } = new();
@@ -110,6 +111,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         ThemeService.Apply(settings);
         TerminalVersion++;
         Changed?.Invoke();
+        // Turning classification off stops work already in flight; turning it on picks up what was missed.
+        if (Settings.ClassifyRoomsLocally) ScheduleInference(); else CancelInference();
     }
 
     public async Task StartAsync(ConnectionProfile? profile = null)
@@ -371,5 +374,5 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    public async ValueTask DisposeAsync() { if (_disposed) return; _disposed = true; Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage; _outputTimer.Stop(); await DisconnectAsync(); _pages?.Dispose(); Agent?.Dispose(); await ScriptLibrary.DisposeAsync(); Display.Dispose(); }
+    public async ValueTask DisposeAsync() { if (_disposed) return; _disposed = true; CancelInference(); Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage; _outputTimer.Stop(); await DisconnectAsync(); _pages?.Dispose(); Agent?.Dispose(); await ScriptLibrary.DisposeAsync(); Display.Dispose(); }
 }

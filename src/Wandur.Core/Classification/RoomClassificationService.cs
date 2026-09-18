@@ -32,6 +32,8 @@ public sealed class RoomClassificationService : IDisposable
     public static RoomClassificationService ForTesting(IRoomEnvironmentClassifier classifier) => new(classifier);
 
     public RoomClassificationStatus Status { get; private set; }
+    /// <summary>The installed package version, without creating (and so loading) the classifier.</summary>
+    public string? ModelVersion { get { var status = Status; return status.State == RoomClassificationState.Ready ? status.Version : null; } }
     public event Action? Changed;
 
     private RoomClassificationStatus InstalledStatus()

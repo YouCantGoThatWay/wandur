@@ -45,6 +45,7 @@ public sealed partial class WorkspaceController
         _mapWalk = null;
         walk.Cancellation.Cancel();
         SetMapWalkStatus(reason);
+        ScheduleInferenceAfterWalk();
     }
 
     public async Task StartMapWalkAsync(MapRoute route)
@@ -87,14 +88,14 @@ public sealed partial class WorkspaceController
                 await walk.Arrival.Task.WaitAsync(MapWalkStepTimeout, walk.Cancellation.Token);
             }
             await Dispatcher.UIThread.InvokeAsync(FlushOutput, DispatcherPriority.Background);
-            if (CanContinueMapWalk(walk)) { _mapWalk = null; SetMapWalkStatus("MapWalkComplete"); }
+            if (CanContinueMapWalk(walk)) { _mapWalk = null; SetMapWalkStatus("MapWalkComplete"); ScheduleInferenceAfterWalk(); }
         }
         catch (OperationCanceledException) when (walk.Cancellation.IsCancellationRequested)
         { if (ReferenceEquals(_mapWalk, walk)) StopMapWalk(walk.PrivacyEpoch != Interlocked.Read(ref _mapPrivacyEpoch) ? "MapWalkPrivate" : "MapWalkStopped"); }
         catch (TimeoutException) { if (ReferenceEquals(_mapWalk, walk)) StopMapWalk("MapWalkTimeout"); }
         finally
         {
-            if (ReferenceEquals(_mapWalk, walk)) { _mapWalk = null; Changed?.Invoke(); }
+            if (ReferenceEquals(_mapWalk, walk)) { _mapWalk = null; Changed?.Invoke(); ScheduleInferenceAfterWalk(); }
             walk.Cancellation.Dispose();
         }
     }

@@ -70,6 +70,7 @@ public partial class App : Application
         services.AddSingleton<IAgentProviderResolver, AgentProviderRegistry>();
         services.AddSingleton<IAgentClientServices, AgentClientServices>();
         services.AddSingleton<IProfileAutomationFactory, ProfileAutomationFactory>();
+        services.AddSingleton(provider => new Wandur.Core.Classification.RoomClassificationService(directory, provider.GetRequiredService<HttpClient>()));
         services.AddSingleton<MainWindow>();
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
