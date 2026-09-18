@@ -18,7 +18,7 @@ public sealed class ModelPackageInstallerTests
     }
 
     /// <summary>Probes for a free loopback port and starts a listener on it.</summary>
-    private static (HttpListener Listener, int Port) StartListener(int startPort = 40000, int endPort = 40200)
+    internal static (HttpListener Listener, int Port) StartListener(int startPort = 40000, int endPort = 40200)
     {
         for (var attempt = startPort; attempt < endPort; attempt++)
         {
@@ -55,6 +55,27 @@ public sealed class ModelPackageInstallerTests
         { using var writer = new StreamWriter(zip.CreateEntry("../escape.txt").Open()); writer.Write("x"); }), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidDataException>(() => installer.InstallAsync(Zip(ModelPackageTests.CreateFakePackage(tamper: "head.json")), CancellationToken.None));
         Assert.Null(installer.InstalledDirectory);
+        Assert.Empty(Directory.Exists(root) ? Directory.GetDirectories(root, ".staging-*") : []);
+    }
+
+    [Fact]
+    public async Task RejectsPathTraversalViaManifestVersion()
+    {
+        var tempParent = Path.Combine(Path.GetTempPath(), "wandur-escape-" + Guid.NewGuid());
+        Directory.CreateDirectory(tempParent);
+        var root = Path.Combine(tempParent, "models");
+        var escapeTarget = Path.Combine(tempParent, "escape-target");
+        Directory.CreateDirectory(escapeTarget);
+        var keep = Path.Combine(escapeTarget, "keep.txt");
+        File.WriteAllText(keep, "keep-me");
+
+        var installer = new ModelPackageInstaller(root, new HttpClient());
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            installer.InstallAsync(Zip(ModelPackageTests.CreateFakePackage(version: "../escape-target")), CancellationToken.None));
+
+        Assert.True(File.Exists(keep));
+        Assert.Equal("keep-me", File.ReadAllText(keep));
+        Assert.Empty(Directory.Exists(root) ? Directory.GetDirectories(root, ".previous-*") : []);
         Assert.Empty(Directory.Exists(root) ? Directory.GetDirectories(root, ".staging-*") : []);
     }
 

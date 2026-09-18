@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Net;
 using Wandur.Core.Classification;
 using Wandur.Core.Settings;
 
@@ -41,6 +42,47 @@ public sealed class RoomClassificationServiceTests
         await service.InstallFromFileAsync(bad, CancellationToken.None);
         Assert.Equal(RoomClassificationState.Failed, service.Status.State); Assert.NotNull(service.Status.Message);
         Assert.Null(service.TryGetClassifier());
+    }
+
+    [Fact]
+    public async Task ClassifierFactoryFailureIsCaughtAndReportedAsFailed()
+    {
+        var data = Path.Combine(Path.GetTempPath(), "wandur-data-" + Guid.NewGuid());
+        var zipPath = Path.Combine(Path.GetTempPath(), "wandur-pkg-" + Guid.NewGuid() + ".zip");
+        ZipFile.CreateFromDirectory(ModelPackageTests.CreateFakePackage(), zipPath);
+        using var service = new RoomClassificationService(data, new HttpClient(), classifierFactory: _ => throw new DllNotFoundException("boom"));
+        await service.InstallFromFileAsync(zipPath, CancellationToken.None);
+        Assert.Equal(RoomClassificationState.Ready, service.Status.State);
+        Assert.Null(service.TryGetClassifier());
+        Assert.Equal(RoomClassificationState.Failed, service.Status.State);
+        Assert.False(string.IsNullOrEmpty(service.Status.Message));
+    }
+
+    [Fact]
+    public async Task MalformedRedirectFailsCleanlyWithoutWedgingBusy()
+    {
+        var (listener, port) = ModelPackageInstallerTests.StartListener();
+        using var _listener = listener;
+        _ = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync();
+            context.Response.StatusCode = (int)HttpStatusCode.Found;
+            context.Response.Headers.Add("Location", "ht!tp://bad");
+            context.Response.Close();
+        });
+
+        var data = Path.Combine(Path.GetTempPath(), "wandur-data-" + Guid.NewGuid());
+        using var service = new RoomClassificationService(data, new HttpClient(),
+            packageUrl: new Uri($"http://127.0.0.1:{port}/model.zip"), classifierFactory: p => new FakeClassifier(p.Version));
+        await service.DownloadAsync(CancellationToken.None);
+        Assert.Equal(RoomClassificationState.Failed, service.Status.State);
+        listener.Stop();
+
+        // The failed download must not leave _busy stuck true: a later install proceeds instead of being silently ignored.
+        var zipPath = Path.Combine(Path.GetTempPath(), "wandur-pkg-" + Guid.NewGuid() + ".zip");
+        ZipFile.CreateFromDirectory(ModelPackageTests.CreateFakePackage(), zipPath);
+        await service.InstallFromFileAsync(zipPath, CancellationToken.None);
+        Assert.Equal(RoomClassificationState.Ready, service.Status.State);
     }
 
     [Fact]

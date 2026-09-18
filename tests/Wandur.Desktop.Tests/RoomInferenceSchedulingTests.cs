@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Wandur.Core.Classification;
@@ -45,6 +47,24 @@ public sealed class RoomInferenceSchedulingTests
             Dispatcher.UIThread.RunJobs();
             stable = controller.InferenceWorkerForTests is null or { IsCompleted: true } ? stable + 1 : 0;
         }
+    }
+
+    /// <summary>Writes a minimal, hash-verified room-classifier package directly under a models root, bypassing the installer.</summary>
+    private static void WriteInstalledPackage(string modelsRoot, string version = "9.9.9")
+    {
+        var dir = Path.Combine(modelsRoot, version);
+        Directory.CreateDirectory(dir);
+        var files = new Dictionary<string, string>
+        {
+            ["encoder.onnx"] = "not-a-real-model",
+            ["tokenizer.json"] = JsonSerializer.Serialize(new { model = new { type = "WordPiece", vocab = new Dictionary<string, int> { ["[PAD]"] = 0, ["[UNK]"] = 1 } } }),
+            ["head.json"] = JsonSerializer.Serialize(new { classes = new[] { "cave" }, coef = new[] { new[] { 0.1 } }, intercept = new[] { 0.1 } }),
+            ["preprocessing_spec.json"] = JsonSerializer.Serialize(new { max_word_pieces = 256, threshold = 0.8 }),
+            ["taxonomy.json"] = JsonSerializer.Serialize(new { version = "1.0.0" }),
+        };
+        foreach (var (name, content) in files) File.WriteAllText(Path.Combine(dir, name), content);
+        var manifest = new { version, files = files.ToDictionary(f => f.Key, f => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(f.Value)))) };
+        File.WriteAllText(Path.Combine(dir, "manifest.json"), JsonSerializer.Serialize(manifest));
     }
 
     private static WorkspaceController Controller(IRoomEnvironmentClassifier classifier)
@@ -112,6 +132,25 @@ public sealed class RoomInferenceSchedulingTests
         controller.ScheduleInference();
         await Pump(controller);
         Assert.True(classifier.Names.Count(name => name == "Harbor") > before); // re-queued, not stuck in the queued set
+    }
+
+    [AvaloniaFact]
+    public async Task ClassifierCreationFailureNeverFaultsTheWorker()
+    {
+        var data = Path.Combine(Path.GetTempPath(), "wandur-infer-classifier-fail-" + Guid.NewGuid());
+        WriteInstalledPackage(Path.Combine(data, "models", "room-classifier"));
+        using var service = new RoomClassificationService(data, new HttpClient(), classifierFactory: _ => throw new DllNotFoundException("boom"));
+        Assert.Equal(RoomClassificationState.Ready, service.Status.State);
+        await using var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(),
+            new SettingsStore(Path.Combine(data, "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(),
+            new RecordingScriptFactory(), new MemoryScriptLibraryStore(), classification: service);
+        controller.Map.Observe(new("1", "Pine Trail", "Tall pines crowd the narrow trail.", new Dictionary<string, string?>(), Source: RoomDataSource.Gmcp));
+        controller.ScheduleInference();
+        await Pump(controller);
+        Assert.True(controller.InferenceWorkerForTests is null or { IsCompleted: true, IsFaulted: false }); // never faults
+        Assert.Null(controller.Map.Snapshot.Rooms.Single().InferredEnvironment);
+        Assert.Null(controller.Map.Snapshot.Rooms.Single().InferredKey);
+        Assert.Equal(RoomClassificationState.Failed, service.Status.State);
     }
 
     [AvaloniaFact]

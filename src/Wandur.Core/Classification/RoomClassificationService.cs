@@ -58,7 +58,7 @@ public sealed class RoomClassificationService : IDisposable
             var package = _package ?? _installer?.LoadInstalled();
             if (package is null) return null;
             try { result = _classifier = _factory(package); }
-            catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or Microsoft.ML.OnnxRuntime.OnnxRuntimeException)
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
             { _package = null; result = null; failure = new(RoomClassificationState.Failed, 0, null, ex.Message); }
         }
         if (failure is not null) Set(failure);
@@ -82,7 +82,7 @@ public sealed class RoomClassificationService : IDisposable
             lock (_gate) { (_classifier as IDisposable)?.Dispose(); _classifier = null; _package = package; }
             Set(new(RoomClassificationState.Ready, 1, package.Version));
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or HttpRequestException or OperationCanceledException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         { lock (_gate) _package = null; Set(new(RoomClassificationState.Failed, 0, null, ex.Message)); }
         finally { lock (_gate) _busy = false; }
     }

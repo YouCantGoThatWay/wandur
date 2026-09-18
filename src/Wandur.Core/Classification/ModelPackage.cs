@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Wandur.Core.Classification;
 
@@ -9,6 +10,7 @@ public sealed class ModelPackage
 {
     public const string SupportedTaxonomyVersion = "1.0.0";
     private static readonly string[] Required = ["encoder.onnx", "tokenizer.json", "head.json", "preprocessing_spec.json", "taxonomy.json"];
+    private static readonly Regex VersionPattern = new(@"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant);
 
     public required string Directory { get; init; }
     public required string Version { get; init; }
@@ -34,11 +36,14 @@ public sealed class ModelPackage
         if (!File.Exists(manifestPath)) throw new InvalidDataException("Missing manifest.json.");
         using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
         var version = manifest.RootElement.GetProperty("version").GetString() ?? throw new InvalidDataException("Missing package version.");
+        if (!VersionPattern.IsMatch(version)) throw new InvalidDataException("Invalid package version.");
         var files = manifest.RootElement.GetProperty("files");
         foreach (var required in Required)
             if (!files.TryGetProperty(required, out _)) throw new InvalidDataException($"Manifest does not list {required}.");
         foreach (var entry in files.EnumerateObject())
         {
+            if (entry.Name.Length == 0 || entry.Name.StartsWith('.') || Path.GetFileName(entry.Name) != entry.Name)
+                throw new InvalidDataException("Unsafe manifest entry.");
             var path = Path.Combine(directory, entry.Name);
             if (!File.Exists(path)) throw new InvalidDataException($"Missing {entry.Name}.");
             using var stream = File.OpenRead(path);

@@ -36,7 +36,10 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
             && response.Headers.Location is { } location)
         {
             if (depth >= 5) throw new HttpRequestException("Too many redirects.");
-            return await DownloadAsync(location.IsAbsoluteUri ? location : new Uri(url, location), progress, cancellation, depth + 1); // the shared HttpClient disables auto-redirect
+            var resolved = location.IsAbsoluteUri ? location : new Uri(url, location);
+            if (string.Equals(url.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal) && string.Equals(resolved.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal))
+                throw new HttpRequestException("Insecure redirect.");
+            return await DownloadAsync(resolved, progress, cancellation, depth + 1); // the shared HttpClient disables auto-redirect
         }
         response.EnsureSuccessStatusCode();
         var total = response.Content.Headers.ContentLength;
@@ -92,9 +95,14 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
             }
             var package = ModelPackage.Load(staging); // verifies hashes and structure
             var destination = Path.Combine(ModelsRoot, package.Version);
+            var root = Path.GetFullPath(ModelsRoot).TrimEnd(Path.DirectorySeparatorChar);
+            var full = Path.GetFullPath(destination);
+            if (Path.GetDirectoryName(full) != root || Path.GetFileName(full) != package.Version)
+                throw new InvalidDataException("Unsafe package destination.");
             var previous = Directory.Exists(destination) ? Path.Combine(ModelsRoot, ".previous-" + Guid.NewGuid()) : null;
             if (previous is not null) Directory.Move(destination, previous);
-            Directory.Move(staging, destination);
+            try { Directory.Move(staging, destination); }
+            catch { if (previous is not null) Directory.Move(previous, destination); throw; }
             if (previous is not null) { try { Directory.Delete(previous, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
             return ModelPackage.Load(destination);
         }

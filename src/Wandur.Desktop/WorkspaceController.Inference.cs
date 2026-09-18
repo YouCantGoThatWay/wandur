@@ -77,41 +77,52 @@ public sealed partial class WorkspaceController
 
     private void RunInference(RoomMapTracker map, string modelVersion, double threshold, CancellationToken token)
     {
-        // Creating the classifier loads the model, which is why it happens here and not on the UI thread.
-        if (Classification?.TryGetClassifier() is not { } classifier || classifier.ModelVersion != modelVersion)
+        try
         {
-            // Only this map's queue: a newer map may already have work waiting for its own worker.
+            // Creating the classifier loads the model, which is why it happens here and not on the UI thread.
+            if (Classification?.TryGetClassifier() is not { } classifier || classifier.ModelVersion != modelVersion)
+            {
+                // Only this map's queue: a newer map may already have work waiting for its own worker.
+                lock (_inferenceGate)
+                {
+                    if (ReferenceEquals(_inferenceMap, map)) { _inferenceQueue.Clear(); _inferenceQueued.Clear(); }
+                }
+                return;
+            }
+            var progressed = false;
+            while (!token.IsCancellationRequested)
+            {
+                if (!TryDequeueInference(map, progressed, out var item, out var rescan))
+                {
+                    if (rescan) Dispatcher.UIThread.Post(RescanInference);
+                    return;
+                }
+                try
+                {
+                    var key = RoomTextPreprocessor.InferenceKey(item.Name, item.Description, classifier.ModelVersion);
+                    var prediction = classifier.Classify(item.Name, item.Description, threshold);
+                    progressed = true;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        lock (_inferenceGate) _inferenceQueued.Remove(item.Id);
+                        // A walk in progress would read the revision bump as a changed graph and stop.
+                        if (_disposed || _mapWalk is not null || token.IsCancellationRequested || !ReferenceEquals(Map, map)) return;
+                        if (map.ApplyInference(item.Id, key, classifier.ModelVersion, prediction)) _mapDirty = true;
+                    });
+                }
+                // One bad room must not fault the worker or leave its id stuck in the queued set.
+                catch (Exception)
+                {
+                    lock (_inferenceGate) _inferenceQueued.Remove(item.Id);
+                }
+            }
+        }
+        // The worker task can never fault: a classifier-creation failure or any other unexpected error just clears this map's queue.
+        catch (Exception)
+        {
             lock (_inferenceGate)
             {
                 if (ReferenceEquals(_inferenceMap, map)) { _inferenceQueue.Clear(); _inferenceQueued.Clear(); }
-            }
-            return;
-        }
-        var progressed = false;
-        while (!token.IsCancellationRequested)
-        {
-            if (!TryDequeueInference(map, progressed, out var item, out var rescan))
-            {
-                if (rescan) Dispatcher.UIThread.Post(RescanInference);
-                return;
-            }
-            try
-            {
-                var key = RoomTextPreprocessor.InferenceKey(item.Name, item.Description, classifier.ModelVersion);
-                var prediction = classifier.Classify(item.Name, item.Description, threshold);
-                progressed = true;
-                Dispatcher.UIThread.Post(() =>
-                {
-                    lock (_inferenceGate) _inferenceQueued.Remove(item.Id);
-                    // A walk in progress would read the revision bump as a changed graph and stop.
-                    if (_disposed || _mapWalk is not null || token.IsCancellationRequested || !ReferenceEquals(Map, map)) return;
-                    if (map.ApplyInference(item.Id, key, classifier.ModelVersion, prediction)) _mapDirty = true;
-                });
-            }
-            // One bad room must not fault the worker or leave its id stuck in the queued set.
-            catch (Exception)
-            {
-                lock (_inferenceGate) _inferenceQueued.Remove(item.Id);
             }
         }
     }

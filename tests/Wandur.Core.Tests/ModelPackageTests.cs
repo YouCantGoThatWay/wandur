@@ -7,7 +7,7 @@ namespace Wandur.Core.Tests;
 
 public sealed class ModelPackageTests
 {
-    internal static string CreateFakePackage(string? tamper = null)
+    internal static string CreateFakePackage(string? tamper = null, string version = "9.9.9", IReadOnlyDictionary<string, string>? extraManifestFiles = null)
     {
         var dir = Path.Combine(Path.GetTempPath(), "wandur-model-" + Guid.NewGuid());
         Directory.CreateDirectory(dir);
@@ -20,7 +20,10 @@ public sealed class ModelPackageTests
             ["taxonomy.json"] = JsonSerializer.Serialize(new { version = "1.0.0", bases = new[] { "cave", "forest" } }),
         };
         foreach (var (name, content) in files) File.WriteAllText(Path.Combine(dir, name), content);
-        var manifest = new { version = "9.9.9", files = files.ToDictionary(f => f.Key, f => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(f.Value)))) };
+        var manifestFiles = files.ToDictionary(f => f.Key, f => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(f.Value))));
+        if (extraManifestFiles is not null)
+            foreach (var (name, content) in extraManifestFiles) manifestFiles[name] = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+        var manifest = new { version, files = manifestFiles };
         File.WriteAllText(Path.Combine(dir, "manifest.json"), JsonSerializer.Serialize(manifest));
         if (tamper is not null) File.WriteAllText(Path.Combine(dir, tamper), "tampered");
         return dir;
@@ -46,6 +49,13 @@ public sealed class ModelPackageTests
         Assert.Throws<InvalidDataException>(() => ModelPackage.Load(missing));
         var noManifest = CreateFakePackage(); File.Delete(Path.Combine(noManifest, "manifest.json"));
         Assert.Throws<InvalidDataException>(() => ModelPackage.Load(noManifest));
+    }
+
+    [Fact]
+    public void RejectsUnsafeVersionsAndManifestEntries()
+    {
+        Assert.Throws<InvalidDataException>(() => ModelPackage.Load(CreateFakePackage(version: "../escape")));
+        Assert.Throws<InvalidDataException>(() => ModelPackage.Load(CreateFakePackage(extraManifestFiles: new Dictionary<string, string> { ["../x"] = "y" })));
     }
 
     [Fact]
