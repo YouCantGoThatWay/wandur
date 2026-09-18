@@ -778,12 +778,18 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
         }
     }
 
-    public async Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken cancellation)
+    public Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken cancellation) =>
+        DownloadAsync(url, progress, cancellation, depth: 0);
+
+    private async Task<ModelPackage> DownloadAsync(Uri url, IProgress<double>? progress, CancellationToken cancellation, int depth)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellation);
         if (response.StatusCode is System.Net.HttpStatusCode.Redirect or System.Net.HttpStatusCode.Found or System.Net.HttpStatusCode.MovedPermanently or System.Net.HttpStatusCode.TemporaryRedirect or System.Net.HttpStatusCode.PermanentRedirect
             && response.Headers.Location is { } location)
-            return await DownloadAsync(location.IsAbsoluteUri ? location : new Uri(url, location), progress, cancellation); // the shared HttpClient disables auto-redirect
+        {
+            if (depth >= 5) throw new HttpRequestException("Too many redirects.");
+            return await DownloadAsync(location.IsAbsoluteUri ? location : new Uri(url, location), progress, cancellation, depth + 1); // the shared HttpClient disables auto-redirect
+        }
         response.EnsureSuccessStatusCode();
         var total = response.Content.Headers.ContentLength;
         if (total > MaxPackageBytes) throw new InvalidDataException("Package exceeds the size limit.");
@@ -826,16 +832,22 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
                 var name = Path.GetFileName(entry.FullName);
                 if (string.IsNullOrEmpty(name) || entry.FullName.Contains("..") || entry.FullName.Contains('/') || entry.FullName.Contains('\\') || name.StartsWith('.'))
                     throw new InvalidDataException($"Unsafe package entry {entry.FullName}.");
-                extracted += entry.Length;
-                if (extracted > MaxPackageBytes) throw new InvalidDataException("Package exceeds the size limit.");
                 await using var source = entry.Open();
                 await using var target = File.Create(Path.Combine(staging, name));
-                await source.CopyToAsync(target, cancellation);
+                var chunk = new byte[81920]; int got; // cap on ACTUAL decompressed bytes, never the header's declared Length
+                while ((got = await source.ReadAsync(chunk, cancellation)) > 0)
+                {
+                    extracted += got;
+                    if (extracted > MaxPackageBytes) throw new InvalidDataException("Package exceeds the size limit.");
+                    await target.WriteAsync(chunk.AsMemory(0, got), cancellation);
+                }
             }
             var package = ModelPackage.Load(staging); // verifies hashes and structure
             var destination = Path.Combine(ModelsRoot, package.Version);
-            if (Directory.Exists(destination)) Directory.Delete(destination, recursive: true);
+            var previous = Directory.Exists(destination) ? Path.Combine(ModelsRoot, ".previous-" + Guid.NewGuid()) : null;
+            if (previous is not null) Directory.Move(destination, previous); // move aside, never delete-then-move
             Directory.Move(staging, destination);
+            if (previous is not null) { try { Directory.Delete(previous, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
             return ModelPackage.Load(destination);
         }
         catch (InvalidDataException) { throw; }
@@ -846,7 +858,7 @@ public sealed class ModelPackageInstaller(string modelsRoot, HttpClient http)
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes** — filter `ModelPackageInstallerTests`; Expected: 3 passed.
+- [ ] **Step 4: Run test to verify it passes** — filter `ModelPackageInstallerTests`; Expected: 5 passed (the brief's three plus `FollowsRedirectsUpToTheCap` and a zip-bomb-shaped cap test added during review).
 
 - [ ] **Step 5: Build check** — Core builds with 0 warnings.
 
