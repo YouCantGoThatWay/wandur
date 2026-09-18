@@ -298,7 +298,8 @@ public sealed class WorkspaceTests
             dialog = new BrowserTestWindow(offline, sessions); dialog.Show(); Dispatcher.UIThread.RunJobs();
             await WaitFor(() => dialog.GetVisualDescendants().OfType<Image>().Any(i => i.Source is not null));
             Assert.Equal(3, offline.Worlds.Count);
-            Assert.Null(offline.Warning);
+            Assert.NotNull(offline.Warning); // startup refresh failed offline; saved worlds remain (see WorldCatalogTests.FreshAndExpiredCachesSurviveFailedStartupRefresh)
+            Assert.Contains(offline.BaseUri.ToString(), offline.Warning);
         }
         finally { dialog.Close(); Directory.Delete(directory, true); }
     }
