@@ -1,0 +1,132 @@
+using L = Wandur.Core.Localization.Strings;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
+
+namespace Wandur.Desktop.Views;
+
+public sealed class TerminalView : UserControl
+{
+    private readonly WorkspaceController _controller;
+    private readonly TextBox _input = new() { Name = "CommandInput", [!TextBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.EnterACommand)), FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"), MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TextBlock _hint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
+    private readonly CheckBox _private = new() { [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11 };
+    private readonly Button _send;
+    private readonly Button _latest;
+    private readonly Border _welcome;
+    private readonly ResourceBarsView _resources = new();
+    private bool _sending;
+    private bool _wasPrivate;
+
+    public TerminalView(WorkspaceController controller, Action<int>? editConfiguration = null)
+    {
+        _controller = controller;
+        _latest = Ui.ButtonKey(nameof(L.LatestOutput), () => controller.Display.FollowTail());
+        _latest.HorizontalAlignment = HorizontalAlignment.Right;
+        _latest.VerticalAlignment = VerticalAlignment.Bottom;
+        _latest.Margin = new Thickness(16);
+        _latest.IsVisible = false;
+        _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
+        _send.Name = "SendCommand";
+        _private.IsCheckedChanged += (_, _) => controller.SetManualPrivate(_private.IsChecked == true);
+        _private.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MasksYourInputAndKeepsItOutOfCommand)));
+        _input.AddHandler(KeyDownEvent, (_, args) =>
+        {
+            if (controller.Pages.IsPlay && args.KeyModifiers == KeyModifiers.None && args.Key >= Key.F1 && args.Key <= Key.F12)
+                args.Handled = controller.ScriptLibrary.HandleShortcut(args.Key.ToString());
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        _input.KeyDown += async (_, args) =>
+        {
+            if (args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None) { args.Handled = true; await Send(); }
+            else if (args.Key == Key.Up && !controller.IsPrivate) { _input.Text = controller.History.Previous(_input.Text ?? ""); _input.CaretIndex = _input.Text.Length; args.Handled = true; }
+            else if (args.Key == Key.Down && !controller.IsPrivate) { _input.Text = controller.History.Next(); _input.CaretIndex = _input.Text.Length; args.Handled = true; }
+        };
+        _welcome = new Border
+        {
+            Padding = new Thickness(36), VerticalAlignment = VerticalAlignment.Center, MaxWidth = 520,
+            Child = Ui.Stack(Ui.TextKey(nameof(L.ANOPENDOOR), 10, "eyebrow"),
+                Ui.TextKey(nameof(L.YourNextWorldAwaits), 38),
+                Ui.TextKey(nameof(L.ReturnToAWorldYouLoveOrFollowA), 14, "muted"),
+                Ui.ButtonKey(nameof(L.TakeAWalkThroughTheDemo), async () => { await controller.StartAsync(); _input.Focus(); }, "primary"))
+        };
+        var display = controller.Display.View;
+        if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
+        display.Margin = new Thickness(20, 12, 4, 8);
+        var output = new Grid { Children = { display, _welcome, _latest } };
+        output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
+        var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+        entry.Children.Add(_input); Grid.SetColumn(_send, 1); entry.Children.Add(_send);
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        footer.Children.Add(_hint); Grid.SetColumn(_private, 1); footer.Children.Add(_private);
+        var composer = new Border { Padding = new Thickness(22, 16), BorderThickness = new Thickness(0, 1, 0, 0), Child = Ui.Stack(entry, footer) };
+        composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics) { Name = "ProtocolDiagnostics" };
+        diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
+        output.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });
+        var terminalPane = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto"), Children = { output, _resources, composer } };
+        Grid.SetRow(_resources, 1);
+        Grid.SetRow(composer, 2);
+        terminalPane.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });
+        TabStripItem ViewTab(string key, string name)
+        {
+            var tab = new TabStripItem { Name = name };
+            tab.Classes.Add("output-footer-tab");
+            tab.Bind(ContentControl.ContentProperty, LocalizedText.Binding(key));
+            return tab;
+        }
+        var tabs = new TabStrip { Name = "OutputViewTabs", HorizontalAlignment = HorizontalAlignment.Left, Items =
+        {
+            ViewTab(nameof(L.SessionPlay), "TerminalViewTab"),
+            ViewTab(nameof(L.DiagnosticsTab), "DiagnosticsViewTab")
+        } };
+        tabs.Bind(SelectingItemsControl.SelectedIndexProperty, new Binding(nameof(controller.Pages.SelectedIndex))
+        { Source = controller.Pages, Mode = BindingMode.TwoWay });
+        var tabBar = new Border { Name = "OutputFooter", Height = 28, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(12, 0) };
+        tabBar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        tabBar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ShellBrush"));
+        var automation = new SessionAutomationToolbar(controller.Pages.Automation, editConfiguration, controller.Agent) { Margin = new Thickness(12, 0, 0, 0) };
+        var footerContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { tabs, automation } };
+        Grid.SetColumn(automation, 1); tabBar.Child = null; tabBar.Child = footerContent;
+        var outputViews = new Grid { Children = { terminalPane, diagnostics } };
+        var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Children = { outputViews, tabBar } };
+        Grid.SetRow(tabBar, 1);
+        root.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
+        Content = root;
+        Refresh();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll; Refresh(); }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; base.OnDetachedFromVisualTree(e); }
+
+
+    private void Refresh()
+    {
+        // A sensitive draft must disappear before the password mask can be removed.
+        if (_wasPrivate && !_controller.IsPrivate) _input.Text = "";
+        _wasPrivate = _controller.IsPrivate;
+        _private.IsChecked = _controller.ManualPrivate;
+        _send.IsEnabled = _controller.IsConnected && !_sending;
+        _input.IsEnabled = _controller.IsConnected;
+        _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
+        _hint.Text = _controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : L.CommandHistoryEnterSend;
+        _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
+        _resources.Update(_controller.GameState, _controller.IsConnected);
+        RefreshScroll();
+    }
+    private void RefreshScroll() => _latest.IsVisible = !_controller.Display.IsFollowingTail;
+
+    private async Task Send()
+    {
+        if (_sending || !_controller.IsConnected) return;
+        var command = _input.Text ?? "";
+        _sending = true; _send.IsEnabled = false;
+        try { if (await _controller.SendAsync(command)) _input.Text = ""; }
+        finally { _sending = false; Refresh(); _input.Focus(); }
+    }
+}

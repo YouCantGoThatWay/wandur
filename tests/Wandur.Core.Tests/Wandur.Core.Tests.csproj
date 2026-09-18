@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- The worker is reached by project reference even when it is not listed in the solution. -->
+    <ShouldUnsetParentConfigurationAndPlatform>false</ShouldUnsetParentConfigurationAndPlatform>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../Fixtures/*.json" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../src/Wandur.Core/Wandur.Core.csproj" />
+    <ProjectReference Include="../Wandur.ScriptWorkerHost/Wandur.ScriptWorkerHost.csproj" ReferenceOutputAssembly="false" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <Target Name="CopyScriptWorkerHost" AfterTargets="Build">
+    <MSBuild Projects="../Wandur.ScriptWorkerHost/Wandur.ScriptWorkerHost.csproj" Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework)">
+      <Output TaskParameter="TargetOutputs" ItemName="_ScriptWorkerAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_ScriptWorkerOutputDirectory>@(_ScriptWorkerAssembly->'%(RootDir)%(Directory)')</_ScriptWorkerOutputDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ScriptWorkerFiles Include="$(_ScriptWorkerOutputDirectory)**/*" Exclude="$(_ScriptWorkerOutputDirectory)**/._*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ScriptWorkerFiles)"
+          DestinationFiles="@(_ScriptWorkerFiles->'$(TargetDir)ScriptWorkerHost/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

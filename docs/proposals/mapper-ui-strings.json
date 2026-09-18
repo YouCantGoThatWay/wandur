@@ -1,0 +1,380 @@
+{
+  "MapArea": {
+    "en": "Area",
+    "es": "Área",
+    "fr": "Zone",
+    "de": "Gebiet",
+    "pt-BR": "Área"
+  },
+  "MapUnassignedArea": {
+    "en": "Unassigned area",
+    "es": "Área sin asignar",
+    "fr": "Zone non définie",
+    "de": "Ohne Gebiet",
+    "pt-BR": "Área não definida"
+  },
+  "MapGridMode": {
+    "en": "Contiguous grid",
+    "es": "Cuadrícula continua",
+    "fr": "Grille continue",
+    "de": "Zusammenhängendes Raster",
+    "pt-BR": "Grade contínua"
+  },
+  "MapSearchRooms": {
+    "en": "Search rooms, IDs, descriptions or notes",
+    "es": "Buscar salas, IDs, descripciones o notas",
+    "fr": "Rechercher salles, identifiants, descriptions ou notes",
+    "de": "Räume, IDs, Beschreibungen oder Notizen suchen",
+    "pt-BR": "Buscar salas, IDs, descrições ou notas"
+  },
+  "MapSearchAndEdit": {
+    "en": "Search and edit",
+    "es": "Buscar y editar",
+    "fr": "Rechercher et modifier",
+    "de": "Suchen und bearbeiten",
+    "pt-BR": "Buscar e editar"
+  },
+  "MapNoSearchResults": {
+    "en": "No matching rooms.",
+    "es": "No se encontraron salas.",
+    "fr": "Aucune salle correspondante.",
+    "de": "Keine passenden Räume.",
+    "pt-BR": "Nenhuma sala encontrada."
+  },
+  "MapEditMode": {
+    "en": "Edit map",
+    "es": "Editar mapa",
+    "fr": "Modifier la carte",
+    "de": "Karte bearbeiten",
+    "pt-BR": "Editar mapa"
+  },
+  "MapEditHint": {
+    "en": "Drag rooms to move them. Changes are saved with this world; undo is available.",
+    "es": "Arrastra las salas para moverlas. Los cambios se guardan con este mundo; puedes deshacerlos.",
+    "fr": "Faites glisser les salles pour les déplacer. Les modifications sont enregistrées pour ce monde et peuvent être annulées.",
+    "de": "Ziehe Räume, um sie zu verschieben. Änderungen werden für diese Welt gespeichert und lassen sich rückgängig machen.",
+    "pt-BR": "Arraste as salas para movê-las. As alterações são salvas com este mundo e podem ser desfeitas."
+  },
+  "MapAddRoom": {
+    "en": "Add room",
+    "es": "Añadir sala",
+    "fr": "Ajouter une salle",
+    "de": "Raum hinzufügen",
+    "pt-BR": "Adicionar sala"
+  },
+  "MapRoomEditor": {
+    "en": "Room details",
+    "es": "Detalles de la sala",
+    "fr": "Détails de la salle",
+    "de": "Raumdetails",
+    "pt-BR": "Detalhes da sala"
+  },
+  "MapRoomName": {
+    "en": "Name",
+    "es": "Nombre",
+    "fr": "Nom",
+    "de": "Name",
+    "pt-BR": "Nome"
+  },
+  "MapRoomDescription": {
+    "en": "Description",
+    "es": "Descripción",
+    "fr": "Description",
+    "de": "Beschreibung",
+    "pt-BR": "Descrição"
+  },
+  "MapRoomEnvironment": {
+    "en": "Environment",
+    "es": "Entorno",
+    "fr": "Environnement",
+    "de": "Umgebung",
+    "pt-BR": "Ambiente"
+  },
+  "MapRoomColor": {
+    "en": "Custom color (#RRGGBB, optional)",
+    "es": "Color personalizado (#RRGGBB, opcional)",
+    "fr": "Couleur personnalisée (#RRGGBB, facultatif)",
+    "de": "Eigene Farbe (#RRGGBB, optional)",
+    "pt-BR": "Cor personalizada (#RRGGBB, opcional)"
+  },
+  "MapRoomSymbol": {
+    "en": "Symbol",
+    "es": "Símbolo",
+    "fr": "Symbole",
+    "de": "Symbol",
+    "pt-BR": "Símbolo"
+  },
+  "MapRoomNotes": {
+    "en": "Notes",
+    "es": "Notas",
+    "fr": "Notes",
+    "de": "Notizen",
+    "pt-BR": "Notas"
+  },
+  "MapRoomWeight": {
+    "en": "Room traversal cost",
+    "es": "Coste de atravesar la sala",
+    "fr": "Coût de traversée de la salle",
+    "de": "Kosten zum Durchqueren",
+    "pt-BR": "Custo de travessia da sala"
+  },
+  "MapRoomLocked": {
+    "en": "Exclude room from routes",
+    "es": "Excluir la sala de las rutas",
+    "fr": "Exclure la salle des itinéraires",
+    "de": "Raum von Routen ausschließen",
+    "pt-BR": "Excluir sala das rotas"
+  },
+  "MapSaveRoom": {
+    "en": "Save room",
+    "es": "Guardar sala",
+    "fr": "Enregistrer la salle",
+    "de": "Raum speichern",
+    "pt-BR": "Salvar sala"
+  },
+  "MapDeleteRoom": {
+    "en": "Delete room",
+    "es": "Eliminar sala",
+    "fr": "Supprimer la salle",
+    "de": "Raum löschen",
+    "pt-BR": "Excluir sala"
+  },
+  "MapMergeRoom": {
+    "en": "Merge into selected destination",
+    "es": "Fusionar con el destino seleccionado",
+    "fr": "Fusionner vers la destination sélectionnée",
+    "de": "Mit ausgewähltem Ziel zusammenführen",
+    "pt-BR": "Mesclar com o destino selecionado"
+  },
+  "MapMergeTarget": {
+    "en": "Duplicate to merge into",
+    "es": "Duplicado de destino",
+    "fr": "Doublon de destination",
+    "de": "Duplikat als Ziel",
+    "pt-BR": "Duplicata de destino"
+  },
+  "MapSetCurrentRoom": {
+    "en": "Set current position here",
+    "es": "Establecer la posición actual aquí",
+    "fr": "Définir la position actuelle ici",
+    "de": "Aktuelle Position hier setzen",
+    "pt-BR": "Definir posição atual aqui"
+  },
+  "MapEditExits": {
+    "en": "Directed exits",
+    "es": "Salidas dirigidas",
+    "fr": "Sorties dirigées",
+    "de": "Gerichtete Ausgänge",
+    "pt-BR": "Saídas direcionadas"
+  },
+  "MapNewExit": {
+    "en": "New exit",
+    "es": "Nueva salida",
+    "fr": "Nouvelle sortie",
+    "de": "Neuer Ausgang",
+    "pt-BR": "Nova saída"
+  },
+  "MapExitDirection": {
+    "en": "Direction or exit label",
+    "es": "Dirección o nombre de salida",
+    "fr": "Direction ou nom de sortie",
+    "de": "Richtung oder Ausgangsname",
+    "pt-BR": "Direção ou nome da saída"
+  },
+  "MapExitDestination": {
+    "en": "Destination room",
+    "es": "Sala de destino",
+    "fr": "Salle de destination",
+    "de": "Zielraum",
+    "pt-BR": "Sala de destino"
+  },
+  "MapExitCommand": {
+    "en": "Command (blank uses direction)",
+    "es": "Comando (vacío usa la dirección)",
+    "fr": "Commande (vide : direction)",
+    "de": "Befehl (leer verwendet Richtung)",
+    "pt-BR": "Comando (vazio usa a direção)"
+  },
+  "MapExitWeight": {
+    "en": "Exit cost (0 uses destination cost)",
+    "es": "Coste de salida (0 usa el del destino)",
+    "fr": "Coût de sortie (0 : coût de destination)",
+    "de": "Ausgangskosten (0 verwendet Zielkosten)",
+    "pt-BR": "Custo da saída (0 usa o custo do destino)"
+  },
+  "MapExitLocked": {
+    "en": "Exclude exit from routes",
+    "es": "Excluir salida de las rutas",
+    "fr": "Exclure la sortie des itinéraires",
+    "de": "Ausgang von Routen ausschließen",
+    "pt-BR": "Excluir saída das rotas"
+  },
+  "MapExitDoor": {
+    "en": "Door state",
+    "es": "Estado de la puerta",
+    "fr": "État de la porte",
+    "de": "Türzustand",
+    "pt-BR": "Estado da porta"
+  },
+  "MapDoorNone": {
+    "en": "No door",
+    "es": "Sin puerta",
+    "fr": "Sans porte",
+    "de": "Keine Tür",
+    "pt-BR": "Sem porta"
+  },
+  "MapDoorOpen": {
+    "en": "Open",
+    "es": "Abierta",
+    "fr": "Ouverte",
+    "de": "Offen",
+    "pt-BR": "Aberta"
+  },
+  "MapDoorClosed": {
+    "en": "Closed",
+    "es": "Cerrada",
+    "fr": "Fermée",
+    "de": "Geschlossen",
+    "pt-BR": "Fechada"
+  },
+  "MapDoorLocked": {
+    "en": "Locked",
+    "es": "Bloqueada",
+    "fr": "Verrouillée",
+    "de": "Verschlossen",
+    "pt-BR": "Trancada"
+  },
+  "MapCreateReturnExit": {
+    "en": "Also create a return exit",
+    "es": "Crear también una salida de regreso",
+    "fr": "Créer aussi une sortie de retour",
+    "de": "Auch Rückweg anlegen",
+    "pt-BR": "Criar também uma saída de retorno"
+  },
+  "MapReturnDirection": {
+    "en": "Return direction",
+    "es": "Dirección de regreso",
+    "fr": "Direction de retour",
+    "de": "Rückrichtung",
+    "pt-BR": "Direção de retorno"
+  },
+  "MapSaveExit": {
+    "en": "Save exit",
+    "es": "Guardar salida",
+    "fr": "Enregistrer la sortie",
+    "de": "Ausgang speichern",
+    "pt-BR": "Salvar saída"
+  },
+  "MapDeleteExit": {
+    "en": "Delete exit",
+    "es": "Eliminar salida",
+    "fr": "Supprimer la sortie",
+    "de": "Ausgang löschen",
+    "pt-BR": "Excluir saída"
+  },
+  "MapRouteTools": {
+    "en": "Route planning",
+    "es": "Planificación de rutas",
+    "fr": "Planification d’itinéraire",
+    "de": "Routenplanung",
+    "pt-BR": "Planejamento de rotas"
+  },
+  "MapPlanRoute": {
+    "en": "Plan route to selection",
+    "es": "Planificar ruta a la selección",
+    "fr": "Tracer vers la sélection",
+    "de": "Route zur Auswahl planen",
+    "pt-BR": "Planejar rota até a seleção"
+  },
+  "MapClearRoute": {
+    "en": "Clear route",
+    "es": "Borrar ruta",
+    "fr": "Effacer l’itinéraire",
+    "de": "Route löschen",
+    "pt-BR": "Limpar rota"
+  },
+  "MapAllowInferred": {
+    "en": "Include inferred rooms and exits",
+    "es": "Incluir salas y salidas inferidas",
+    "fr": "Inclure salles et sorties déduites",
+    "de": "Erschlossene Räume und Ausgänge einbeziehen",
+    "pt-BR": "Incluir salas e saídas inferidas"
+  },
+  "MapRouteReady": {
+    "en": "{0} steps · cost {1}",
+    "es": "{0} pasos · coste {1}",
+    "fr": "{0} étapes · coût {1}",
+    "de": "{0} Schritte · Kosten {1}",
+    "pt-BR": "{0} passos · custo {1}"
+  },
+  "MapRouteUnavailable": {
+    "en": "No permitted route from the current room.",
+    "es": "No hay una ruta permitida desde la sala actual.",
+    "fr": "Aucun itinéraire autorisé depuis la salle actuelle.",
+    "de": "Keine erlaubte Route vom aktuellen Raum.",
+    "pt-BR": "Nenhuma rota permitida a partir da sala atual."
+  },
+  "MapRouteSelectRoom": {
+    "en": "Select a destination room to plan a route.",
+    "es": "Selecciona una sala de destino para planificar una ruta.",
+    "fr": "Sélectionnez une destination pour tracer un itinéraire.",
+    "de": "Wähle einen Zielraum zum Planen einer Route.",
+    "pt-BR": "Selecione uma sala de destino para planejar uma rota."
+  },
+  "MapRoomInvalid": {
+    "en": "Enter a name, finite coordinates and a positive cost. Colors use #RRGGBB.",
+    "es": "Introduce un nombre, coordenadas finitas y un coste positivo. Los colores usan #RRGGBB.",
+    "fr": "Saisissez un nom, des coordonnées finies et un coût positif. Les couleurs utilisent #RRGGBB.",
+    "de": "Name, endliche Koordinaten und positive Kosten eingeben. Farben verwenden #RRGGBB.",
+    "pt-BR": "Informe nome, coordenadas finitas e custo positivo. As cores usam #RRGGBB."
+  },
+  "MapExitInvalid": {
+    "en": "Choose a destination, a direction and a nonnegative cost. Commands must fit on one line.",
+    "es": "Elige un destino, una dirección y un coste no negativo. Los comandos deben ocupar una línea.",
+    "fr": "Choisissez une destination, une direction et un coût positif ou nul. Les commandes doivent tenir sur une ligne.",
+    "de": "Ziel, Richtung und nicht negative Kosten angeben. Befehle müssen einzeilig sein.",
+    "pt-BR": "Escolha destino, direção e custo não negativo. Os comandos devem caber em uma linha."
+  },
+  "MapEditRejected": {
+    "en": "The map could not apply this edit. Check the selected room and values.",
+    "es": "No se pudo aplicar el cambio. Comprueba la sala seleccionada y los valores.",
+    "fr": "Impossible d’appliquer la modification. Vérifiez la salle sélectionnée et les valeurs.",
+    "de": "Änderung nicht möglich. Prüfe den gewählten Raum und die Werte.",
+    "pt-BR": "Não foi possível aplicar a alteração. Verifique a sala selecionada e os valores."
+  },
+  "MapRoomSaved": {
+    "en": "Room saved.",
+    "es": "Sala guardada.",
+    "fr": "Salle enregistrée.",
+    "de": "Raum gespeichert.",
+    "pt-BR": "Sala salva."
+  },
+  "MapExitSaved": {
+    "en": "Exit saved.",
+    "es": "Salida guardada.",
+    "fr": "Sortie enregistrée.",
+    "de": "Ausgang gespeichert.",
+    "pt-BR": "Saída salva."
+  },
+  "MapCoordinateX": {
+    "en": "X (east)",
+    "es": "X (este)",
+    "fr": "X (est)",
+    "de": "X (Osten)",
+    "pt-BR": "X (leste)"
+  },
+  "MapCoordinateY": {
+    "en": "Y (north)",
+    "es": "Y (norte)",
+    "fr": "Y (nord)",
+    "de": "Y (Norden)",
+    "pt-BR": "Y (norte)"
+  },
+  "MapCoordinateZ": {
+    "en": "Z (floor)",
+    "es": "Z (planta)",
+    "fr": "Z (étage)",
+    "de": "Z (Etage)",
+    "pt-BR": "Z (andar)"
+  }
+}

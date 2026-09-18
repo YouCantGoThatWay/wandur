@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:l="clr-namespace:Wandur.Core.Localization;assembly=Wandur.Core"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:loc="using:Wandur.Desktop"
+        xmlns:vm="using:Wandur.Desktop.ViewModels" x:Class="Wandur.Desktop.Views.ProfileDialog"
+        x:DataType="vm:ProfileEditorViewModel" Title="{ReflectionBinding [WorldSettings], Source={x:Static loc:LocalizedText.Instance}}"
+        Width="1100" Height="780" MinWidth="780" MinHeight="560" CanResize="True" WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*,Auto" IsEnabled="{Binding IsEditable}">
+    <Border Background="{DynamicResource ChromeBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <Button Name="ToggleProfileSections" Command="{Binding ToggleSectionsCommand}" />
+        <ComboBox Name="WorldProfileChoice" Grid.Column="1" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile, Mode=OneWay}"
+                  PlaceholderText="{ReflectionBinding [NewWorld], Source={x:Static loc:LocalizedText.Instance}}" HorizontalAlignment="Stretch" MaxWidth="460">
+        </ComboBox>
+        <Button Name="NewProfile" Grid.Column="2" Content="{ReflectionBinding [New], Source={x:Static loc:LocalizedText.Instance}}" Command="{Binding NewCommand}" Classes="app-button quiet" />
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
+      <Border Name="ProfileSectionSidebar" Width="160" IsVisible="{Binding SectionsVisible}" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+        <ListBox Name="ProfileSections" ItemsSource="{Binding Sections}" SelectedIndex="{Binding SectionIndex}" Background="Transparent" Margin="8,16">
+          <ListBox.ItemTemplate><DataTemplate x:DataType="vm:LocalizedChoiceViewModel"><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
+          <ListBox.Styles><Style Selector="ListBoxItem"><Setter Property="Padding" Value="12,10" /><Setter Property="Margin" Value="0,2" /></Style></ListBox.Styles>
+        </ListBox>
+      </Border>
+      <Grid Grid.Column="1">
+        <ScrollViewer Name="ConnectionSection" IsVisible="{Binding IsConnection}" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="28,24" Spacing="16" MaxWidth="700" HorizontalAlignment="Stretch">
+            <TextBlock Text="{ReflectionBinding [ProfileConnectionSection], Source={x:Static loc:LocalizedText.Instance}}" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+        <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [WorldName], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="WorldName" Text="{Binding WorldName}" PlaceholderText="{ReflectionBinding [AFamiliarWorld], Source={x:Static loc:LocalizedText.Instance}}" /></StackPanel>
+        <Grid ColumnDefinitions="*,140" ColumnSpacing="10">
+          <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [HostnameAcceptsHostPort], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="WorldHost" Text="{Binding Host}" PlaceholderText="{ReflectionBinding [MudExampleOrg4000], Source={x:Static loc:LocalizedText.Instance}}" /></StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6"><TextBlock Text="{ReflectionBinding [Port], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><NumericUpDown Name="WorldPort" Value="{Binding Port}" Minimum="1" Maximum="65535" FormatString="0" /></StackPanel>
+        </Grid>
+        <TextBlock Name="DirectoryStatus" Text="{Binding DirectoryStatus}" ToolTip.Tip="{Binding DirectoryTip}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+        <StackPanel>
+          <StackPanel Spacing="12">
+            <TextBlock Text="{ReflectionBinding [TextEncoding], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" />
+            <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding Encoding}" HorizontalAlignment="Stretch" />
+            <CheckBox Content="{ReflectionBinding [UseTLSServerMustSupportIt], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding UseTls}" />
+          </StackPanel>
+        </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+        <ScrollViewer Name="LoginSection" IsVisible="{Binding IsLogin}" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="28,24" Spacing="14" MaxWidth="700" HorizontalAlignment="Stretch">
+            <TextBlock Text="{ReflectionBinding [ProfileLoginSection], Source={x:Static loc:LocalizedText.Instance}}" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+        <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [Username], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="LoginUsername" Text="{Binding Username}" PlaceholderText="{ReflectionBinding [CharacterOrAccountName], Source={x:Static loc:LocalizedText.Instance}}" /></StackPanel>
+        <CheckBox Name="RememberPassword" Content="{ReflectionBinding [SavePasswordInSystemCredentialStore], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding RememberPassword}" />
+        <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [Password], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="LoginPassword" Text="{Binding Password}" PasswordChar="●" PlaceholderText="{Binding PasswordWatermark}" IsEnabled="{Binding RememberPassword}" /></StackPanel>
+        <CheckBox Name="AutoLogin" Content="{ReflectionBinding [AutomaticallyLogInOnConnect], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding AutoLogin}" IsEnabled="{Binding RememberPassword}" />
+        <TextBlock Text="{Binding CredentialHelp}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+        <Expander Header="{ReflectionBinding [CustomLoginPrompts], Source={x:Static loc:LocalizedText.Instance}}" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="12">
+            <TextBlock Text="{ReflectionBinding [CaseInsensitiveRegularExpressionsMatchTheWholePromptLine], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" FontSize="11" TextWrapping="Wrap" />
+            <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [UsernamePrompt], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="UsernamePrompt" Text="{Binding UsernamePrompt}" /></StackPanel>
+            <StackPanel Spacing="6"><TextBlock Text="{ReflectionBinding [PasswordPrompt], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" /><TextBox Name="PasswordPrompt" Text="{Binding PasswordPrompt}" /></StackPanel>
+          </StackPanel>
+        </Expander>
+          </StackPanel>
+        </ScrollViewer>
+        <ContentControl Name="ProfileScriptsHost" IsVisible="{Binding IsScripts}" />
+        <ContentControl Name="ProfileMacrosHost" IsVisible="{Binding IsMacros}" />
+        <ContentControl Name="ProfileAgentHost" IsVisible="{Binding IsAgent}" />
+        <StackPanel IsVisible="{Binding ShowAutomationPlaceholder}" Margin="32" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+          <TextBlock Text="{ReflectionBinding [ProfileSaveFirst], Source={x:Static loc:LocalizedText.Instance}}" FontSize="20" />
+          <TextBlock Text="{ReflectionBinding [ProfileSaveFirstHelp], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" />
+        </StackPanel>
+      </Grid>
+    </Grid>
+    <Border Grid.Row="2" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="16,10">
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding Error}" Foreground="IndianRed" TextWrapping="Wrap" IsVisible="{Binding HasError}" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel VerticalAlignment="Center" Margin="0,0,20,0" Spacing="4">
+            <TextBlock Text="{ReflectionBinding [ProfileDraftHelp], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" FontSize="11" />
+            <TextBlock Text="{ReflectionBinding [ProfileRemovalPending], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" IsVisible="{Binding PendingRemoval}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Name="RemoveWorld" Content="{ReflectionBinding [Remove], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button" Command="{Binding RemoveCommand}" IsVisible="{Binding IsConnectionForm}" />
+            <Button Name="CancelWorld" Content="{ReflectionBinding [Cancel], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button" />
+            <Button Name="SaveWorld" Content="{ReflectionBinding [SaveWorld], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button primary" Command="{Binding SaveCommand}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

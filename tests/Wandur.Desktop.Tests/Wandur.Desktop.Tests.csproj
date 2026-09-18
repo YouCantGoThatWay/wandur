@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject></PropertyGroup>
+  <ItemGroup>
+    <None Include="../Fixtures/curated-mappings.json" Link="Fixtures/curated-mappings.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/world-theme-icesus.json" Link="Fixtures/world-theme-icesus.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/world-theme.json" Link="Fixtures/world-theme.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/world-theme-metallic.json" Link="Fixtures/world-theme-metallic.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/brushed-gunmetal-v1.png" Link="Fixtures/brushed-gunmetal-v1.png" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../src/Wandur.Desktop/Wandur.Desktop.csproj" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

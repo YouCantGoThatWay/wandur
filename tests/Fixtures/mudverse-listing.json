@@ -1,0 +1,29 @@
+{
+  "id": 7,
+  "name": "Lantern &amp; Forest",
+  "intro": "A quiet world",
+  "description": "<p>A wizard\\'s forest.</p><p>Visit &amp; explore.<br>Stay awhile.</p>",
+  "connection": {"host": " MUD.EXAMPLE.ORG ", "port": 4000, "tls_port": 4001},
+  "status": {
+    "confirmed_online": true, "archived": false, "web_only": false,
+    "latest_players": 0, "last_crawled": "2026-09-15T20:00:00Z",
+    "last_successful_connect": "2026-09-15T20:00:00Z", "mssp_collected_at": "2026-09-14T12:00:00Z"
+  },
+  "tags": {
+    "categories": {
+      "play_count": {"name": "75-100"}, "theme": {"name": "Fantasy"}, "type": {"name": "MUD"},
+      "language": {"name": "English"}, "roleplaying": {"name": "Suggested"},
+      "player_killing": {"name": "Restricted"}, "game_status": {"name": "Beta"},
+      "game_size": {"name": "10000+"}, "codebase": {"name": "Custom"}, "location": {"name": "USA"}
+    },
+    "custom": [{"name": "Exploration"}, {"name": "exploration"}]
+  },
+  "dates": {"listed": "2009-10-22T19:56:31Z", "updated": "2026-09-14T20:00:00Z"},
+  "urls": {
+    "website": "javascript:alert(1)", "discord": "https://discord.gg/example",
+    "banner": "https://assets.mudverse.com/listings/default_connectbanner.png",
+    "mudverse": "https://www.mudverse.com/game/7", "play": "https://example.org/play",
+    "self": "https://www.mudverse.com/api/v1/games/7"
+  },
+  "ranking": {"monthly_votes": 123}, "watcher_count": 456
+}

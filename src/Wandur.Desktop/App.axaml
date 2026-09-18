@@ -1,0 +1,364 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:l="clr-namespace:Wandur.Core.Localization;assembly=Wandur.Core"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:loc="using:Wandur.Desktop"
+             xmlns:dock="clr-namespace:Dock.Avalonia.Themes.Fluent;assembly=Dock.Avalonia.Themes.Fluent"
+             xmlns:dc="using:Dock.Avalonia.Controls"
+             x:Class="Wandur.Desktop.App" Name="Wandur" RequestedThemeVariant="Dark">
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="{ReflectionBinding [AboutWandur], Source={x:Static loc:LocalizedText.Instance}}" Click="AboutClicked" />
+      <NativeMenuItemSeparator />
+      <NativeMenuItem Header="{ReflectionBinding [Preferences], Source={x:Static loc:LocalizedText.Instance}}" Gesture="Meta+OemComma" Click="PreferencesClicked" />
+    </NativeMenu>
+  </NativeMenu.Menu>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+    <dock:DockFluentTheme />
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
+    </Style>
+    <Style Selector="Button.app-button">
+      <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ButtonFaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="ButtonSurface" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}"
+                  BoxShadow="0 2 3 0 #40000000">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalContentAlignment="Center" RecognizesAccessKey="True" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.app-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+    </Style>
+    <Style Selector="Button.app-button.primary">
+      <Setter Property="Background" Value="{DynamicResource PrimaryFaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource PrimaryEdgeBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.app-button.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
+    </Style>
+    <Style Selector="Button.app-button:pressed /template/ Border#ButtonSurface">
+      <Setter Property="RenderTransform" Value="translate(0px, 1px)" />
+      <Setter Property="BoxShadow" Value="inset 0 2 3 0 #40000000" />
+    </Style>
+    <Style Selector="Button.app-button:focus-visible /template/ Border#ButtonSurface">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BoxShadow" Value="0 0 0 2 #607F9CC0" />
+    </Style>
+    <Style Selector="Button.app-button:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Button.app-button:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.app-button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.app-button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="Button.app-button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.app-button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.app-button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    </Style>
+    <Style Selector="Button.app-button.quiet">
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.eyebrow">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="LetterSpacing" Value="1.2" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="TextBox:focus, TextBox:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement, TextBox:focus /template/ Border#PART_BorderElement, TextBox:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="TextBox /template/ TextBlock#PART_Watermark, TextBox:focus /template/ TextBlock#PART_Watermark, TextBox:pointerover /template/ TextBlock#PART_Watermark, TextBox:disabled /template/ TextBlock#PART_Watermark">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="ListBox.world-list ListBoxItem">
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="MinHeight" Value="48" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="WorldRowPresenter" Background="Transparent"
+                              Foreground="{DynamicResource TextBrush}" Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.world-list ListBoxItem:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    </Style>
+    <Style Selector="ListBox.world-list ListBoxItem:selected">
+      <Setter Property="Background" Value="{DynamicResource WorldSelectionBrush}" />
+    </Style>
+    <Style Selector="ListBox.world-list ListBoxItem:focus-visible">
+      <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
+    </Style>
+    <Style Selector="dc|ToolControl /template/ Border#PART_Border">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="CornerRadius" Value="0,0,10,10" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="Margin" Value="8,0,8,12" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Border#PART_Border">
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
+      <Setter Property="Margin" Value="8,12,8,0" />
+      <Setter Property="CornerRadius" Value="10,10,0,0" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Grid#PART_Grip, dc|ToolChromeControl:active /template/ Grid#PART_Grip">
+      <Setter Property="Background" Value="{DynamicResource DockHeaderBrush}" />
+      <Setter Property="Cursor" Value="SizeAll" />
+      <Setter Property="ToolTip.Tip" Value="Drag to move or undock this panel" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Grid#PART_Grid">
+      <Setter Property="Width" Value="10" />
+      <Setter Property="Height" Value="14" />
+      <Setter Property="Margin" Value="6,0,8,0" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Button">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Button Viewbox">
+      <Setter Property="Width" Value="11" />
+      <Setter Property="Height" Value="11" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Button#PART_CloseButton">
+      <Setter Property="ToolTip.Tip" Value="Close panel · reopen from the View menu" />
+      <Setter Property="AutomationProperties.Name" Value="Close panel" />
+      <Setter Property="Background" Value="{DynamicResource ButtonFaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Button#PART_CloseButton:pointerover">
+      <Setter Property="Background" Value="#934A47" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ TextBlock#PART_Title">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="dc|DocumentControl /template/ Border#PART_Border">
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="ClipToBounds" Value="True" />
+      <Setter Property="Margin" Value="0,12,0,12" />
+    </Style>
+    <Style Selector="Button.app-button.toolbar-button">
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="11,5" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="TabStripItem.output-footer-tab">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Padding" Value="14,3" />
+      <Setter Property="Margin" Value="0,-1,2,0" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1,0,1,1" />
+      <Setter Property="CornerRadius" Value="0,0,4,4" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="TabStripItem.output-footer-tab:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ToolbarHoverBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="TabStripItem.output-footer-tab:selected">
+      <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TabStripItem.output-footer-tab:focus-visible">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <!-- Flat toolbar controls, including toggle buttons, share hover and keyboard focus states. -->
+    <Style Selector=":is(Button).command-bar-button">
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector=":is(Button).command-bar-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ToolbarHoverBrush}" />
+    </Style>
+    <Style Selector=":is(Button).command-bar-button:pressed, :is(ToggleButton).command-bar-button:checked">
+      <Setter Property="Background" Value="{DynamicResource ToolbarPressedBrush}" />
+    </Style>
+    <Style Selector=":is(Button).command-bar-button:focus-visible">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector=":is(Button).command-bar-button:disabled">
+      <Setter Property="Opacity" Value="0.35" />
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector=":is(Button).command-bar-button:disabled /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pointerover /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pressed /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.command-bar-button:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ComboBox.toolbar-world-picker">
+      <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="5" />
+    </Style>
+    <Style Selector="Button.tab-close">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                            Background="Transparent" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.tab-close:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="Button.tab-close:pressed">
+      <Setter Property="Opacity" Value="0.65" />
+    </Style>
+    <Style Selector="Button.workspace-nav, ToggleButton.workspace-nav">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <ContentPresenter Name="WorkspaceNavigationPresenter" Content="{TemplateBinding Content}"
+                            Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="Center" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="Button.workspace-nav:pointerover, ToggleButton.workspace-nav:pointerover">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.workspace-nav:checked">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton#WorkspaceFindMud:checked">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    </Style>
+    <Style Selector="ListBox.script-library, ListBox.protocol-messages">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBox.script-library ListBoxItem, ListBox.protocol-messages ListBoxItem">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="ListBox.script-library ListBoxItem:selected /template/ Border#PART_LayoutRoot, ListBox.protocol-messages ListBoxItem:selected /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="BorderThickness" Value="2,0,0,0" />
+    </Style>
+    <Style Selector="ListBox.script-library ListBoxItem:pointerover /template/ Border#PART_LayoutRoot, ListBox.protocol-messages ListBoxItem:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+    </Style>
+    <Style Selector="ListBox.script-library ListBoxItem:selected /template/ ContentPresenter, ListBox.protocol-messages ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="ToolTip">
+      <Setter Property="MaxWidth" Value="320" />
+    </Style>
+  </Application.Styles>
+</Application>

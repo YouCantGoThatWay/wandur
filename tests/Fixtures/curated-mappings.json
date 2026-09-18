@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "worlds": [
+    {
+      "schema_version": 1,
+      "world_id": "mudverse:645",
+      "endpoint": {
+        "host": "play.icesus.org",
+        "port": 4000,
+        "use_tls": false
+      },
+      "schema_fingerprint": "2cb6974bc88c25f1bb69c2fa3db25578d491aee7cfa0bc6a68719670046aeaa1",
+      "revision": 1,
+      "generated_at": "2026-09-18T15:30:00Z",
+      "provenance": "deterministic",
+      "provisional": true,
+      "bindings": [
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Vitals",
+            "path": "/hp"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "health",
+            "member": "current"
+          },
+          "label": "Health (HP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Maxstats",
+            "path": "/maxhp"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "health",
+            "member": "maximum"
+          },
+          "label": "Health (HP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Vitals",
+            "path": "/mana"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "spell_points",
+            "member": "current"
+          },
+          "label": "Spell points (SP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Maxstats",
+            "path": "/maxmana"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "spell_points",
+            "member": "maximum"
+          },
+          "label": "Spell points (SP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Vitals",
+            "path": "/moves"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "endurance",
+            "member": "current"
+          },
+          "label": "Endurance (EP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Maxstats",
+            "path": "/maxmoves"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "endurance",
+            "member": "maximum"
+          },
+          "label": "Endurance (EP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Vitals",
+            "path": "/psp"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "psionic_points",
+            "member": "current"
+          },
+          "label": "Psionic points (PSP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Maxstats",
+            "path": "/maxpsp"
+          },
+          "target": {
+            "entity": "character",
+            "category": "resource",
+            "key": "psionic_points",
+            "member": "maximum"
+          },
+          "label": "Psionic points (PSP)",
+          "conversion": "number",
+          "scale": 1
+        },
+        {
+          "source": {
+            "protocol": "GMCP",
+            "package": "Char.Base",
+            "path": "/name"
+          },
+          "target": {
+            "entity": "character",
+            "category": "identity",
+            "key": "name",
+            "member": "value"
+          },
+          "label": "Name",
+          "conversion": "text",
+          "scale": 1
+        }
+      ]
+    }
+  ]
+}

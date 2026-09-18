@@ -1,0 +1,19 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+.DS_Store
+._*
+.local/
+TestResults/
+artifacts/
+*.user
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+directory-server/cache/
+.superpowers/
+
+# private site; not part of the open-source client
+directory-server/

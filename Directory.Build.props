@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Normalize compiler paths. Avalonia writes XAML paths into symbols independently,
+         so release builds omit symbols; Debug builds retain them for development. -->
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/._*;**/.local/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

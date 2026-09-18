@@ -1,0 +1,28 @@
+{
+  "format": "wandur.directory",
+  "schema_version": 2,
+  "fetched_at": "2026-09-15T20:00:00+00:00",
+  "worlds": [{
+    "id": "mudverse:7", "name": "Lantern & Forest", "summary": "A quiet world",
+    "description": "A wizard's forest.\n\nVisit & explore.\nStay awhile.",
+    "host": "mud.example.org", "port": 4000, "tls_port": 4001, "web_only": false,
+    "established_at": null,
+    "community": {"rating": null, "rating_count": null, "review_count": null, "rank": null, "monthly_votes": 123},
+    "source": {
+      "provider": "mudverse", "name": "MUDVerse", "record_id": "7",
+      "listing_url": "https://www.mudverse.com/game/7",
+      "updated_at": "2026-09-14T20:00:00+00:00", "listed_at": "2009-10-22T19:56:31+00:00"
+    },
+    "availability": {
+      "online": true, "archived": false, "archive_reason": "",
+      "checked_at": "2026-09-15T20:00:00+00:00", "last_online_at": "2026-09-15T20:00:00+00:00"
+    },
+    "population": {"latest_count": 0, "observed_at": "2026-09-14T12:00:00+00:00", "average_count": null, "reported_range": "75-100"},
+    "features": {
+      "theme": "Fantasy", "kind": "MUD", "language": "English", "location": "USA", "codebase": "Custom",
+      "roleplaying": "Suggested", "player_killing": "Restricted", "world_size": "10000+", "development_status": "Beta"
+    },
+    "tags": ["Exploration"], "website_url": "", "discord_url": "https://discord.gg/example",
+    "play_url": "https://example.org/play", "banner_url": "", "generated_artwork_path": "games/7/art"
+  }]
+}

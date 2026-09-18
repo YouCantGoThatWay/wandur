@@ -1,0 +1,18 @@
+{
+  "MapWalkReady": "Ready to walk a verified route.",
+  "MapWalkProgress": "Walking: step {0} of {1}. Waiting for the expected room.",
+  "MapWalkComplete": "Route complete.",
+  "MapWalkStopped": "Walking stopped.",
+  "MapWalkUnavailable": "Walking requires a connected session, a confirmed server room, and no private input or automatic login.",
+  "MapWalkInvalidRoute": "The route is no longer valid. Plan it again from your current confirmed room.",
+  "MapWalkCustomCommand": "Automatic walking supports direction commands only. Follow custom exits manually.",
+  "MapWalkWrongRoom": "Walking stopped: the server reported an unexpected room.",
+  "MapWalkBlocked": "Walking stopped: movement was blocked.",
+  "MapWalkTimeout": "Walking stopped: the expected room did not arrive in time.",
+  "MapWalkPrivate": "Walking stopped for private input or automatic login.",
+  "MapWalkDisconnected": "Walking stopped: the session disconnected or changed.",
+  "MapWalkManualCommand": "Walking stopped because another command was sent.",
+  "MapWalkGraphChanged": "Walking stopped: the map changed. Plan the route again.",
+  "MapWalkSendFailed": "Walking stopped: the movement command could not be sent.",
+  "MapWalkOutputLost": "Walking stopped because incoming output was discarded."
+}

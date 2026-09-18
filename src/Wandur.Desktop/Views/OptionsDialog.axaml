@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:loc="using:Wandur.Desktop"
+        xmlns:vm="using:Wandur.Desktop.ViewModels" xmlns:l="clr-namespace:Wandur.Core.Localization;assembly=Wandur.Core"
+        x:Class="Wandur.Desktop.Views.OptionsDialog" x:DataType="vm:PreferencesViewModel"
+        Title="{ReflectionBinding [SettingsTitle], Source={x:Static loc:LocalizedText.Instance}}" Width="880" Height="740" MinWidth="740" MinHeight="560" WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="*,Auto" ColumnDefinitions="180,*">
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+      <StackPanel Margin="12,24" Spacing="20">
+        <TextBlock Text="{ReflectionBinding [SettingsTitle], Source={x:Static loc:LocalizedText.Instance}}" FontSize="20" FontWeight="SemiBold" Margin="12,0" />
+        <ListBox Name="SettingsSections" ItemsSource="{Binding Sections}" SelectedIndex="{Binding SectionIndex}" Background="Transparent">
+          <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ThemeChoiceViewModel"><TextBlock Text="{Binding Name}" /></DataTemplate></ListBox.ItemTemplate>
+          <ListBox.Styles><Style Selector="ListBoxItem"><Setter Property="Padding" Value="12,12" /><Setter Property="Margin" Value="0,2" /></Style></ListBox.Styles>
+        </ListBox>
+      </StackPanel>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="28,24,28,0">
+      <TextBlock Text="{Binding SectionTitle}" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,22" />
+      <Grid Grid.Row="1">
+          <ScrollViewer Name="GeneralScroll" IsVisible="{Binding IsGeneral}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,24" Spacing="12">
+            <TextBlock Text="{ReflectionBinding [InterfaceLanguage], Source={x:Static loc:LocalizedText.Instance}}" />
+            <ComboBox Name="LanguageChoice" ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" HorizontalAlignment="Stretch" />
+            <TextBlock Text="{ReflectionBinding [LanguageLiveHint], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+          </ScrollViewer>
+          <ScrollViewer Name="AppearanceScroll" IsVisible="{Binding IsAppearance}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,24" Spacing="14">
+            <TextBlock Text="{ReflectionBinding [ColorScheme], Source={x:Static loc:LocalizedText.Instance}}" />
+            <ComboBox Name="ThemeChoice" ItemsSource="{Binding Themes}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding Theme}" HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ThemeChoiceViewModel"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="{ReflectionBinding [DuplicateTheme], Source={x:Static loc:LocalizedText.Instance}}" Command="{Binding DuplicateThemeCommand}" Classes="app-button" />
+              <Button Content="{ReflectionBinding [DeleteTheme], Source={x:Static loc:LocalizedText.Instance}}" Command="{Binding DeleteThemeCommand}" Classes="app-button" />
+            </StackPanel>
+            <TextBlock Text="{ReflectionBinding [PresetThemeHint], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" FontSize="12" />
+            <CheckBox Content="{ReflectionBinding [UseWorldThemes], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding UseWorldThemes}" />
+            <TextBlock Text="{ReflectionBinding [WorldThemePriority], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" FontSize="12" IsVisible="{Binding UseWorldThemes}" />
+            <StackPanel IsVisible="{Binding IsCustom}" Spacing="8">
+              <TextBlock Text="{ReflectionBinding [ThemeNameLabel], Source={x:Static loc:LocalizedText.Instance}}" />
+              <TextBox Text="{Binding ThemeName}" MaxLength="100" />
+              <CheckBox Content="{ReflectionBinding [ThemeLightMode], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding IsLight}" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding Colors}" IsEnabled="{Binding IsCustom}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ThemeColorViewModel">
+                  <Grid ColumnDefinitions="*,Auto,116" Margin="0,4" ColumnSpacing="12">
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <ColorPicker Grid.Column="1" Color="{Binding Color, Mode=TwoWay}" IsAlphaEnabled="False" IsAlphaVisible="False" IsColorPaletteVisible="False" ToolTip.Tip="{Binding Label}" />
+                    <TextBox Grid.Column="2" Text="{Binding Hex}" FontFamily="Menlo, Consolas, DejaVu Sans Mono" MaxLength="7" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+          </StackPanel>
+          </ScrollViewer>
+          <ScrollViewer Name="MudColorsScroll" IsVisible="{Binding IsMudColors}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,24" Spacing="14">
+              <TextBlock Text="{ReflectionBinding [ColorScheme], Source={x:Static loc:LocalizedText.Instance}}" />
+              <ComboBox Name="AnsiThemeChoice" ItemsSource="{Binding Themes}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding Theme}" HorizontalAlignment="Stretch">
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ThemeChoiceViewModel"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Content="{ReflectionBinding [DuplicateTheme], Source={x:Static loc:LocalizedText.Instance}}" Command="{Binding DuplicateThemeCommand}" Classes="app-button" />
+              <TextBlock Text="{ReflectionBinding [PresetThemeHint], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" FontSize="12" />
+
+                <TextBlock Text="{ReflectionBinding [AnsiPaletteHint], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding AnsiColors}" IsEnabled="{Binding IsCustom}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ThemeColorViewModel">
+                      <Grid ColumnDefinitions="*,Auto,110,Auto" ColumnSpacing="8" Margin="0,4">
+                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <ColorPicker Grid.Column="1" Color="{Binding Color, Mode=TwoWay}" IsAlphaEnabled="False" IsAlphaVisible="False" IsColorPaletteVisible="False" ToolTip.Tip="{Binding Label}" AutomationProperties.Name="{Binding Label}" />
+                        <TextBox Grid.Column="2" Text="{Binding Hex}" MaxLength="7" FontFamily="Menlo, Consolas, DejaVu Sans Mono" AutomationProperties.Name="{Binding Label}" />
+                        <Button Grid.Column="3" Command="{Binding ResetCommand}" Content="{ReflectionBinding [ResetAnsiColor], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button quiet" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                          </StackPanel>
+          </ScrollViewer>
+          <ScrollViewer Name="TerminalScroll" IsVisible="{Binding IsTerminal}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,24" Spacing="12">
+            <CheckBox Name="AllowBlinkingText" Content="{ReflectionBinding [AllowBlinkingMudText], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding AllowBlinkingText}" />
+            <TextBlock Text="{ReflectionBinding [SessionTextSize], Source={x:Static loc:LocalizedText.Instance}}" />
+            <NumericUpDown Value="{Binding FontSize}" Minimum="11" Maximum="28" Increment="1" FormatString="0" />
+            <Border Background="{DynamicResource TerminalBrush}" CornerRadius="8" Padding="16">
+              <TextBlock Text="{ReflectionBinding [TheLanternCastsAWarmLightExitsNorthEast], Source={x:Static loc:LocalizedText.Instance}}" FontFamily="Menlo, Consolas, DejaVu Sans Mono" FontSize="{Binding PreviewFontSize}" Foreground="{DynamicResource TerminalTextBrush}" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Text="{ReflectionBinding [TextColorOptionalRRGGBB], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" />
+            <TextBox Text="{Binding Foreground}" PlaceholderText="{ReflectionBinding [UseSchemeDefault], Source={x:Static loc:LocalizedText.Instance}}" />
+            <TextBlock Text="{ReflectionBinding [BackgroundOptionalRRGGBB], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" />
+            <TextBox Text="{Binding Background}" PlaceholderText="{ReflectionBinding [UseSchemeDefault], Source={x:Static loc:LocalizedText.Instance}}" />
+          </StackPanel>
+          </ScrollViewer>
+          <ScrollViewer Name="InputScroll" IsVisible="{Binding IsInput}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,10,24" Spacing="12">
+            <CheckBox Name="LocalEcho" Content="{ReflectionBinding [ShowMyCommandsInTheTranscript], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding LocalEcho}" />
+            <TextBlock Text="{ReflectionBinding [LocalEchoStartsOffUsePrivateInputForPasswords], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
+          </StackPanel>
+          </ScrollViewer>
+      </Grid>
+    </Grid>
+    <Border Grid.Row="1" Grid.ColumnSpan="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource LineBrush}" Padding="20,14">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <TextBlock Text="{Binding Error}" Foreground="IndianRed" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Name="CancelPreferences" Content="{ReflectionBinding [Cancel2], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button" />
+          <Button Name="SavePreferences" Content="{ReflectionBinding [SavePreferences], Source={x:Static loc:LocalizedText.Instance}}" Classes="app-button primary" Command="{Binding SaveCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
