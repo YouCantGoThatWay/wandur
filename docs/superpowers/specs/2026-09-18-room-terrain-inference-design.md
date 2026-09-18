@@ -54,8 +54,11 @@ terrain and manual edits always win over inference.
   `manifest.json` by sha256 before use; exposes `Version`, `Threshold`,
   `Classes`, `Coefficients` (15×384), `Intercepts`, `MaxWordPieces`,
   `VocabularyStream()` (built from `tokenizer.json` `model.vocab` ordered by
-  id), `EncoderPath`. Rejects packages whose taxonomy version is not `1.0.0`
-  or whose classes are unknown to the palette normalizer.
+  id), `EncoderPath`. Rejects packages whose taxonomy version is not `1.0.0`,
+  whose `version` is not `major.minor.patch`, or whose manifest lists
+  paths outside the package. Class names are not validated against the
+  Desktop palette (Core cannot see it); an unknown class simply renders
+  with the neutral `unknown` style.
 - `OnnxRoomEnvironmentClassifier : IRoomEnvironmentClassifier, IDisposable`:
   `Microsoft.ML.Tokenizers.BertTokenizer` (created from the vocabulary
   stream, lowercase, accents stripped) — encodes without special tokens,
