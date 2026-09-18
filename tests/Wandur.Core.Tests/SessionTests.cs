@@ -67,8 +67,8 @@ public class SessionTests
         await stream.ReadExactlyAsync(new byte[handshake.Length], timeout.Token);
         var mapping = new Wandur.Models.WorldMapping { WorldId = "test", Endpoint = new("127.0.0.1", port),
             SchemaFingerprint = new('a', 64), GeneratedAt = DateTimeOffset.UtcNow,
-            Bindings = [new() { Source = new("MSDP", "MSDP", "/HEALTH"), Target = new("character", "resource", "health", "current") },
-                new() { Source = new("MSDP", "MSDP", "/HEALTH_MAX"), Target = new("character", "resource", "health", "maximum") }] };
+            Bindings = [new() { Source = new("MSDP", "MSDP", "/HEALTH"), Target = new("character", "resource", "health", "current"), Label = "Health" },
+                new() { Source = new("MSDP", "MSDP", "/HEALTH_MAX"), Target = new("character", "resource", "health", "maximum"), Label = "Health" }] };
         Assert.True(await session.RefreshProtocolSubscriptionsAsync(mapping, timeout.Token));
         static byte[] Frame(string content) => [255, 250, 69, .. Encoding.UTF8.GetBytes(content), 255, 240];
         var expected = Frame("\u0001REPORT\u0002HEALTH\u0002HEALTH_MAX").Concat(Frame("\u0001SEND\u0002HEALTH\u0002HEALTH_MAX")).ToArray();
