@@ -1082,6 +1082,7 @@ La démo hors ligne est disponible dans Fichier.</value>
   <data name="MapExerciseStairsDescription" xml:space="preserve"><value>Des marches montent vers une galerie au-dessus du couloir.</value></data>
   <data name="MapEmpty" xml:space="preserve"><value>Explorez un monde pour créer sa carte. Les salles apparaissent lorsque le serveur fournit leurs détails.</value></data>
   <data name="MapCenter" xml:space="preserve"><value>Centrer sur la position</value></data>
+  <data name="MapAutoCenter" xml:space="preserve"><value>Garder la salle actuelle centrée</value></data>
   <data name="MapNextObservation" xml:space="preserve"><value>Suivant : nord</value></data>
   <data name="MapLegend" xml:space="preserve"><value>Menthe : actuelle · Ambre ? : possible · Bord blanc : sélectionnée</value></data>
   <data name="MapGestures" xml:space="preserve"><value>Glisser pour déplacer · Défiler ou pincer pour zoomer · Double-cliquer sur une salle pour y aller · ↑/↓ pour changer d’étage</value></data>

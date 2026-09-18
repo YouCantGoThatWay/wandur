@@ -1082,6 +1082,7 @@ A demonstração offline está disponível em Arquivo.</value>
   <data name="MapExerciseStairsDescription" xml:space="preserve"><value>Degraus sobem até uma galeria acima do corredor.</value></data>
   <data name="MapEmpty" xml:space="preserve"><value>Explore um mundo para criar seu mapa. As salas aparecem quando o servidor fornece seus detalhes.</value></data>
   <data name="MapCenter" xml:space="preserve"><value>Centralizar na posição</value></data>
+  <data name="MapAutoCenter" xml:space="preserve"><value>Manter a sala atual centralizada</value></data>
   <data name="MapNextObservation" xml:space="preserve"><value>Próximo: norte</value></data>
   <data name="MapLegend" xml:space="preserve"><value>Menta: atual · Âmbar ?: possível · Contorno branco: selecionada</value></data>
   <data name="MapGestures" xml:space="preserve"><value>Arraste para mover · Role ou faça pinça para ampliar · Clique duas vezes em uma sala para ir até ela · ↑/↓ para mudar de andar</value></data>

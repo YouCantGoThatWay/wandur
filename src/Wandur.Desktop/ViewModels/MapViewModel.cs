@@ -28,6 +28,21 @@ public sealed partial class MapViewModel : ObservableObject
     private double _viewportWidth = 320;
     private double _viewportHeight = 300;
     private bool _fitFloor;
+    private string? _lastCenteredRoomId;
+    private bool _autoCenter = true;
+    public bool AutoCenter
+    {
+        get => _controller?.Settings.MapAutoCenter ?? _autoCenter;
+        set
+        {
+            if (value == AutoCenter) return;
+            _autoCenter = value;
+            if (_controller is not null) _controller.SaveSettings(_controller.Settings with { MapAutoCenter = value });
+            OnPropertyChanged();
+            if (value && Snapshot.Rooms.FirstOrDefault(r => r.Id == Snapshot.CurrentRoomId) is { } current)
+            { _fitFloor = false; CenterOnFloor(current); _lastCenteredRoomId = current.Id; }
+        }
+    }
 
     public MapViewModel(RoomMapTracker live) { _live = live; _snapshot = live.Snapshot; }
     public MapViewModel(WorkspaceController controller) : this(controller.Map) => _controller = controller;
@@ -118,6 +133,7 @@ public sealed partial class MapViewModel : ObservableObject
         if (!_attached) return;
         RefreshNavigationState();
         OnPropertyChanged(nameof(ClassifyRoomsLocally));
+        OnPropertyChanged(nameof(AutoCenter));
         if (_controller is null || ReferenceEquals(_live, _controller.Map)) return;
         _live.Changed -= Refresh;
         _exercise = null;
@@ -127,6 +143,7 @@ public sealed partial class MapViewModel : ObservableObject
         _live = _controller.Map;
         _live.Changed += Refresh;
         _hasCentered = false;
+        _lastCenteredRoomId = null;
         _lastCurrentFloor = null; _lastCurrentArea = null;
         ClearRoute();
         Refresh();
@@ -155,6 +172,8 @@ public sealed partial class MapViewModel : ObservableObject
             SelectedFloor = Floors.First();
             CenterOnFloor(null);
         }
+        if (AutoCenter && current is not null && current.Id != _lastCenteredRoomId) { _fitFloor = false; CenterOnFloor(current); }
+        _lastCenteredRoomId = current?.Id;
         _lastCurrentFloor = current?.Z; _lastCurrentArea = current?.Area ?? (current is null ? null : "");
         if (_fitFloor) FitFloor();
         if (SelectedRoomId is not null && !Snapshot.Rooms.Any(r => r.Id == SelectedRoomId)) SelectedRoomId = null;
@@ -265,6 +284,7 @@ public sealed partial class MapViewModel : ObservableObject
         else _exercise = null;
         ResetEditingState();
         _hasCentered = false;
+        _lastCenteredRoomId = null;
         _lastCurrentFloor = null; _lastCurrentArea = null;
         ClearRoute();
         SelectedRoomId = null;

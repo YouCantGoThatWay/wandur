@@ -51,6 +51,9 @@ public sealed partial class MapView : UserControl
         var map = new Grid { Children = { canvas, empty } };
         var center = Ui.ToolbarIconKey(new Button { Name = "CenterMap", Command = model.CenterCommand },
             "M 8,3 A 5,5 0 1 0 8,13 A 5,5 0 1 0 8,3 M 8,0 V 5 M 8,11 V 16 M 0,8 H 5 M 11,8 H 16", nameof(L.MapCenter));
+        var autoCenter = Ui.ToolbarIconKey(new ToggleButton { Name = "MapAutoCenterToggle" },
+            "M 8,2 V 5 M 8,11 V 14 M 2,8 H 5 M 11,8 H 14 M 8,6 A 2,2 0 1 0 8,10 A 2,2 0 1 0 8,6", nameof(L.MapAutoCenter));
+        autoCenter.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.AutoCenter)) { Mode = BindingMode.TwoWay });
         var exercise = Action("", "ToggleMapExercise", model.ToggleExerciseCommand);
         exercise.Bind(ContentControl.ContentProperty, new Binding(nameof(model.ExerciseButtonLabel)));
         var recheck = Action(nameof(L.MapRecheckPosition), "RecheckMapPosition", model.RecheckPositionCommand);
@@ -136,7 +139,7 @@ public sealed partial class MapView : UserControl
         tools.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { floorDown, floorLabel, floorUp, zoomOut, zoomIn, center, fit, gridToggle, stop } };
+            Children = { floorDown, floorLabel, floorUp, zoomOut, zoomIn, center, autoCenter, fit, gridToggle, stop } };
         Control workspace = map;
         if (editingWorkspace)
         {

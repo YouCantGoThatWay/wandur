@@ -387,6 +387,7 @@ public static class Strings
     public static string MapExerciseStairsDescription => Get(nameof(MapExerciseStairsDescription));
     public static string MapEmpty => Get(nameof(MapEmpty));
     public static string MapCenter => Get(nameof(MapCenter));
+    public static string MapAutoCenter => Get(nameof(MapAutoCenter));
     public static string MapNextObservation => Get(nameof(MapNextObservation));
     public static string MapLegend => Get(nameof(MapLegend));
     public static string MapGestures => Get(nameof(MapGestures));

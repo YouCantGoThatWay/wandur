@@ -1082,6 +1082,7 @@ The offline demo is available from File.</value>
   <data name="MapExerciseStairsDescription" xml:space="preserve"><value>Steps rise into a gallery above the corridor.</value></data>
   <data name="MapEmpty" xml:space="preserve"><value>Explore a world to build its map. Rooms appear when the server provides room details.</value></data>
   <data name="MapCenter" xml:space="preserve"><value>Center on position</value></data>
+  <data name="MapAutoCenter" xml:space="preserve"><value>Keep current room centered</value></data>
   <data name="MapNextObservation" xml:space="preserve"><value>Next: north</value></data>
   <data name="MapLegend" xml:space="preserve"><value>Mint: current · Amber ?: possible · White outline: selected</value></data>
   <data name="MapGestures" xml:space="preserve"><value>Drag to pan · Scroll or pinch to zoom · Double-click a room to walk there · Click ↑/↓ badges to change floors</value></data>

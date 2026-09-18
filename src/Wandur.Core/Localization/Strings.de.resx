@@ -1082,6 +1082,7 @@ Die Offline-Demo findest du unter Datei.</value>
   <data name="MapExerciseStairsDescription" xml:space="preserve"><value>Stufen führen in eine Galerie über dem Gang.</value></data>
   <data name="MapEmpty" xml:space="preserve"><value>Erkunde eine Welt, um ihre Karte aufzubauen. Räume erscheinen, wenn der Server Raumdaten liefert.</value></data>
   <data name="MapCenter" xml:space="preserve"><value>Auf Position zentrieren</value></data>
+  <data name="MapAutoCenter" xml:space="preserve"><value>Aktuellen Raum zentriert halten</value></data>
   <data name="MapNextObservation" xml:space="preserve"><value>Weiter: Norden</value></data>
   <data name="MapLegend" xml:space="preserve"><value>Mint: aktuell · Bernstein ?: möglich · Weißer Rand: ausgewählt</value></data>
   <data name="MapGestures" xml:space="preserve"><value>Ziehen zum Verschieben · Scrollen oder zwei Finger zum Zoomen · Doppelklick auf einen Raum zum Hinlaufen · ↑/↓ zum Etagenwechsel</value></data>

@@ -58,6 +58,7 @@ public sealed record ClientSettings
     public bool UseWorldThemes { get; init; } = true;
     public bool ClassifyRoomsLocally { get; init; } = true;
     public double RoomClassificationThreshold { get; init; } = 0.8;
+    public bool MapAutoCenter { get; init; } = true;
     public List<UserTheme> CustomThemes { get; init; } = [];
     public List<ConnectionProfile> Profiles { get; init; } = [];
     public void Validate()
