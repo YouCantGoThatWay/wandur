@@ -32,8 +32,11 @@ public sealed class MainWindow : Window
     private readonly TextBlock _status = Ui.TextKey(nameof(L.ReadyToWander), 11, "muted");
     private readonly TextBlock _toolbarStatus = Ui.TextKey(nameof(L.ReadyToWander), 11, "muted");
     private readonly TextBlock _noticeText = Ui.Text("", 12);
+    private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
+    private readonly CheckBox _privateToggle = new() { Name = "PrivateInputToggle", [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11, MinHeight = 0, Height = 22, Padding = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
     private readonly Border _notice;
     private readonly Border _toolbar;
+    private bool _syncingPrivate;
     private const double MacTitleBarHeight = 44;
     private readonly Button _disconnect;
     private readonly DesktopMenus _menus;
@@ -116,10 +119,14 @@ public sealed class MainWindow : Window
         _notice = new Border { Padding = new Thickness(18, 7), Background = Brush.Parse("#483B2A"), IsVisible = false, Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { _noticeText, dismiss } } };
         _noticeText.Foreground = Brush.Parse("#FFE0B0");
         _noticeText.VerticalAlignment = VerticalAlignment.Center;
-        var statusRight = Ui.TextKey(nameof(L.CtrlTabSwitchSessionsDragPanelHeadersToArrange), 10, "muted");
-        statusRight.HorizontalAlignment = HorizontalAlignment.Right;
+        _privateToggle.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MasksYourInputAndKeepsItOutOfCommand)));
+        _privateToggle.IsCheckedChanged += (_, _) => { if (!_syncingPrivate) Controller.SetManualPrivate(_privateToggle.IsChecked == true); };
+        var privateGroup = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center, Children = { _footerHint, _privateToggle } };
+        var sessionsHint = Ui.TextKey(nameof(L.CtrlTabSwitchSessionsDragPanelHeadersToArrange), 10, "muted");
+        sessionsHint.VerticalAlignment = VerticalAlignment.Center;
+        var statusRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right, Children = { privateGroup, sessionsHint } };
         Grid.SetColumn(statusRight, 1);
-        var footer = new Border { Padding = new Thickness(20, 7), BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { _status, statusRight } } };
+        var footer = new Border { Padding = new Thickness(12, 3), BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { _status, statusRight } } };
         footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(footer, 3); root.Children.Add(footer);
@@ -274,6 +281,10 @@ public sealed class MainWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(_disconnect, disconnectTip);
         _notice.IsVisible = Controller.Notice is not null;
         _noticeText.Text = Controller.Notice;
+        _footerHint.Text = Controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : L.CommandHistoryEnterSend;
+        _syncingPrivate = true;
+        _privateToggle.IsChecked = Controller.ManualPrivate;
+        _syncingPrivate = false;
         _menus.Refresh();
     }
 

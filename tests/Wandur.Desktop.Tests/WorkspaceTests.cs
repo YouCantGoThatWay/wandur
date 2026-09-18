@@ -387,6 +387,33 @@ public sealed class WorkspaceTests
     }
 
     [AvaloniaFact]
+    public async Task FooterPrivateToggleDrivesOnlyTheActiveSessionAndSyncsOnTabSwitch()
+    {
+        var window = CreateWindow();
+        try
+        {
+            await window.Sessions.OpenAsync();
+            var first = window.Sessions.Active;
+            await window.Sessions.OpenAsync();
+            var second = window.Sessions.Active;
+            Assert.NotSame(first, second);
+            var toggle = Find<CheckBox>(window, "PrivateInputToggle");
+            Assert.NotEqual(true, toggle.IsChecked);
+            toggle.IsChecked = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(second.Controller.ManualPrivate);
+            Assert.False(first.Controller.ManualPrivate);
+            window.Sessions.Select(first);
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotEqual(true, Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+            window.Sessions.Select(second);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task BackgroundOutputAndClosingOneSocketLeaveTheOtherConnectionAlive()
     {
         var window = CreateWindow();
