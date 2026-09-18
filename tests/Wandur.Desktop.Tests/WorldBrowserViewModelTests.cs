@@ -180,7 +180,7 @@ public sealed class WorldBrowserViewModelTests
                 snapshot["games"] = new System.Text.Json.Nodes.JsonArray();
                 File.WriteAllText(cache, snapshot.ToJsonString());
             }
-            _catalog = new WorldCatalog(cache);
+            _catalog = new WorldCatalog(cache, new Uri("http://offline.invalid/"), OfflineHttp.Client());
             Sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(_directory, "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
             Model = new WorldBrowserViewModel(_catalog, Sessions);
         }
