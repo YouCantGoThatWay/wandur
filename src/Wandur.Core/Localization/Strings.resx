@@ -1293,6 +1293,7 @@ mud.alias(/^lh$/, () =&gt; mud.send("look"));</value>
   <data name="MapTerrainSwamp" xml:space="preserve"><value>Swamp</value></data>
   <data name="MapTerrainSnow" xml:space="preserve"><value>Snow / ice</value></data>
   <data name="MapTerrainSpacecraft" xml:space="preserve"><value>Spacecraft</value></data>
+  <data name="MapTerrainInferred" xml:space="preserve"><value>{0} · inferred {1}%</value></data>
   <data name="MapWalkReady" xml:space="preserve"><value>Ready to walk a verified route.</value></data>
   <data name="MapWalkProgress" xml:space="preserve"><value>Walking: step {0} of {1}. Waiting for the expected room.</value></data>
   <data name="MapWalkComplete" xml:space="preserve"><value>Route complete.</value></data>

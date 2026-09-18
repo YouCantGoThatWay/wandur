@@ -519,6 +519,7 @@ public static class Strings
     public static string MapTerrainSwamp => Get(nameof(MapTerrainSwamp));
     public static string MapTerrainSnow => Get(nameof(MapTerrainSnow));
     public static string MapTerrainSpacecraft => Get(nameof(MapTerrainSpacecraft));
+    public static string MapTerrainInferred => Get(nameof(MapTerrainInferred));
     public static string MapWalkReady => Get(nameof(MapWalkReady));
     public static string MapWalkProgress => Get(nameof(MapWalkProgress));
     public static string MapWalkComplete => Get(nameof(MapWalkComplete));

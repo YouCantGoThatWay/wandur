@@ -294,7 +294,7 @@ public sealed class RoomMapControl : Control
         {
             var hovered = _hits.LastOrDefault(h => h.Bounds.Contains(e.GetPosition(this))).Id;
             var room = Model.Snapshot.Rooms.FirstOrDefault(r => r.Id == hovered);
-            ToolTip.SetTip(this, room is null ? null : $"{room.Name}\n{MapEnvironmentPalette.LabelFor(room.Environment)} · ({room.X:0.##}, {room.Y:0.##}, {room.Z:0.##})" +
+            ToolTip.SetTip(this, room is null ? null : $"{room.Name}\n{MapEnvironmentPalette.Describe(room)} · ({room.X:0.##}, {room.Y:0.##}, {room.Z:0.##})" +
                 (string.IsNullOrEmpty(room.Notes) ? "" : "\n" + room.Notes));
             return;
         }

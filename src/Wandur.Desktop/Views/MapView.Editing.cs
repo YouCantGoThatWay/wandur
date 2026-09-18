@@ -71,12 +71,15 @@ public sealed partial class MapView
             SelectedValueBinding = new Binding(nameof(MapEnvironmentStyle.Key))
         };
         terrain.Bind(SelectingItemsControl.SelectedValueProperty, new Binding("RoomEditor.Environment") { Mode = BindingMode.TwoWay, Converter = new PreserveCustomEnvironmentConverter() });
+        var terrainProvenance = Ui.Text("", 11, "muted");
+        terrainProvenance.Bind(TextBlock.TextProperty, new Binding("RoomEditor.TerrainProvenance"));
+        terrainProvenance.Bind(IsVisibleProperty, new Binding("RoomEditor.HasTerrainProvenance"));
         var room = new StackPanel { Spacing = 7, Children =
         {
             Field(nameof(L.MapRoomName), EditorText("MapRoomName", "RoomEditor.Name")),
             Field(nameof(L.MapRoomDescription), EditorText("MapRoomDescription", "RoomEditor.Description", true)),
             Field(nameof(L.MapArea), EditorText("MapRoomArea", "RoomEditor.Area")), coordinates,
-            Field(nameof(L.MapRoomEnvironment), new StackPanel { Spacing = 4, Children = { terrain, EditorText("MapRoomEnvironment", "RoomEditor.Environment") } }),
+            Field(nameof(L.MapRoomEnvironment), new StackPanel { Spacing = 4, Children = { terrain, EditorText("MapRoomEnvironment", "RoomEditor.Environment"), terrainProvenance } }),
             Field(nameof(L.MapRoomColor), EditorText("MapRoomColor", "RoomEditor.Color")),
             Field(nameof(L.MapRoomSymbol), EditorText("MapRoomSymbol", "RoomEditor.Symbol")),
             Field(nameof(L.MapRoomNotes), EditorText("MapRoomNotes", "RoomEditor.Notes", true)),

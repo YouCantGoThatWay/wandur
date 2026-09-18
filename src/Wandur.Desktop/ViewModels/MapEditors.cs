@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wandur.Core.Mapping;
+using Wandur.Desktop.Views;
 
 namespace Wandur.Desktop.ViewModels;
 
@@ -23,7 +24,9 @@ public sealed partial class MapRoomEditorViewModel : ObservableObject
     [ObservableProperty] private string _notes = "";
     [ObservableProperty] private string _weight = "1";
     [ObservableProperty] private bool _isLocked;
+    [ObservableProperty] private string _terrainProvenance = "";
     public string? Id => _original?.Id;
+    public bool HasTerrainProvenance => !string.IsNullOrEmpty(TerrainProvenance);
 
     public void Load(MapRoom room)
     {
@@ -32,7 +35,9 @@ public sealed partial class MapRoomEditorViewModel : ObservableObject
         X = Format(room.X); Y = Format(room.Y); Z = Format(room.Z);
         Environment = room.Environment ?? ""; Color = room.Color ?? "";
         Symbol = room.Symbol ?? ""; Notes = room.Notes; Weight = Format(room.Weight); IsLocked = room.IsLocked;
+        TerrainProvenance = MapEnvironmentPalette.UsesInference(room) ? MapEnvironmentPalette.Describe(room) : "";
         OnPropertyChanged(nameof(Id));
+        OnPropertyChanged(nameof(HasTerrainProvenance));
     }
 
     public bool TryBuild(out MapRoom? room)

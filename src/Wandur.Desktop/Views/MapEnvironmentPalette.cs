@@ -5,7 +5,7 @@ namespace Wandur.Desktop.Views;
 
 public sealed record MapEnvironmentStyle(string Key, string Label, string Color, string Symbol);
 
-/// <summary>Presentation palette; explicit room metadata is never inferred from prose here.</summary>
+/// <summary>Presentation palette. Server or manual terrain wins; the local classifier's hint fills gaps and is labeled as inferred.</summary>
 public static class MapEnvironmentPalette
 {
     public static IReadOnlyList<MapEnvironmentStyle> Styles =>
@@ -48,11 +48,23 @@ public static class MapEnvironmentPalette
     public static string LabelFor(string? environment) =>
         Styles.FirstOrDefault(s => s.Key == Normalize(environment))?.Label ?? environment ?? L.MapTerrainUnknown;
 
+    public static bool UsesInference(MapRoom room) =>
+        string.IsNullOrWhiteSpace(room.Environment) && !string.IsNullOrWhiteSpace(room.InferredEnvironment);
+
+    private static string? DisplayedEnvironment(MapRoom room) => UsesInference(room) ? room.InferredEnvironment : room.Environment;
+
     public static MapEnvironmentStyle Resolve(MapRoom room, IReadOnlyList<MapEnvironmentStyle>? palette = null)
     {
         palette ??= Styles;
-        var style = palette.FirstOrDefault(s => s.Key == Normalize(room.Environment)) ?? palette[0];
+        var style = palette.FirstOrDefault(s => s.Key == Normalize(DisplayedEnvironment(room))) ?? palette[0];
         return style with { Color = room.Color ?? style.Color, Symbol = room.Symbol ?? style.Symbol };
+    }
+
+    /// <summary>Tooltip/editor text: the terrain label, marked when it came from the local classifier.</summary>
+    public static string Describe(MapRoom room)
+    {
+        var label = LabelFor(DisplayedEnvironment(room));
+        return UsesInference(room) ? L.Format(L.MapTerrainInferred, label, Math.Round((room.InferredConfidence ?? 0) * 100)) : label;
     }
 
     private static string Normalize(string? environment) => environment?.Trim().ToLowerInvariant() switch
