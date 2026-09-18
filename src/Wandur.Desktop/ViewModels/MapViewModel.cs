@@ -1,5 +1,7 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Wandur.Core.Classification;
 using Wandur.Core.Mapping;
 using L = Wandur.Core.Localization.Strings;
 
@@ -63,6 +65,35 @@ public sealed partial class MapViewModel : ObservableObject
         _ => L.MapExerciseLandmark
     };
 
+    public RoomClassificationService? Classification => _controller?.Classification;
+    public bool HasClassification => Classification is not null && IsLive;
+    public Func<Task<string?>>? PickModelFile { get; set; }
+    public string ClassificationStatus => Classification?.Status switch
+    {
+        { State: RoomClassificationState.Ready, Version: var version } => L.Format(L.MapInferenceReady, version ?? ""),
+        { State: RoomClassificationState.Downloading, Progress: var progress } => L.Format(L.MapInferenceDownloading, Math.Round(progress * 100)),
+        { State: RoomClassificationState.Failed, Message: var message } => L.Format(L.MapInferenceFailed, message ?? ""),
+        _ => L.MapInferenceNotInstalled
+    };
+    public bool CanDownloadModel => Classification is { Status.State: RoomClassificationState.NotInstalled or RoomClassificationState.Failed };
+    public bool ClassifyRoomsLocally
+    {
+        get => _controller?.Settings.ClassifyRoomsLocally ?? false;
+        set { if (_controller is null || value == _controller.Settings.ClassifyRoomsLocally) return; _controller.SaveSettings(_controller.Settings with { ClassifyRoomsLocally = value }); OnPropertyChanged(); }
+    }
+    [RelayCommand(CanExecute = nameof(CanDownloadModel))]
+    private async Task DownloadModel() { if (Classification is { } service) { await service.DownloadAsync(CancellationToken.None); _controller?.ScheduleInference(); } }
+    [RelayCommand]
+    private async Task InstallModelFromFile()
+    {
+        if (Classification is not { } service || PickModelFile is null) return;
+        if (await PickModelFile() is { } path) { await service.InstallFromFileAsync(path, CancellationToken.None); _controller?.ScheduleInference(); }
+    }
+    private void ClassificationChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        OnPropertyChanged(nameof(ClassificationStatus)); OnPropertyChanged(nameof(CanDownloadModel)); DownloadModelCommand.NotifyCanExecuteChanged();
+    });
+
     public void Attach()
     {
         if (_attached) return;
@@ -70,6 +101,7 @@ public sealed partial class MapViewModel : ObservableObject
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
         _live.Changed += Refresh;
         if (_controller is not null) _controller.Changed += RebindSession;
+        if (Classification is not null) Classification.Changed += ClassificationChanged;
         RebindSession(); Refresh();
     }
     public void Detach()
@@ -78,12 +110,14 @@ public sealed partial class MapViewModel : ObservableObject
         Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
         _attached = false; _live.Changed -= Refresh;
         if (_controller is not null) _controller.Changed -= RebindSession;
+        if (Classification is not null) Classification.Changed -= ClassificationChanged;
     }
     private void RefreshLanguage() => OnPropertyChanged(string.Empty);
     private void RebindSession()
     {
         if (!_attached) return;
         RefreshNavigationState();
+        OnPropertyChanged(nameof(ClassifyRoomsLocally));
         if (_controller is null || ReferenceEquals(_live, _controller.Map)) return;
         _live.Changed -= Refresh;
         _exercise = null;

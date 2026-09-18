@@ -1054,6 +1054,14 @@ Die Offline-Demo findest du unter Datei.</value>
   <data name="MapCounts" xml:space="preserve"><value>{0} Räume · {1} Verbindungen</value></data>
   <data name="MapConfirmed" xml:space="preserve"><value>Position bestätigt</value></data>
   <data name="MapInferred" xml:space="preserve"><value>Position erschlossen</value></data>
+  <data name="MapInferenceSection" xml:space="preserve"><value>Geländeableitung für Räume</value></data>
+  <data name="MapInferenceNotInstalled" xml:space="preserve"><value>Lokales Modell nicht installiert (80 MB Download).</value></data>
+  <data name="MapInferenceDownloading" xml:space="preserve"><value>Modell wird geladen: {0}%</value></data>
+  <data name="MapInferenceReady" xml:space="preserve"><value>Lokales Modell {0} bereit.</value></data>
+  <data name="MapInferenceFailed" xml:space="preserve"><value>Lokales Modell nicht verfügbar: {0}</value></data>
+  <data name="MapInferenceDownload" xml:space="preserve"><value>Modell herunterladen</value></data>
+  <data name="MapInferenceInstallFile" xml:space="preserve"><value>Aus Datei installieren</value></data>
+  <data name="MapInferenceEnable" xml:space="preserve"><value>Räume mit dem lokalen Modell einfärben</value></data>
   <data name="MapAmbiguous" xml:space="preserve"><value>{0} mögliche Räume</value></data>
   <data name="MapUnknown" xml:space="preserve"><value>Position unbekannt</value></data>
   <data name="MapWaiting" xml:space="preserve"><value>Warte auf einen Raum</value></data>

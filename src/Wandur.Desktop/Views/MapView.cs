@@ -5,6 +5,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Wandur.Desktop.ViewModels;
 using L = Wandur.Core.Localization.Strings;
 
@@ -97,6 +98,30 @@ public sealed partial class MapView : UserControl
                 new CommunityToolkit.Mvvm.Input.RelayCommand(() => { toggle.IsChecked = false; editMap(model); }));
             open.Bind(IsEnabledProperty, new Binding(nameof(model.CanOpenEditor)));
             footer.Children.Insert(0, open);
+        }
+        if (!editingWorkspace && model.HasClassification)
+        {
+            var statusText = Ui.Text("", 11, "muted"); statusText.Name = "MapInferenceStatus";
+            statusText.Bind(TextBlock.TextProperty, new Binding(nameof(model.ClassificationStatus)));
+            var download = Action(nameof(L.MapInferenceDownload), "MapInferenceDownload", model.DownloadModelCommand);
+            download.Bind(IsEnabledProperty, new Binding(nameof(model.CanDownloadModel)));
+            var install = Action(nameof(L.MapInferenceInstallFile), "MapInferenceInstallFile", model.InstallModelFromFileCommand);
+            model.PickModelFile = async () =>
+            {
+                var top = TopLevel.GetTopLevel(this);
+                if (top is null) return null;
+                var files = await top.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                { AllowMultiple = false, FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("Model package") { Patterns = ["*.zip"] }] });
+                return files.Count == 1 ? files[0].TryGetLocalPath() : null;
+            };
+            var section = new Expander
+            {
+                Name = "MapInferenceSection", IsExpanded = false,
+                Content = new StackPanel { Spacing = 6, Children = { statusText, Check(nameof(L.MapInferenceEnable), "MapInferenceEnable", nameof(model.ClassifyRoomsLocally)),
+                    new WrapPanel { Orientation = Orientation.Horizontal, Children = { download, install } } } }
+            };
+            section.Bind(HeaderedContentControl.HeaderProperty, LocalizedText.Binding(nameof(L.MapInferenceSection)));
+            footer.Children.Add(section);
         }
         footer.Children.Add(CreateRouteTools());
         var tools = new Border

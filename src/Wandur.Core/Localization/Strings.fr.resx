@@ -1054,6 +1054,14 @@ La démo hors ligne est disponible dans Fichier.</value>
   <data name="MapCounts" xml:space="preserve"><value>{0} salles · {1} connexions</value></data>
   <data name="MapConfirmed" xml:space="preserve"><value>Position confirmée</value></data>
   <data name="MapInferred" xml:space="preserve"><value>Position déduite</value></data>
+  <data name="MapInferenceSection" xml:space="preserve"><value>Inférence du terrain des salles</value></data>
+  <data name="MapInferenceNotInstalled" xml:space="preserve"><value>Modèle local non installé (téléchargement de 80 Mo).</value></data>
+  <data name="MapInferenceDownloading" xml:space="preserve"><value>Téléchargement du modèle : {0}%</value></data>
+  <data name="MapInferenceReady" xml:space="preserve"><value>Modèle local {0} prêt.</value></data>
+  <data name="MapInferenceFailed" xml:space="preserve"><value>Modèle local indisponible : {0}</value></data>
+  <data name="MapInferenceDownload" xml:space="preserve"><value>Télécharger le modèle</value></data>
+  <data name="MapInferenceInstallFile" xml:space="preserve"><value>Installer depuis un fichier</value></data>
+  <data name="MapInferenceEnable" xml:space="preserve"><value>Colorer les salles avec le modèle local</value></data>
   <data name="MapAmbiguous" xml:space="preserve"><value>{0} salles possibles</value></data>
   <data name="MapUnknown" xml:space="preserve"><value>Position inconnue</value></data>
   <data name="MapWaiting" xml:space="preserve"><value>En attente d’une salle</value></data>

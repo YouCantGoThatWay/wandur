@@ -359,6 +359,14 @@ public static class Strings
     public static string MapCounts => Get(nameof(MapCounts));
     public static string MapConfirmed => Get(nameof(MapConfirmed));
     public static string MapInferred => Get(nameof(MapInferred));
+    public static string MapInferenceSection => Get(nameof(MapInferenceSection));
+    public static string MapInferenceNotInstalled => Get(nameof(MapInferenceNotInstalled));
+    public static string MapInferenceDownloading => Get(nameof(MapInferenceDownloading));
+    public static string MapInferenceReady => Get(nameof(MapInferenceReady));
+    public static string MapInferenceFailed => Get(nameof(MapInferenceFailed));
+    public static string MapInferenceDownload => Get(nameof(MapInferenceDownload));
+    public static string MapInferenceInstallFile => Get(nameof(MapInferenceInstallFile));
+    public static string MapInferenceEnable => Get(nameof(MapInferenceEnable));
     public static string MapAmbiguous => Get(nameof(MapAmbiguous));
     public static string MapUnknown => Get(nameof(MapUnknown));
     public static string MapWaiting => Get(nameof(MapWaiting));
