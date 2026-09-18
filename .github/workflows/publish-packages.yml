@@ -1,0 +1,28 @@
+name: Publish packages
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Derive version from tag
+        run: echo "PKG_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - run: dotnet restore Wandur.sln --locked-mode
+      - run: dotnet build src/Wandur.Protocol/Wandur.Protocol.csproj src/Wandur.Models/Wandur.Models.csproj src/Wandur.Core/Wandur.Core.csproj tests/Wandur.Core.Tests/Wandur.Core.Tests.csproj -c Release --no-restore -p:Version=$PKG_VERSION
+      - run: dotnet test tests/Wandur.Core.Tests/Wandur.Core.Tests.csproj -c Release --no-build --no-restore
+      - run: dotnet pack src/Wandur.Models/Wandur.Models.csproj -c Release --no-build -p:Version=$PKG_VERSION -o out
+      - run: dotnet pack src/Wandur.Protocol/Wandur.Protocol.csproj -c Release --no-build -p:Version=$PKG_VERSION -o out
+      - run: dotnet nuget push "out/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

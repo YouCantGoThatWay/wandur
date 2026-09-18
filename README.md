@@ -83,7 +83,9 @@ On macOS external drives, keep the NuGet package cache on the internal disk. The
 
 | Project | Responsibility |
 | --- | --- |
-| `src/Wandur.Core` | Telnet, ANSI transcript, session lifecycle, demo, history and settings; no GUI dependency |
+| `src/Wandur.Models` | Game-neutral state and protocol mapping contracts; published as the `Wandur.Models` package |
+| `src/Wandur.Protocol` | Telnet negotiation, GMCP and MSDP decoding and protocol diagnostics; published as the `Wandur.Protocol` package |
+| `src/Wandur.Core` | ANSI transcript, session lifecycle, mapping, demo, history and settings; no GUI dependency |
 | `src/Wandur.Desktop` | Avalonia workspace, docking, input, dialogs and appearance |
 | `tests/Wandur.Core.Tests` | Protocol, socket and persistence regression tests |
 | `tests/Wandur.Desktop.Tests` | Input, privacy, docking, themes, lifecycle and render checks |
@@ -102,13 +104,21 @@ The [local-model agent](docs/agent.md) supports server address and provider sele
 
 The dedicated display handles terminal cursor addressing and screen updates; MUD commands still use the separate input box. MCCP compression, MXP, MSP, inline terminal graphics, dynamic terminal resize reporting, and extended encodings are not implemented. Unsupported Telnet options are declined; NAWS currently reports 100 × 40. WHO polling and Python scripting are not implemented yet. A dockable [2D mapping prototype](docs/mapping-prototype.md) supports GMCP/MSDP room metadata, conservative text parsing, and sequence-based location inference.
 
+## Shared packages
+
+`Wandur.Models` (contracts and validation) and `Wandur.Protocol` (telnet parsing and
+protocol decoding) are published to NuGet.org by the `Publish packages` workflow when a
+`v*` tag is pushed; the tag supplies the version. The repository secret `NUGET_API_KEY`
+must hold a NuGet.org key scoped to those two package ids.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [MIT](LICENSE). Avalonia, Dock and other dependencies retain their own licenses; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## World directory and illustrations
 
-Run the [local FastAPI directory service](directory-server/README.md), then choose
+The world directory is served by a separate, private service (the client reads its
+base URL from `WANDUR_DIRECTORY_URL`, defaulting to a local instance on port 8765). Choose
 **Find a MUD** in the Workspace sidebar, the toolbar magnifier, or **File → Browse Worlds…**.
 All entry points open the same center page. It retains the search, filters,
 selected listing, and scroll positions while live sessions continue in the background.
@@ -168,22 +178,12 @@ Edit a saved world and select **Scripts** for the syntax-highlighted editor. Con
 
 ### Editable 2D mapper
 
-The [mapper guide](docs/mapper.md) covers colored room graphs, contiguous grid areas, floors, terrain and symbols, room/exit editing with undo, search, weighted routes, verified walking and JSON import/export. The Map panel reports negotiated GMCP/MSDP support separately from structured room fields received. The proposed optional local classifier is described in [the room environment classifier proposal](docs/proposals/room-environment-classifier.md).
+The [mapper guide](docs/mapper.md) covers colored room graphs, contiguous grid areas, floors, terrain and symbols, room/exit editing with undo, search, weighted routes, verified walking and JSON import/export. The Map panel reports negotiated GMCP/MSDP support separately from structured room fields received. The optional local room classifier that colors rooms by inferred terrain is described in [the room terrain inference design](docs/superpowers/specs/2026-09-18-room-terrain-inference-design.md) and its original [proposal](docs/proposals/room-environment-classifier.md).
 
 ## Moving the checkout
 
 All build scripts and project references use relative paths; the containing folder
 can be renamed or moved. Reopen `Wandur.sln` and run `dotnet restore Wandur.sln`
-after moving. Recreate the Python environment because console-script paths are
-absolute inside a virtual environment:
-
-```sh
-cd directory-server
-uv venv --clear
-uv sync --locked
-```
-
-Keep `.env` and the server's `cache/` directory when moving; neither belongs in
-source control. The client uses its own application-data folder, independent of
+after moving. The client uses its own application-data folder, independent of
 the checkout. Release builds omit debug symbols to avoid embedding developer checkout paths;
 Debug builds retain symbols for development. The macOS bundle identifier is `net.wandur.client`.
