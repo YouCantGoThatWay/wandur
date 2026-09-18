@@ -1,1 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Wandur.Models</PackageId>
+    <Description>Game-neutral state, protocol mapping contracts and validation shared by Wandur components.</Description>
+  </PropertyGroup>
+</Project>

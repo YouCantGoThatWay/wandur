@@ -1,7 +1,12 @@
-using L = Wandur.Core.Localization.Strings;
 using System.Text;
 
 namespace Wandur.Core.Protocol;
+
+internal static class TelnetParserMessages
+{
+    public const string SendOneCommandAtATime = "Send one command at a time.";
+    public const string CommandIsTooLong = "Command is too long.";
+}
 
 public enum TelnetOptionState { Unknown, Enabled, Disabled }
 public sealed record TelnetProtocolState(TelnetOptionState Gmcp = TelnetOptionState.Unknown, TelnetOptionState Msdp = TelnetOptionState.Unknown);
@@ -178,8 +183,8 @@ public sealed class TelnetParser
     public static byte[] EncodeCommand(string command, Encoding encoding)
     {
         if (command.IndexOfAny(['\r', '\n', '\0']) >= 0)
-            throw new ArgumentException(L.SendOneCommandAtATime, nameof(command));
-        if (command.Length > 8192) throw new ArgumentException(L.CommandIsTooLong, nameof(command));
+            throw new ArgumentException(TelnetParserMessages.SendOneCommandAtATime, nameof(command));
+        if (command.Length > 8192) throw new ArgumentException(TelnetParserMessages.CommandIsTooLong, nameof(command));
         var result = new List<byte>();
         foreach (var b in encoding.GetBytes(command)) { result.Add(b); if (b == 255) result.Add(b); }
         result.AddRange([13, 10]);

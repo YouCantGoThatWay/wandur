@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Wandur.Protocol</PackageId>
+    <Description>Telnet negotiation, GMCP and MSDP decoding and protocol diagnostics shared by the Wandur client and directory services.</Description>
+  </PropertyGroup>
+</Project>

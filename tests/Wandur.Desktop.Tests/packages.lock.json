@@ -654,7 +654,7 @@
           "Dock.Model.Mvvm": "[12.1.0.6, )",
           "Iciclecreek.Avalonia.Terminal": "[4.0.2, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.12, )",
-          "Wandur.Core": "[1.0.0, )"
+          "Wandur.Core": "[0.1.0, )"
         }
       },
       "wandur.core": {
@@ -664,10 +664,14 @@
           "Microsoft.Data.Sqlite": "[10.0.12, )",
           "Microsoft.ML.OnnxRuntime": "[1.30.0, )",
           "Microsoft.ML.Tokenizers": "[2.0.0, )",
-          "Wandur.Models": "[1.0.0, )"
+          "Wandur.Models": "[0.1.0, )",
+          "Wandur.Protocol": "[0.1.0, )"
         }
       },
       "wandur.models": {
+        "type": "Project"
+      },
+      "wandur.protocol": {
         "type": "Project"
       }
     }

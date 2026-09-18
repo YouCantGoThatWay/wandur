@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup><ProjectReference Include="../Wandur.Models/Wandur.Models.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../Wandur.Protocol/Wandur.Protocol.csproj" /></ItemGroup>
   <ItemGroup><PackageReference Include="Jint" Version="4.16.2" /></ItemGroup>
   <ItemGroup><PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" /></ItemGroup>
   <ItemGroup>

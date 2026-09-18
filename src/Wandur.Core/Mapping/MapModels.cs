@@ -1,21 +1,10 @@
 namespace Wandur.Core.Mapping;
 
-public enum RoomDataSource { Text, Gmcp, Msdp }
+// RoomDataSource and RoomObservation now live in Wandur.Protocol (Wandur.Core.Mapping namespace
+// preserved) alongside RoomProtocolDecoder, which produces RoomObservation instances and cannot
+// depend back on Wandur.Core.
 public enum MapTrackingState { Waiting, Confirmed, Inferred, Ambiguous, Unknown }
 public enum MapDoorState { None, Open, Closed, Locked }
-
-public sealed record RoomObservation(
-    string? ServerId, string Name, string Description,
-    IReadOnlyDictionary<string, string?> Exits, string? Area = null,
-    RoomDataSource Source = RoomDataSource.Text)
-{
-    public bool ExitsProvided { get; init; }
-    public string? Environment { get; init; }
-    public double? X { get; init; }
-    public double? Y { get; init; }
-    public double? Z { get; init; }
-    public string? Symbol { get; init; }
-}
 
 public sealed record MapRoom(string Id, string Name, string Description, string? Area,
     double X, double Y, double Z, bool Provisional, string? ServerId = null)

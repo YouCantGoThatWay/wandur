@@ -4,10 +4,28 @@ using System.Text.Json;
 
 namespace Wandur.Core.Mapping;
 
+public enum RoomDataSource { Text, Gmcp, Msdp }
+
+public sealed record RoomObservation(
+    string? ServerId, string Name, string Description,
+    IReadOnlyDictionary<string, string?> Exits, string? Area = null,
+    RoomDataSource Source = RoomDataSource.Text)
+{
+    public bool ExitsProvided { get; init; }
+    public string? Environment { get; init; }
+    public double? X { get; init; }
+    public double? Y { get; init; }
+    public double? Z { get; init; }
+    public string? Symbol { get; init; }
+}
+
 /// <summary>Conservative, bounded decoding of server-supplied room metadata.</summary>
 public static class RoomProtocolDecoder
 {
     private const int MaximumPayload = 16_384;
+    // Mirrors Wandur.Core.Mapping.MapFileFormat.Coordinate; duplicated to avoid a circular
+    // project reference, since Wandur.Core depends on Wandur.Protocol, not the other way around.
+    private static bool ValidCoordinate(double value) => double.IsFinite(value) && Math.Abs(value) <= 1e9;
 
 
     public static RoomObservation? FromGmcp(string message)
@@ -87,12 +105,12 @@ public static class RoomProtocolDecoder
 
     private static double? Number(JsonElement value)
     {
-        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && MapFileFormat.Coordinate(number)) return number;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && ValidCoordinate(number)) return number;
         return value.ValueKind == JsonValueKind.String ? Number(value.GetString()) : null;
     }
 
     private static double? Number(string? value) => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) &&
-        MapFileFormat.Coordinate(number) ? number : null;
+        ValidCoordinate(number) ? number : null;
     private static string? MsdpText(Dictionary<string, object> fields, string key) => fields.TryGetValue(key, out var value) ? value as string : null;
     private static double? MsdpCoordinate(Dictionary<string, object> fields, bool nested, string axis)
     {
