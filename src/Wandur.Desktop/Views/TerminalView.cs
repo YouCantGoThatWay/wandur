@@ -14,9 +14,7 @@ namespace Wandur.Desktop.Views;
 public sealed class TerminalView : UserControl
 {
     private readonly WorkspaceController _controller;
-    private readonly TextBox _input = new() { Name = "CommandInput", [!TextBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.EnterACommand)), FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"), MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _hint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
-    private readonly CheckBox _private = new() { [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11 };
+    private readonly TextBox _input = new() { Name = "CommandInput", [!TextBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.EnterACommand)), FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"), MinHeight = 36, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly Button _send;
     private readonly Button _latest;
     private readonly Border _welcome;
@@ -34,8 +32,6 @@ public sealed class TerminalView : UserControl
         _latest.IsVisible = false;
         _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
         _send.Name = "SendCommand";
-        _private.IsCheckedChanged += (_, _) => controller.SetManualPrivate(_private.IsChecked == true);
-        _private.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MasksYourInputAndKeepsItOutOfCommand)));
         _input.AddHandler(KeyDownEvent, (_, args) =>
         {
             if (controller.Pages.IsPlay && args.KeyModifiers == KeyModifiers.None && args.Key >= Key.F1 && args.Key <= Key.F12)
@@ -57,14 +53,12 @@ public sealed class TerminalView : UserControl
         };
         var display = controller.Display.View;
         if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
-        display.Margin = new Thickness(20, 12, 4, 8);
+        display.Margin = new Thickness(8, 4, 4, 4);
         var output = new Grid { Children = { display, _welcome, _latest } };
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
         entry.Children.Add(_input); Grid.SetColumn(_send, 1); entry.Children.Add(_send);
-        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        footer.Children.Add(_hint); Grid.SetColumn(_private, 1); footer.Children.Add(_private);
-        var composer = new Border { Padding = new Thickness(22, 16), BorderThickness = new Thickness(0, 1, 0, 0), Child = Ui.Stack(entry, footer) };
+        var composer = new Border { Name = "Composer", Padding = new Thickness(12, 8), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
         composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics) { Name = "ProtocolDiagnostics" };
         diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
@@ -110,11 +104,9 @@ public sealed class TerminalView : UserControl
         // A sensitive draft must disappear before the password mask can be removed.
         if (_wasPrivate && !_controller.IsPrivate) _input.Text = "";
         _wasPrivate = _controller.IsPrivate;
-        _private.IsChecked = _controller.ManualPrivate;
         _send.IsEnabled = _controller.IsConnected && !_sending;
         _input.IsEnabled = _controller.IsConnected;
         _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
-        _hint.Text = _controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : L.CommandHistoryEnterSend;
         _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
         _resources.Update(_controller.GameState, _controller.IsConnected);
         RefreshScroll();
