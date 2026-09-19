@@ -167,10 +167,25 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    /// <summary>Adds or refreshes the scripts a world directory supplies. Hand-written scripts are untouched.</summary>
+    /// <summary>Adds or refreshes the scripts a world directory supplies. Hand-written scripts are untouched.
+    /// The listing is the whole pack: a supplied script it no longer names is removed, since pack scripts are
+    /// read only and a regeneration may rename them.</summary>
     public void ApplyPack(IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing> supplied)
     {
         if (_disposed || _worldKey is null || supplied.Count == 0) return;
+        var wanted = new HashSet<Guid>(supplied.Select(listing => ScriptPackInfo.IdFor(_worldKey, listing.Id)));
+        foreach (var stale in Items.Where(entry => entry.IsPack && !wanted.Contains(entry.Id)).ToArray())
+        {
+            try
+            {
+                _store.Delete(_worldKey, stale.Id);
+                stale.Runtime.Changed -= OnChanged;
+                stale.Runtime.Stop();
+                _ = stale.Runtime.DisposeAsync();
+                Items.Remove(stale); _attempted.Remove(stale.Id);
+            }
+            catch (Exception ex) when (IsStorageError(ex)) { Error = L.Format(L.ScriptSaveFailed, ex.Message); }
+        }
         foreach (var listing in supplied)
         {
             var info = new ScriptPackInfo(listing.Id, listing.Provenance, listing.Version, listing.Description);

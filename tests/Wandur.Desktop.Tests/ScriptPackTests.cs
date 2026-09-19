@@ -122,6 +122,23 @@ public sealed class ScriptPackTests
             Assert.Equal(SecondVersion, copy.Source);
             Assert.Equal(L.Format(L.ScriptDuplicateName, "Ship panel"), copy.Name);
         }
+
+        // A regenerated pack that renames a script retires the old one; hand-written scripts stay.
+        var renamed = Listing(port, SecondVersion, 1);
+        renamed = renamed with { Scripts = [renamed.Scripts![0] with { Id = "cockpit", Name = "Cockpit" }] };
+        WriteDirectory(directory, renamed);
+        using (var catalog = new WorldCatalog(directory, http: OfflineHttp.Client()))
+        {
+            await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+                new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), scripts, catalog: catalog);
+            await sessions.OpenAsync(profile);
+            var library = sessions.Active.Controller.ScriptLibrary;
+            var replacement = Assert.Single(library.Items, entry => entry.IsPack);
+            Assert.Equal(ScriptPackInfo.IdFor(key, "cockpit"), replacement.Id);
+            Assert.DoesNotContain(library.Items, entry => entry.Id == pack.Id);
+            Assert.DoesNotContain(scripts.Load(key), script => script.Id == pack.Id);
+            Assert.Equal(3, library.Items.Count);
+        }
         if (Directory.Exists(path)) Directory.Delete(path, true);
     }
 }
