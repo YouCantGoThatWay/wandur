@@ -182,17 +182,13 @@ public sealed class MainWindow : Window
         _menus.Refresh();
     }
 
-    public bool IsPanelVisible(bool worlds)
-    {
-        var tool = worlds ? Workspace.WorldsTool : Workspace.CommandsTool;
-        return tool?.Owner is Dock.Model.Core.IDock owner && owner.VisibleDockables?.Contains(tool) == true;
-    }
+    public bool IsPanelVisible()
+        => Workspace.WorldsTool is { Owner: Dock.Model.Core.IDock owner } tool && owner.VisibleDockables?.Contains(tool) == true;
 
-    public void TogglePanel(bool worlds)
+    public void TogglePanel()
     {
-        var tool = worlds ? Workspace.WorldsTool : Workspace.CommandsTool;
-        if (tool is null) return;
-        if (IsPanelVisible(worlds)) Workspace.HideDockable(tool);
+        if (Workspace.WorldsTool is not { } tool) return;
+        if (IsPanelVisible()) Workspace.HideDockable(tool);
         else Workspace.RestoreDockable(tool);
         _menus.Refresh();
     }
@@ -246,7 +242,6 @@ public sealed class MainWindow : Window
     private void RefreshLanguage()
     {
         if (Workspace.WorldsTool is { } worlds) worlds.Title = L.Workspace;
-        if (Workspace.CommandsTool is { } commands) commands.Title = L.Controls;
         if (Workspace.MapTool is { } map) map.Title = L.Map;
         Refresh();
     }

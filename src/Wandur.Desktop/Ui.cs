@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -51,6 +52,18 @@ internal static class Ui
         ToolTip.SetTip(button, tip);
         Avalonia.Automation.AutomationProperties.SetName(button, tip);
         return button;
+    }
+
+    /// <summary>A filled glyph that follows the foreground of the control it sits in.</summary>
+    public static Avalonia.Controls.Shapes.Path Glyph(string geometry, TemplatedControl source, double size = 14)
+    {
+        var icon = new Avalonia.Controls.Shapes.Path
+        {
+            Data = StreamGeometry.Parse(geometry), Width = size, Height = size, Stretch = Stretch.Uniform,
+            IsHitTestVisible = false, VerticalAlignment = VerticalAlignment.Center
+        };
+        icon.Bind(Avalonia.Controls.Shapes.Shape.FillProperty, new Avalonia.Data.Binding(nameof(source.Foreground)) { Source = source });
+        return icon;
     }
 
     public static T ToolbarIconKey<T>(T button, string geometry, string key) where T : Button

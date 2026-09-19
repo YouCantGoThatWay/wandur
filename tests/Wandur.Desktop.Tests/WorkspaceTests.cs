@@ -2,10 +2,12 @@ using System.Net;
 using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Wandur.Core.Settings;
@@ -401,7 +403,7 @@ public sealed class WorkspaceTests
             Dispatcher.UIThread.RunJobs();
             Assert.NotSame(first, second);
             // Only the active session's TerminalView (and its own PrivateInputToggle) is in the visual tree.
-            var toggle = Find<CheckBox>(window, "PrivateInputToggle");
+            var toggle = Find<ToggleButton>(window, "PrivateInputToggle");
             Assert.NotEqual(true, toggle.IsChecked);
             toggle.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
@@ -410,10 +412,10 @@ public sealed class WorkspaceTests
             first.Controller.SetManualPrivate(true);
             window.Sessions.Select(first);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+            Assert.True(Find<ToggleButton>(window, "PrivateInputToggle").IsChecked);
             window.Sessions.Select(second);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+            Assert.True(Find<ToggleButton>(window, "PrivateInputToggle").IsChecked);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }
@@ -431,11 +433,98 @@ public sealed class WorkspaceTests
             Dispatcher.UIThread.RunJobs();
             var composer = Find<Border>(window, "Composer");
             var terminalPane = (Control)composer.GetVisualParent()!;
-            var entry = (Grid)((TextBox)Find<TextBox>(window, "CommandInput")).Parent!;
+            var input = Find<TextBox>(window, "CommandInput");
+            var entry = (Grid)input.Parent!;
+            var actions = Find<StackPanel>(window, "ComposerActions");
+            var send = Find<Button>(window, "SendCommand");
             Assert.True(terminalPane.Bounds.Width > 0);
             Assert.Equal(terminalPane.Bounds.Width - 8, entry.Bounds.Width, 1);
+            // Two 36px buttons with 4px between them sit left of the box; the box keeps the rest.
+            Assert.Equal(76, actions.Bounds.Width, 1);
+            Assert.Equal(entry.Bounds.Width - actions.Bounds.Width - send.Bounds.Width - 20, input.Bounds.Width, 1);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task LookButtonSendsLookAndTheCommandsFlyoutSendsEveryQuickCommand()
+    {
+        var window = CreateWindow();
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        listener.Start();
+        try
+        {
+            await window.Sessions.OpenAsync(new ConnectionProfile { Name = "Local test", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port });
+            using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+            Dispatcher.UIThread.RunJobs();
+            var look = Find<Button>(window, "LookButton");
+            var commands = Find<Button>(window, "CommandsButton");
+            Assert.True(look.IsEnabled);
+            Assert.True(commands.IsEnabled);
+            look.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await WaitFor(() => window.Controller.CommandsSent == 1);
+            Assert.Equal("look\r\n", await ReadSent(server, timeout.Token));
+
+            var flyout = (Flyout)commands.Flyout!;
+            var content = (Control)flyout.Content!;
+            var buttons = content.GetLogicalDescendants().OfType<Button>().ToArray();
+            Assert.Equal(["QuickLook", "QuickWho", "QuickInventory", "QuickHelp", "CompassNorth", "CompassWest", "CompassLook", "CompassEast", "CompassSouth", "CompassUp", "CompassDown"],
+                buttons.Select(b => b.Name ?? "").ToArray());
+            var sent = 1;
+            foreach (var (name, command) in new[] { ("QuickWho", "who"), ("QuickInventory", "inventory"), ("CompassNorth", "north"), ("CompassUp", "up") })
+            {
+                flyout.ShowAt(commands);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(flyout.IsOpen);
+                var button = buttons.Single(b => b.Name == name);
+                Assert.True(button.IsEnabled);
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(flyout.IsOpen); // A sent command closes the flyout.
+                sent++;
+                await WaitFor(() => window.Controller.CommandsSent == sent);
+                Assert.Equal(command + "\r\n", await ReadSent(server, timeout.Token));
+            }
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ComposerCommandButtonsAreDisabledWhileDisconnectedOrPrivate()
+    {
+        var window = CreateWindow();
+        try
+        {
+            await window.Sessions.OpenAsync();
+            Dispatcher.UIThread.RunJobs();
+            var look = Find<Button>(window, "LookButton");
+            var commands = Find<Button>(window, "CommandsButton");
+            var quick = ((Control)((Flyout)commands.Flyout!).Content!).GetLogicalDescendants().OfType<Button>().ToArray();
+            Assert.True(look.IsEnabled);
+            Assert.True(commands.IsEnabled);
+            Assert.All(quick, button => Assert.True(button.IsEnabled));
+            window.Controller.SetManualPrivate(true);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(look.IsEnabled);
+            Assert.False(commands.IsEnabled);
+            Assert.All(quick, button => Assert.False(button.IsEnabled));
+            window.Controller.SetManualPrivate(false);
+            await window.Controller.DisconnectAsync();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(window.Controller.IsConnected);
+            Assert.False(look.IsEnabled);
+            Assert.False(commands.IsEnabled);
+            Assert.All(quick, button => Assert.False(button.IsEnabled));
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    private static async Task<string> ReadSent(TcpClient server, CancellationToken token)
+    {
+        var buffer = new byte[64];
+        var count = await server.GetStream().ReadAsync(buffer, token);
+        return System.Text.Encoding.UTF8.GetString(buffer, 0, count);
     }
 
     [AvaloniaFact]
@@ -503,11 +592,10 @@ public sealed class WorkspaceTests
             await window.Sessions.OpenAsync();
             MenuCommand(window, "View", "Workspace").Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(window.IsPanelVisible(true));
-            Assert.True(window.IsPanelVisible(false));
+            Assert.False(window.IsPanelVisible());
             MenuCommand(window, "View", "Workspace").Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(window.IsPanelVisible(true));
+            Assert.True(window.IsPanelVisible());
             Assert.True(window.Controller.IsConnected);
             MenuCommand(window, "View", "Show Toolbar").Execute(null);
             Assert.False(window.ToolbarVisible);
@@ -617,7 +705,7 @@ public sealed class WorkspaceTests
         try
         {
             await window.Controller.StartAsync();
-            window.Workspace.FloatDockable(window.Workspace.CommandsTool!);
+            window.Workspace.FloatDockable(window.Workspace.WorldsTool!);
             Dispatcher.UIThread.RunJobs();
             Assert.NotEmpty(window.Workspace.HostWindows!);
             Assert.True(window.Controller.IsConnected);
@@ -640,7 +728,7 @@ public sealed class WorkspaceTests
             await window.Controller.StartAsync();
             var closeButtons = window.GetVisualDescendants().OfType<Button>()
                 .Where(b => b.Name == "PART_CloseButton" && b.IsEffectivelyVisible).ToArray();
-            Assert.Equal(3, closeButtons.Length);
+            Assert.Equal(2, closeButtons.Length);
             for (var i = 0; i < closeButtons.Length; i++)
             {
                 // Closing a nested tool dock can recreate the remaining panel headers.
@@ -651,12 +739,11 @@ public sealed class WorkspaceTests
                 Dispatcher.UIThread.RunJobs();
             }
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(window.GetVisualDescendants(), c => c is WorldLibraryView or CommandPanelView or MapView);
+            Assert.DoesNotContain(window.GetVisualDescendants(), c => c is WorldLibraryView or MapView);
             Assert.True(window.Controller.IsConnected);
             MenuCommand(window, "View", "Restore Panels").Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Single(window.GetVisualDescendants().OfType<WorldLibraryView>());
-            Assert.Single(window.GetVisualDescendants().OfType<CommandPanelView>());
             Assert.Single(window.GetVisualDescendants().OfType<MapView>());
             Assert.True(await window.Controller.SendAsync("north"));
             Assert.Contains("The Old Market", window.Controller.Terminal.PlainText);
