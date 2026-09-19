@@ -1036,6 +1036,24 @@ Die Offline-Demo findest du unter Datei.</value>
   <data name="ThemePaper" xml:space="preserve">
     <value>Papier</value>
   </data>
+  <data name="ThemeMidnight" xml:space="preserve">
+    <value>Mitternacht</value>
+  </data>
+  <data name="ThemeSlate" xml:space="preserve">
+    <value>Schiefer</value>
+  </data>
+  <data name="ThemeRose" xml:space="preserve">
+    <value>Rose</value>
+  </data>
+  <data name="ThemeParchment" xml:space="preserve">
+    <value>Pergament</value>
+  </data>
+  <data name="ThemeDaylight" xml:space="preserve">
+    <value>Tageslicht</value>
+  </data>
+  <data name="ThemeLinen" xml:space="preserve">
+    <value>Leinen</value>
+  </data>
   <data name="KeychainName" xml:space="preserve">
     <value>macOS-Schlüsselbund</value>
   </data>

@@ -1036,6 +1036,24 @@ La demo sin conexión está en Archivo.</value>
   <data name="ThemePaper" xml:space="preserve">
     <value>Papel</value>
   </data>
+  <data name="ThemeMidnight" xml:space="preserve">
+    <value>Medianoche</value>
+  </data>
+  <data name="ThemeSlate" xml:space="preserve">
+    <value>Pizarra</value>
+  </data>
+  <data name="ThemeRose" xml:space="preserve">
+    <value>Rosa</value>
+  </data>
+  <data name="ThemeParchment" xml:space="preserve">
+    <value>Pergamino</value>
+  </data>
+  <data name="ThemeDaylight" xml:space="preserve">
+    <value>Luz del día</value>
+  </data>
+  <data name="ThemeLinen" xml:space="preserve">
+    <value>Lino</value>
+  </data>
   <data name="KeychainName" xml:space="preserve">
     <value>Llavero de macOS</value>
   </data>

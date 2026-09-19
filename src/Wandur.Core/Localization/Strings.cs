@@ -347,6 +347,12 @@ public static class Strings
     public static string ThemeMoonlight => Get(nameof(ThemeMoonlight));
     public static string ThemeForest => Get(nameof(ThemeForest));
     public static string ThemePaper => Get(nameof(ThemePaper));
+    public static string ThemeMidnight => Get(nameof(ThemeMidnight));
+    public static string ThemeSlate => Get(nameof(ThemeSlate));
+    public static string ThemeRose => Get(nameof(ThemeRose));
+    public static string ThemeParchment => Get(nameof(ThemeParchment));
+    public static string ThemeDaylight => Get(nameof(ThemeDaylight));
+    public static string ThemeLinen => Get(nameof(ThemeLinen));
     public static string KeychainName => Get(nameof(KeychainName));
     public static string WindowsVaultName => Get(nameof(WindowsVaultName));
     public static string LinuxVaultName => Get(nameof(LinuxVaultName));

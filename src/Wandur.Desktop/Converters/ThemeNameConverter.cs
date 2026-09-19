@@ -1,14 +1,12 @@
 using System.Globalization;
 using Avalonia.Data.Converters;
-using L = Wandur.Core.Localization.Strings;
+using Wandur.Core.Settings;
 
 namespace Wandur.Desktop.Converters;
 
 public sealed class ThemeNameConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => (value as string) switch
-    {
-        "Ember" => L.ThemeEmber, "Moonlight" => L.ThemeMoonlight, "Forest" => L.ThemeForest, "Paper" => L.ThemePaper, _ => value
-    };
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is string name ? UserTheme.DisplayName(name) : value;
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
 }

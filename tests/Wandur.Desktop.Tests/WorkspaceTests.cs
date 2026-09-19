@@ -82,10 +82,11 @@ public sealed class WorkspaceTests
             window.Show(); Dispatcher.UIThread.RunJobs();
             var terminal = Find<Iciclecreek.Terminal.TerminalView>(window, "Transcript").Terminal;
             var palette = terminal.Colors.Take();
+            var preset = UserTheme.FromPreset(controller.Settings.Theme).AnsiColors;
             var gray = terminal.Buffer.GetLine(0)![0];
-            Assert.Equal(Avalonia.Media.Color.Parse("#808080"), Iciclecreek.Avalonia.Terminal.BufferCellExtensions.GetForegroundColor(gray, palette));
+            Assert.Equal(Avalonia.Media.Color.Parse(preset[8]), Iciclecreek.Avalonia.Terminal.BufferCellExtensions.GetForegroundColor(gray, palette));
             var background = Enumerable.Range(0, terminal.Buffer.Lines.Length).Select(i => terminal.Buffer.GetLine(i)!).Single(l => l.TranslateToString(true).StartsWith("Black text"))[0];
-            Assert.Equal(Avalonia.Media.Color.Parse("#D4D4D4"), Iciclecreek.Avalonia.Terminal.BufferCellExtensions.GetBackgroundColor(background, palette));
+            Assert.Equal(Avalonia.Media.Color.Parse(preset[7]), Iciclecreek.Avalonia.Terminal.BufferCellExtensions.GetBackgroundColor(background, palette));
             Capture(window, "ansi-bright-colors.png");
         }
         finally { window.Close(); if (Directory.Exists(directory)) Directory.Delete(directory, true); }

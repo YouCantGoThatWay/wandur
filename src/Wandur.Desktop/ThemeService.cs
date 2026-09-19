@@ -26,9 +26,10 @@ public static class ThemeService
         settings.Validate();
         app.Resources["ControlCornerRadius"] = new CornerRadius(worldTheme?.CornerRadius ?? 8);
         app.Resources["CardCornerRadius"] = new CornerRadius(worldTheme?.CornerRadius ?? 12);
-        bool light = worldTheme is null ? settings.Theme == "Paper" : worldTheme.Variant == "light";
+        var presetTheme = UserTheme.FromPreset(settings.Theme);
+        bool light = worldTheme is null ? presetTheme.IsLight : worldTheme.Variant == "light";
         app.RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark;
-        var preset = UserTheme.FromPreset(settings.Theme).Colors;
+        var preset = presetTheme.Colors;
         var (shell, panel, terminal, text, muted, accent, line) =
             (preset["Shell"], preset["Panel"], preset["Terminal"], preset["Text"], preset["Muted"], preset["Accent"], preset["Border"]);
         if (worldTheme is { Colors: var colors })
@@ -46,17 +47,20 @@ public static class ThemeService
                 };
         }
         void Set(string key, string color) => app.Resources[key] = Brush.Parse(color);
+        // Presets carry their own sixteen colors; personal themes override them per index.
         for (var i = 0; i < Wandur.Core.Terminal.AnsiPalette.Defaults.Count; i++)
-            Set($"AnsiColor{i}Brush", ansiTheme?.AnsiColors.GetValueOrDefault(i) ?? Wandur.Core.Terminal.AnsiPalette.Defaults[i]);
+            Set($"AnsiColor{i}Brush", ansiTheme?.AnsiColors.GetValueOrDefault(i)
+                ?? (ansiTheme is null ? presetTheme.AnsiColors.GetValueOrDefault(i) : null)
+                ?? Wandur.Core.Terminal.AnsiPalette.Defaults[i]);
         Set("ShellBrush", shell); Set("PanelBrush", panel); Set("TextBrush", text);
         Set("TerminalBrush", settings.Background ?? terminal);
         Set("TerminalTextBrush", settings.Foreground ?? worldTheme?.Colors.TerminalText ?? text);
-        Set("MapCanvasBrush", worldTheme?.Colors.Terminal ?? "#10191F");
-        Set("MapGridBrush", worldTheme?.Colors.Border ?? "#1D2B34");
+        Set("MapCanvasBrush", worldTheme?.Colors.Terminal ?? preset["MapBackground"]);
+        Set("MapGridBrush", worldTheme?.Colors.Border ?? preset["MapGrid"]);
         Set("MutedBrush", muted); Set("AccentBrush", accent); Set("LineBrush", line);
         Set("SecondaryAccentBrush", worldTheme?.Colors.AccentSecondary ?? accent);
-        Set("EditorBackgroundBrush", worldTheme?.Colors.Terminal ?? (light ? "#FFFFFF" : "#161B22"));
-        Set("EditorTextBrush", worldTheme?.Colors.Text ?? (light ? "#24292F" : "#E6EDF3"));
+        Set("EditorBackgroundBrush", worldTheme?.Colors.Terminal ?? preset["EditorBackground"]);
+        Set("EditorTextBrush", worldTheme?.Colors.Text ?? preset["EditorText"]);
         Set("EditorLineNumbersBrush", worldTheme?.Colors.Muted ?? (light ? "#57606A" : "#8B949E"));
         var surface = Color.Parse(personal?.Colors["Button"] ?? panel);
         var highlight = Color.Parse(worldTheme?.Colors.AccentSecondary ?? accent);

@@ -1036,6 +1036,24 @@ The offline demo is available from File.</value>
   <data name="ThemePaper" xml:space="preserve">
     <value>Paper</value>
   </data>
+  <data name="ThemeMidnight" xml:space="preserve">
+    <value>Midnight</value>
+  </data>
+  <data name="ThemeSlate" xml:space="preserve">
+    <value>Slate</value>
+  </data>
+  <data name="ThemeRose" xml:space="preserve">
+    <value>Rose</value>
+  </data>
+  <data name="ThemeParchment" xml:space="preserve">
+    <value>Parchment</value>
+  </data>
+  <data name="ThemeDaylight" xml:space="preserve">
+    <value>Daylight</value>
+  </data>
+  <data name="ThemeLinen" xml:space="preserve">
+    <value>Linen</value>
+  </data>
   <data name="KeychainName" xml:space="preserve">
     <value>macOS Keychain</value>
   </data>

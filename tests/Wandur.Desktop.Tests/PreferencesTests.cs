@@ -181,6 +181,34 @@ public sealed class PreferencesTests
         Assert.False(store.Settings.UseWorldThemes);
     }
     [AvaloniaFact]
+    public void EveryPresetIsOfferedAndCanBeDuplicatedWithItsOwnTerminalPalette()
+    {
+        var store = new Store();
+        using var model = new PreferencesViewModel(store, ThemeService.Apply);
+        Assert.Equal(UserTheme.PresetNames, model.Themes.Select(t => t.Id).Take(UserTheme.PresetNames.Count).ToList());
+        Assert.All(UserTheme.PresetNames, name => Assert.Equal(UserTheme.DisplayName(name), model.Themes.Single(t => t.Id == name).Name));
+        foreach (var name in UserTheme.PresetNames)
+        {
+            var preset = UserTheme.FromPreset(name);
+            model.Theme = name;
+            Assert.False(model.IsCustom);
+            Assert.Equal(preset.IsLight, model.IsLight);
+            Assert.Equal(Enumerable.Range(0, 16).Select(i => preset.AnsiColors[i]), model.AnsiColors.Select(c => c.Hex));
+            model.DuplicateThemeCommand.Execute(null);
+            Assert.True(model.IsCustom);
+            Assert.Equal(preset.IsLight, model.IsLight);
+            Assert.Equal(Enumerable.Range(0, 16).Select(i => preset.AnsiColors[i]), model.AnsiColors.Select(c => c.Hex));
+            model.AnsiColors[1].Hex = "#7F1D1D";
+            model.Colors.Single(c => c.Key == "Accent").Hex = "#7F1D1D";
+        }
+        model.SaveCommand.Execute(null);
+        Assert.Empty(model.Error);
+        Assert.Equal(UserTheme.PresetNames.Count, store.Settings.CustomThemes.Count);
+        Assert.All(store.Settings.CustomThemes, theme => { theme.Validate(); Assert.Equal("#7F1D1D", theme.AnsiColors[1]); });
+        ThemeService.Apply(new());
+    }
+
+    [AvaloniaFact]
     public void PresetCopiesPreserveMapAndEditorColors()
     {
         foreach (var preset in UserTheme.PresetNames)

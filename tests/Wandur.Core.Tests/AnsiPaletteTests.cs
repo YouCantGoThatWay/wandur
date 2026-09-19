@@ -20,7 +20,8 @@ public sealed class AnsiPaletteTests
     [Fact]
     public void OldThemesDefaultToAnsiPaletteAndOverridesValidateAndRoundTrip()
     {
-        var theme = UserTheme.FromPreset("Ember") with { Name = "Custom" };
+        // Presets ship a full palette; a theme saved before that had no overrides at all.
+        var theme = UserTheme.FromPreset("Ember") with { Name = "Custom", AnsiColors = new() };
         var json = JsonSerializer.Serialize(theme);
         var old = JsonSerializer.Deserialize<UserTheme>(json.Replace("\"AnsiColors\":{},", ""))!;
         old.Validate(); Assert.Empty(old.AnsiColors);

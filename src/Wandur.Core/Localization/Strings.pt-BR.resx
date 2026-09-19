@@ -1036,6 +1036,24 @@ A demonstração offline está disponível em Arquivo.</value>
   <data name="ThemePaper" xml:space="preserve">
     <value>Papel</value>
   </data>
+  <data name="ThemeMidnight" xml:space="preserve">
+    <value>Meia-noite</value>
+  </data>
+  <data name="ThemeSlate" xml:space="preserve">
+    <value>Ardósia</value>
+  </data>
+  <data name="ThemeRose" xml:space="preserve">
+    <value>Rosa</value>
+  </data>
+  <data name="ThemeParchment" xml:space="preserve">
+    <value>Pergaminho</value>
+  </data>
+  <data name="ThemeDaylight" xml:space="preserve">
+    <value>Luz do dia</value>
+  </data>
+  <data name="ThemeLinen" xml:space="preserve">
+    <value>Linho</value>
+  </data>
   <data name="KeychainName" xml:space="preserve">
     <value>Chaves do macOS</value>
   </data>

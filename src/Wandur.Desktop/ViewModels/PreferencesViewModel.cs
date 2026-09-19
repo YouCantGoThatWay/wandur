@@ -59,8 +59,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
         LoadPalette();
         UiLanguage.Changed += RefreshLanguage;
     }
-    private static string PresetName(string id) => id switch
-    { "Ember" => L.ThemeEmber, "Moonlight" => L.ThemeMoonlight, "Forest" => L.ThemeForest, "Paper" => L.ThemePaper, _ => id };
+    private static string PresetName(string id) => UserTheme.DisplayName(id);
     private ClientSettings Values() => _store.Settings with
     {
         Theme = Theme, FontSize = PreviewFontSize, Foreground = string.IsNullOrWhiteSpace(Foreground) ? null : Foreground.Trim(),
@@ -75,8 +74,10 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
         Colors.Clear();
         foreach (var key in UserTheme.ColorKeys) Colors.Add(new(key, palette.Colors[key], EditPalette));
         AnsiColors.Clear();
+        // Preset rows show the preset's own palette; drafts reset to the shipped defaults.
         for (var i = 0; i < AnsiPalette.Defaults.Count; i++)
-            AnsiColors.Add(new("Ansi" + i, palette.AnsiColors.GetValueOrDefault(i) ?? AnsiPalette.Defaults[i], EditPalette, AnsiPalette.Defaults[i]));
+            AnsiColors.Add(new("Ansi" + i, palette.AnsiColors.GetValueOrDefault(i) ?? AnsiPalette.Defaults[i], EditPalette,
+                IsCustom ? AnsiPalette.Defaults[i] : palette.AnsiColors.GetValueOrDefault(i) ?? AnsiPalette.Defaults[i]));
         _loading = false;
         OnPropertyChanged(nameof(IsCustom));
         DeleteThemeCommand.NotifyCanExecuteChanged();
