@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Wandur.Core.Settings;
@@ -88,7 +89,7 @@ public sealed class ProtocolDiagnosticsViewTests
             model.Append(DateTimeOffset.Now, 201, Encoding.UTF8.GetBytes("Char.Login.Default {\"type\":[\"password-credentials\"]}"));
             model.Append(DateTimeOffset.Now, 201, Encoding.UTF8.GetBytes("Char.Login.Result {\"success\":false,\"message\":\"Account not found\",\"token\":\"fixture-secret\"}"));
             Dispatcher.UIThread.RunJobs();
-            var detail = view.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "ProtocolMessageDetail");
+            var detail = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolMessageDetail");
             Assert.Contains("Account not found", detail.Text);
             Assert.Contains("redacted", detail.Text);
             Assert.DoesNotContain("fixture-secret", detail.Text);
@@ -99,6 +100,68 @@ public sealed class ProtocolDiagnosticsViewTests
             if (!string.IsNullOrEmpty(folder)) { Directory.CreateDirectory(folder); frame.Save(Path.Combine(folder, "login-diagnostics.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void SelectingAGmcpEntryShowsItsBodyInTheJsonHighlightedEditor()
+    {
+        var model = new ProtocolDiagnosticsViewModel();
+        var view = new ProtocolDiagnosticsView(model);
+        var window = new Window { Content = view, Width = 900, Height = 620 };
+        try
+        {
+            window.Show();
+            model.Append(DateTimeOffset.Now, 201, Encoding.UTF8.GetBytes("Room.Info {\"name\":\"The Cockpit\",\"exits\":[\"south\"]}"));
+            Dispatcher.UIThread.RunJobs();
+            var editor = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolMessageDetail");
+            Assert.Equal(model.SelectedEntry!.Content!.Body, editor.Document.Text);
+            Assert.Equal("Json", editor.SyntaxHighlighting.Name);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void AMalformedPayloadStillShowsItsTextInTheBodyEditor()
+    {
+        var model = new ProtocolDiagnosticsViewModel();
+        var view = new ProtocolDiagnosticsView(model);
+        var window = new Window { Content = view, Width = 900, Height = 620 };
+        try
+        {
+            window.Show();
+            // Not a valid MSDP octet stream: RoomProtocolDecoder.ParseMsdp returns null, so the formatter
+            // falls back to a hex dump of the raw payload and marks the entry malformed.
+            model.Append(DateTimeOffset.Now, 69, Encoding.UTF8.GetBytes("not-msdp-data"));
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(model.SelectedEntry!.Content!.Malformed);
+            var editor = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolMessageDetail");
+            Assert.Contains(model.SelectedEntry.Content.Body, editor.Document.Text);
+            Assert.Equal("Json", editor.SyntaxHighlighting.Name);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void SwitchingFromEmberToPaperRecolorsTheBodyEditor()
+    {
+        var model = new ProtocolDiagnosticsViewModel();
+        var view = new ProtocolDiagnosticsView(model);
+        var window = new Window { Content = view, Width = 900, Height = 620 };
+        try
+        {
+            ThemeService.Apply(new ClientSettings { Theme = "Ember" });
+            window.Show();
+            model.Append(DateTimeOffset.Now, 201, Encoding.UTF8.GetBytes("Char.Vitals {\"hp\":42}"));
+            Dispatcher.UIThread.RunJobs();
+            var editor = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolMessageDetail");
+            var darkText = UserTheme.FromPreset("Ember").Colors["EditorText"];
+            var lightText = UserTheme.FromPreset("Paper").Colors["EditorText"];
+            Assert.Equal(Color.Parse(darkText), Assert.IsAssignableFrom<ISolidColorBrush>(editor.Foreground).Color);
+            ThemeService.Apply(new ClientSettings { Theme = "Paper" });
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Equal(Color.Parse(lightText), Assert.IsAssignableFrom<ISolidColorBrush>(editor.Foreground).Color);
+        }
+        finally { window.Close(); ThemeService.Apply(new ClientSettings()); }
     }
 
     [Fact]
