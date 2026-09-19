@@ -21,6 +21,12 @@ public sealed class TerminalView : UserControl
     private readonly List<Button> _liveButtons = [];
     private readonly Button _latest;
     private readonly Wandur.Desktop.Terminal.TranscriptTailPane _tail;
+    private readonly GridSplitter _divider = new() { Name = "TranscriptDivider", ResizeDirection = GridResizeDirection.Rows, ResizeBehavior = GridResizeBehavior.PreviousAndNext, Height = 4, MinHeight = 0, HorizontalAlignment = HorizontalAlignment.Stretch, IsVisible = false, Cursor = new Cursor(StandardCursorType.SizeNorthSouth) };
+    private readonly RowDefinition _transcriptRow = new(GridLength.Star) { MinHeight = 48 };
+    private readonly RowDefinition _liveRow = new(new GridLength(0));
+    private bool _splitOpen;
+    private bool _movingSplit;
+    private int? _dragTop;
     private readonly Border _welcome;
     private readonly ResourceBarsView _resources = new();
     private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
@@ -38,10 +44,15 @@ public sealed class TerminalView : UserControl
         _latest.Margin = new Thickness(16);
         _latest.IsVisible = false;
         _tail = new Wandur.Desktop.Terminal.TranscriptTailPane(controller.Terminal, () => controller.Display.FollowTail());
-        _tail.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.LiveTailWhileScrolledUp)));
-        _tail.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.LiveTailWhileScrolledUp)));
-        // The jump button steps above the pane rather than covering the lines it is there to show.
-        _tail.SizeChanged += (_, _) => PlaceLatest();
+        _tail.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.LiveViewWhileScrolledUp)));
+        _tail.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.LiveViewWhileScrolledUp)));
+        _divider.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        _divider.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.LiveViewWhileScrolledUp)));
+        // Dragging resizes the transcript under the reader; the line they were on is put back after every step.
+        void KeepPlace() { if (_dragTop is { } line) controller.Display.ViewportTop = line; }
+        _divider.DragStarted += (_, _) => _dragTop = controller.Display.IsFollowingTail ? null : controller.Display.ViewportTop;
+        _divider.DragDelta += (_, _) => KeepPlace();
+        _divider.DragCompleted += (_, _) => { KeepPlace(); StoreShare(); _dragTop = null; };
         _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
         _send.Name = "SendCommand";
         _send.Height = 36;
@@ -75,7 +86,12 @@ public sealed class TerminalView : UserControl
         var display = controller.Display.View;
         if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
         display.Margin = new Thickness(8, 4, 4, 4);
-        var output = new Grid { Children = { display, _tail, _welcome, _latest } };
+        var output = new Grid
+        {
+            RowDefinitions = new RowDefinitions { _transcriptRow, new RowDefinition(GridLength.Auto), _liveRow },
+            Children = { display, _welcome, _latest, _divider, _tail }
+        };
+        Grid.SetRow(_divider, 1); Grid.SetRow(_tail, 2);
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
         var actions = new StackPanel { Name = "ComposerActions", Orientation = Orientation.Horizontal, Spacing = 4, Children = { _look, _quickCommands } };
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 10 };
@@ -224,17 +240,53 @@ public sealed class TerminalView : UserControl
     }
     private void RefreshScroll()
     {
+        // A layout change of our own is not news to act on twice.
+        if (_movingSplit) return;
         // Scrolled away from the tail is the one condition, and it can only hold once there is scrollback
-        // to read: the pane and the jump button appear and leave together.
+        // to read: the split and the jump button appear and leave together.
         var scrolledBack = !_controller.Display.IsFollowingTail;
         _latest.IsVisible = scrolledBack;
-        _tail.Lines = _controller.Settings.ScrollTailLines;
         _tail.TextSize = _controller.Settings.FontSize;
-        _tail.IsVisible = scrolledBack && _tail.Lines > 0;
-        PlaceLatest();
+        var share = _controller.Settings.ScrollTailShare;
+        ShowSplit(scrolledBack && share is >= 0.1 and <= 0.6, share);
     }
 
-    private void PlaceLatest() => _latest.Margin = new Thickness(16, 16, 16, _tail.IsVisible ? 16 + _tail.Bounds.Height : 16);
+    /// <summary>
+    /// Opening, dragging and closing the divider all resize the transcript above it, and a shorter viewport
+    /// reflows lines into the scrollback under the reader. The row they were reading is read before the rows
+    /// move and written back once the layout pass has run, so the split arrives without moving their place.
+    /// </summary>
+    private void ShowSplit(bool open, double share)
+    {
+        if (open == _splitOpen && (!open || Math.Abs(_liveRow.Height.Value - share) < 0.0005)) return;
+        _splitOpen = open;
+        var scrolledBack = !_controller.Display.IsFollowingTail;
+        var top = _controller.Display.ViewportTop;
+        void Restore() { if (scrolledBack) _controller.Display.ViewportTop = top; else _controller.Display.FollowTail(); }
+        void AfterLayout(object? sender, EventArgs e) { LayoutUpdated -= AfterLayout; Restore(); }
+        _movingSplit = true;
+        try
+        {
+            _divider.IsVisible = open;
+            _tail.IsVisible = open;
+            _transcriptRow.Height = new GridLength(open ? 1 - share : 1, GridUnitType.Star);
+            _liveRow.Height = open ? new GridLength(share, GridUnitType.Star) : new GridLength(0);
+            Restore();
+        }
+        finally { _movingSplit = false; }
+        LayoutUpdated += AfterLayout;
+    }
+
+    /// <summary>A dragged divider is a preference: the share it settles on is what the next session opens with.</summary>
+    private void StoreShare()
+    {
+        var above = _transcriptRow.ActualHeight;
+        var below = _liveRow.ActualHeight;
+        if (below <= 0 || above + below <= 0) return;
+        var share = Math.Clamp(Math.Round(below / (above + below), 2), 0.1, 0.6);
+        if (Math.Abs(share - _controller.Settings.ScrollTailShare) < 0.005) return;
+        _controller.SaveSettings(_controller.Settings with { ScrollTailShare = share });
+    }
 
     private async Task Send()
     {

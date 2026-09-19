@@ -530,14 +530,14 @@ Exits: north · east
   <data name="ColorScheme" xml:space="preserve">
     <value>Color scheme</value>
   </data>
-  <data name="LiveTailWhileScrolledUp" xml:space="preserve">
-    <value>Live tail while scrolled up</value>
+  <data name="LiveViewWhileScrolledUp" xml:space="preserve">
+    <value>Live view while scrolled up</value>
   </data>
-  <data name="LiveTailKeepsTheNewestLinesInView" xml:space="preserve">
-    <value>A small pane keeps the newest lines in view while you read back. Set 0 to turn it off.</value>
+  <data name="ShareOfTheWindowThatKeepsScrolling" xml:space="preserve">
+    <value>Share of the window that keeps scrolling; 0 turns it off.</value>
   </data>
-  <data name="LiveTailLinesMustBeBetween0And30" xml:space="preserve">
-    <value>Live tail lines must be between 0 and 30.</value>
+  <data name="LiveViewShareMustBeBetween10And60" xml:space="preserve">
+    <value>Live view share must be between 10 and 60 percent.</value>
   </data>
   <data name="SessionTextSize" xml:space="preserve">
     <value>Session text size</value>

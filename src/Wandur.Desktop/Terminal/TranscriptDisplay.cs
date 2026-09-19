@@ -77,6 +77,20 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         }
     }
     public bool IsFollowingTail => _surface.Terminal.Buffer.IsAtBottom;
+    public int ViewportTop
+    {
+        get => _surface.ViewportY;
+        set
+        {
+            if (_disposed) return;
+            var wanted = Math.Clamp(value, 0, _surface.Terminal.Buffer.YBase);
+            if (_surface.ViewportY == wanted) return;
+            _surface.ViewportY = wanted;
+            UpdateScroll();
+            _surface.InvalidateVisual();
+        }
+    }
+    public string TopVisibleText => _surface.Terminal.Buffer.GetLine(_surface.ViewportY)?.TranslateToString(true).TrimEnd() ?? "";
     public event Action? ViewportChanged;
     public void FollowTail() { _surface.ViewportY = _surface.Terminal.Buffer.YBase; UpdateScroll(); }
     public void ApplySettings(ClientSettings settings)

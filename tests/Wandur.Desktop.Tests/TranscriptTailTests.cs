@@ -15,7 +15,7 @@ using Surface = Iciclecreek.Terminal.TerminalView;
 
 namespace Wandur.Desktop.Tests;
 
-/// <summary>The split screen: while the transcript is scrolled back, the newest lines keep running below it.</summary>
+/// <summary>The split screen: while the transcript is scrolled back, the newest lines keep running below a divider.</summary>
 public sealed class TranscriptTailTests
 {
     private static WorkspaceController NewController() => new(
@@ -23,6 +23,11 @@ public sealed class TranscriptTailTests
         new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
 
     private static TranscriptTailPane Tail(Window window) => Assert.Single(window.GetVisualDescendants().OfType<TranscriptTailPane>());
+    private static GridSplitter Divider(Window window) => Assert.Single(window.GetVisualDescendants().OfType<GridSplitter>(), s => s.Name == "TranscriptDivider");
+    private static Grid Output(Window window) => (Grid)Tail(window).Parent!;
+    private static double TranscriptHeight(Window window) => Output(window).RowDefinitions[0].ActualHeight;
+    private static double LiveHeight(Window window) => Output(window).RowDefinitions[2].ActualHeight;
+    private static double Share(Window window) => LiveHeight(window) / (TranscriptHeight(window) + LiveHeight(window));
 
     private static void Write(WorkspaceController controller, int first, int count)
     {
@@ -31,14 +36,14 @@ public sealed class TranscriptTailTests
     }
 
     /// <summary>Settle the view the way a session does, so the welcome panel gives way to the transcript.</summary>
-    private static void Settle(WorkspaceController controller, int lines = 8)
+    private static void Settle(WorkspaceController controller, double share = 0.25)
     {
-        controller.ApplySettings(controller.Settings with { ScrollTailLines = lines });
+        controller.ApplySettings(controller.Settings with { ScrollTailShare = share });
         Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]
-    public async Task ScrollingBackShowsTheNewestLinesAndReturningToTheBottomHidesThem()
+    public async Task ScrollingBackSplitsTheOutputAndReturningToTheBottomCollapsesIt()
     {
         await using var controller = NewController();
         var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
@@ -50,25 +55,38 @@ public sealed class TranscriptTailTests
             Write(controller, 0, 200);
             Settle(controller);
             Assert.False(tail.IsVisible);
+            Assert.False(Divider(window).IsVisible);
+            Assert.Equal(0, LiveHeight(window));
+            var whole = TranscriptHeight(window);
 
             surface.ViewportY = 5;
             Dispatcher.UIThread.RunJobs();
             Assert.True(tail.IsVisible);
-            Assert.Equal(8, tail.Rows.Count);
-            Assert.Equal("Line 192", tail.Rows[0]);
-            Assert.Equal("Line 199", tail.Rows[^1]);
-            Assert.True(tail.Bounds.Height > 0, "The pane is as tall as the lines it shows.");
-            Capture(window, "transcript-tail.png");
+            Assert.True(Divider(window).IsVisible);
+            // A quarter of the output area, the divider aside, is the share the reader starts with.
+            Assert.InRange(Share(window), 0.24, 0.26);
+            Assert.InRange(LiveHeight(window), 0.25 * (whole - 4) - 3, 0.25 * (whole - 4) + 3);
+            Assert.InRange(TranscriptHeight(window), 0.75 * (whole - 4) - 3, 0.75 * (whole - 4) + 3);
+
+            var rows = tail.Rows;
+            Assert.True(rows.Count >= 3, $"the live view fills its row, and it showed {rows.Count} lines");
+            Assert.Equal("Line 199", rows[^1]);
+            Assert.Equal($"Line {200 - rows.Count}", rows[0]);
+            Assert.True(tail.Child!.Bounds.Height <= tail.Bounds.Height, "the lines it shows are the lines that fit");
+            Capture(window, "tail-split.png");
 
             controller.Display.FollowTail();
             Dispatcher.UIThread.RunJobs();
             Assert.False(tail.IsVisible);
+            Assert.False(Divider(window).IsVisible);
+            Assert.Equal(0, LiveHeight(window));
+            Assert.Equal(whole, TranscriptHeight(window), 1);
         }
         finally { window.Close(); }
     }
 
     [AvaloniaFact]
-    public async Task NewOutputReachesTheTailWithoutMovingTheTranscript()
+    public async Task NewOutputReachesTheLiveViewWithoutMovingTheTranscript()
     {
         await using var controller = NewController();
         var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
@@ -82,18 +100,83 @@ public sealed class TranscriptTailTests
             surface.ViewportY = 5;
             Dispatcher.UIThread.RunJobs();
             Assert.True(tail.IsVisible);
+            var top = controller.Display.TopVisibleText;
+            var shown = tail.Rows.Count;
 
             Write(controller, 200, 5);
-            Assert.Equal(5, surface.ViewportY);
             Assert.False(controller.Display.IsFollowingTail);
+            Assert.Equal(top, controller.Display.TopVisibleText);
+            Assert.Equal(shown, tail.Rows.Count);
             Assert.Equal("Line 204", tail.Rows[^1]);
-            Assert.Equal("Line 197", tail.Rows[0]);
+            Assert.Equal($"Line {205 - shown}", tail.Rows[0]);
         }
         finally { window.Close(); }
     }
 
     [AvaloniaFact]
-    public async Task ClickingTheTailReturnsTheTranscriptToTheLatestOutput()
+    public async Task DraggingTheDividerResizesBothRowsAndKeepsTheReadersPlace()
+    {
+        await using var controller = NewController();
+        var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
+        window.Show();
+        try
+        {
+            var surface = Assert.Single(window.GetVisualDescendants().OfType<Surface>());
+            var tail = Tail(window);
+            Write(controller, 0, 200);
+            Settle(controller);
+            surface.ViewportY = 5;
+            Dispatcher.UIThread.RunJobs();
+            var reading = controller.Display.TopVisibleText;
+            Assert.Equal("Line 5", reading);
+            var quarter = LiveHeight(window);
+            var above = TranscriptHeight(window);
+            var shown = tail.Rows.Count;
+
+            // The divider dragged down to four tenths: both rows move, and the reader stays on their line.
+            Settle(controller, 0.4);
+            Assert.InRange(Share(window), 0.39, 0.41);
+            Assert.True(LiveHeight(window) > quarter);
+            Assert.True(TranscriptHeight(window) < above);
+            Assert.True(tail.Rows.Count > shown);
+            Assert.Equal(reading, controller.Display.TopVisibleText);
+
+            // And the transcript keeps it again when the split closes under it.
+            Settle(controller, 0);
+            Assert.False(tail.IsVisible);
+            Assert.Equal(reading, controller.Display.TopVisibleText);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheShareSettingSizesTheSplitAndZeroTurnsItOff()
+    {
+        await using var controller = NewController();
+        var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
+        window.Show();
+        try
+        {
+            var surface = Assert.Single(window.GetVisualDescendants().OfType<Surface>());
+            var tail = Tail(window);
+            Write(controller, 0, 200);
+            Settle(controller, 0);
+            surface.ViewportY = 5;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(tail.IsVisible);
+            Assert.False(Divider(window).IsVisible);
+            Assert.Equal(0, LiveHeight(window));
+
+            Settle(controller, 0.5);
+            Assert.True(tail.IsVisible);
+            Assert.InRange(Share(window), 0.49, 0.51);
+            Assert.Equal("Line 199", tail.Rows[^1]);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ClickingTheLiveViewReturnsTheTranscriptToTheLatestOutput()
     {
         await using var controller = NewController();
         var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
@@ -114,31 +197,7 @@ public sealed class TranscriptTailTests
             Dispatcher.UIThread.RunJobs();
             Assert.True(controller.Display.IsFollowingTail);
             Assert.False(tail.IsVisible);
-        }
-        finally { window.Close(); }
-    }
-
-    [AvaloniaFact]
-    public async Task TheLineCountSettingSizesThePaneAndZeroTurnsItOff()
-    {
-        await using var controller = NewController();
-        var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };
-        window.Show();
-        try
-        {
-            var surface = Assert.Single(window.GetVisualDescendants().OfType<Surface>());
-            var tail = Tail(window);
-            Write(controller, 0, 200);
-            Settle(controller, 0);
-            surface.ViewportY = 5;
-            Dispatcher.UIThread.RunJobs();
-            Assert.False(tail.IsVisible);
-
-            Settle(controller, 4);
-            Assert.True(tail.IsVisible);
-            Assert.Equal(4, tail.Rows.Count);
-            Assert.Equal("Line 196", tail.Rows[0]);
-            Assert.Equal("Line 199", tail.Rows[^1]);
+            Assert.Equal(0, LiveHeight(window));
         }
         finally { window.Close(); }
     }
@@ -171,7 +230,7 @@ public sealed class TranscriptTailTests
     }
 
     [AvaloniaFact]
-    public async Task PrivateInputStaysOutOfTheTailAsItStaysOutOfTheTranscript()
+    public async Task PrivateInputStaysOutOfTheLiveViewAsItStaysOutOfTheTranscript()
     {
         await using var controller = NewController();
         var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) };

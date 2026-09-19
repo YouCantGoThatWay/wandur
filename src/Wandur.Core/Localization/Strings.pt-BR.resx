@@ -530,14 +530,14 @@ Saídas: norte · leste
   <data name="ColorScheme" xml:space="preserve">
     <value>Esquema de cores</value>
   </data>
-  <data name="LiveTailWhileScrolledUp" xml:space="preserve">
+  <data name="LiveViewWhileScrolledUp" xml:space="preserve">
     <value>Painel ao vivo ao rolar para cima</value>
   </data>
-  <data name="LiveTailKeepsTheNewestLinesInView" xml:space="preserve">
-    <value>Um painel pequeno mantém as linhas mais recentes à vista enquanto você relê. Use 0 para desativar.</value>
+  <data name="ShareOfTheWindowThatKeepsScrolling" xml:space="preserve">
+    <value>Parte da janela que continua rolando; 0 desativa.</value>
   </data>
-  <data name="LiveTailLinesMustBeBetween0And30" xml:space="preserve">
-    <value>As linhas do painel ao vivo devem estar entre 0 e 30.</value>
+  <data name="LiveViewShareMustBeBetween10And60" xml:space="preserve">
+    <value>A parte do painel ao vivo deve ficar entre 10 e 60 por cento.</value>
   </data>
   <data name="SessionTextSize" xml:space="preserve">
     <value>Tamanho do texto da sessão</value>

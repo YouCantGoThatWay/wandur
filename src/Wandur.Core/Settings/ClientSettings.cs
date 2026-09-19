@@ -55,8 +55,8 @@ public sealed record ClientSettings
     public string? Background { get; init; }
     public bool LocalEcho { get; init; }
     public bool AllowBlinkingText { get; init; }
-    /// <summary>Lines of live output kept on screen while the transcript is scrolled back; 0 turns the pane off.</summary>
-    public int ScrollTailLines { get; init; } = 8;
+    /// <summary>The share of the output area the live view takes while the transcript is scrolled back; 0 turns the split off.</summary>
+    public double ScrollTailShare { get; init; } = 0.25;
     public bool UseWorldThemes { get; init; } = true;
     public bool ClassifyRoomsLocally { get; init; } = true;
     public double RoomClassificationThreshold { get; init; } = 0.8;
@@ -73,7 +73,7 @@ public sealed record ClientSettings
             throw new ArgumentException(L.ThemeNameUnique);
         if (!UserTheme.PresetNames.Contains(Theme) && !CustomThemes.Any(t => t.Id == Theme)) throw new ArgumentException(L.UnknownColorScheme);
         if (!double.IsFinite(FontSize) || FontSize is < 11 or > 28) throw new ArgumentException(L.TextSizeMustBeBetween11And28);
-        if (ScrollTailLines is < 0 or > 30) throw new ArgumentException(L.LiveTailLinesMustBeBetween0And30);
+        if (ScrollTailShare != 0 && (!double.IsFinite(ScrollTailShare) || ScrollTailShare is < 0.1 or > 0.6)) throw new ArgumentException(L.LiveViewShareMustBeBetween10And60);
         if (!double.IsFinite(RoomClassificationThreshold) || RoomClassificationThreshold is < 0.5 or > 0.99) throw new ArgumentException(L.RoomClassificationThresholdRange);
         foreach (var color in new[] { Foreground, Background })
             if (color is not null && !Regex.IsMatch(color, "^#[0-9a-fA-F]{6}$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
