@@ -118,7 +118,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [MIT](LICENSE). Avalonia,
 ## World directory and illustrations
 
 The world directory is served by a separate, private service (the client reads its
-base URL from `WANDUR_DIRECTORY_URL`, defaulting to a local instance on port 8765). Choose
+base URL from `WANDUR_DIRECTORY_URL`, defaulting to `https://api.wandur.net`). Choose
 **Find a MUD** in the Workspace sidebar, the toolbar magnifier, or **File → Browse Worlds…**.
 All entry points open the same center page. It retains the search, filters,
 selected listing, and scroll positions while live sessions continue in the background.

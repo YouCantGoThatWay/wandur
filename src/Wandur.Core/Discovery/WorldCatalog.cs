@@ -30,7 +30,7 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
     {
         _cache = cache;
         _time = timeProvider ?? TimeProvider.System;
-        BaseUri = baseUri ?? new Uri((Environment.GetEnvironmentVariable("WANDUR_DIRECTORY_URL") ?? "http://127.0.0.1:8765").TrimEnd('/') + "/");
+        BaseUri = baseUri ?? new Uri((Environment.GetEnvironmentVariable("WANDUR_DIRECTORY_URL") ?? "https://api.wandur.net").TrimEnd('/') + "/");
         _http = http ?? new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
         _ownsHttp = http is null;
         try
