@@ -16,6 +16,28 @@ namespace Wandur.Desktop.Tests;
 public sealed class MapViewTests
 {
     [AvaloniaFact]
+    public void ZoomSliderChangesTheMapScaleAndReflectsProgrammaticZoom()
+    {
+        var model = new MapViewModel(new RoomMapTracker());
+        var view = new MapView(model);
+        var window = new Window { Content = view, Width = 500, Height = 600 };
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            var slider = view.GetVisualDescendants().OfType<Slider>().Single(s => s.Name == "MapZoomSlider");
+            Assert.Equal(0.05, slider.Minimum); Assert.Equal(4, slider.Maximum);
+            var before = model.CreateViewport(400, 400).Scale;
+            slider.Value = 0.5; Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0.5, model.Zoom);
+            Assert.Equal(0.5, slider.Value);
+            Assert.NotEqual(before, model.CreateViewport(400, 400).Scale);
+            model.ZoomAt(1.5, new Point(10, 10)); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1.5, slider.Value);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void ZoomButtonsAndPinchPreserveThePointUnderTheGesture()
     {
         var model = new MapViewModel(new RoomMapTracker());
@@ -25,8 +47,7 @@ public sealed class MapViewTests
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
             var canvas = view.GetVisualDescendants().OfType<RoomMapControl>().Single();
-            var zoomOut = view.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MapZoomOut");
-            zoomOut.Command!.Execute(null);
+            model.ChangeZoom(-2); Dispatcher.UIThread.RunJobs();
             Assert.True(model.Zoom < 1);
             var anchor = new Point(90, 130);
             var before = model.CreateViewport(canvas.Bounds.Width, canvas.Bounds.Height).Unproject(anchor);
@@ -140,7 +161,9 @@ public sealed class MapViewTests
             window.Show(); Dispatcher.UIThread.RunJobs();
             Assert.NotNull(view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorUp"));
             Assert.NotNull(view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorDown"));
-            Assert.NotNull(view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "CenterMap"));
+            Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.Name is "CenterMap" or "MapZoomIn" or "MapZoomOut");
+            Assert.NotNull(view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().FirstOrDefault(b => b.Name == "MapAutoCenterToggle"));
+            Assert.NotNull(view.GetVisualDescendants().OfType<Slider>().FirstOrDefault(s => s.Name == "MapZoomSlider"));
             var canvas = view.GetVisualDescendants().OfType<RoomMapControl>().Single();
             Assert.True(canvas.Bounds.Height > view.Bounds.Height * .9);
             var panel = view.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MapToolsPanel");
