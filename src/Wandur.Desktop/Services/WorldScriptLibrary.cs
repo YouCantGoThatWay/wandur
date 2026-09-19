@@ -21,11 +21,19 @@ public sealed class WorldScriptEntry : INotifyPropertyChanged
     public string Source { get => _source; set { value ??= ""; if (_source == value) return; _source = value; PropertyChanged?.Invoke(this, new(nameof(Source))); } }
     public MacroDefinition? Macro { get => _macro; set { if (_macro == value) return; _macro = value; PropertyChanged?.Invoke(this, new(nameof(Macro))); } }
     public bool IsMacro => Saved.Macro is not null;
+    public bool IsPack => Saved.Pack is not null;
+    public ScriptPackInfo? Pack => Saved.Pack;
+    public bool AllowSend => Saved.AllowSend;
     public bool Enabled => Saved.Enabled;
     public bool HasUnsavedChanges => Name != Saved.Name || Source != Saved.Source || Macro != Saved.Macro;
     public SessionScripts Runtime { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
     internal void NotifyEnabled() => PropertyChanged?.Invoke(this, new(nameof(Enabled)));
+    internal void NotifyPack()
+    {
+        foreach (var property in new[] { nameof(IsPack), nameof(Pack), nameof(AllowSend) })
+            PropertyChanged?.Invoke(this, new(property));
+    }
 }
 
 /// <summary>Owns independently enabled workers. Editor drafts are separate from saved, executable source.</summary>
@@ -44,6 +52,8 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     private bool _suspended;
     private bool _refreshing;
     public ObservableCollection<WorldScriptEntry> Items { get; } = [];
+    /// <summary>The docked panels this session's scripts declare.</summary>
+    public ScriptPanelHost Panels { get; } = new();
     public bool MacrosEnabled { get; private set; } = true;
     public string WorldName { get; private set; } = "";
     public string? Error { get; private set; }
@@ -53,6 +63,7 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         Func<bool> isPrivate, Func<string, Task<bool>> send, Action<string> echo)
     {
         _factory = factory; _store = store; _canRun = canRun; _isPrivate = isPrivate; _send = send; _echo = echo;
+        Panels.Callback = DeliverPanelEvent;
         Items.Add(Create(new(Guid.NewGuid(), L.ScriptDefaultName, ScriptExamples.Starter)));
     }
 
@@ -64,12 +75,22 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
 
     private WorldScriptEntry Create(WorldScriptDefinition definition)
     {
-        var runtime = new SessionScripts(_factory, new EntrySourceStore(definition.Source), _canRun, _isPrivate, SendAsync, _echo);
+        WorldScriptEntry? created = null;
+        var runtime = new SessionScripts(_factory, new EntrySourceStore(definition.Source), _canRun, _isPrivate, SendAsync, _echo,
+            action => Panels.Apply(definition.Id, action),
+            () => created?.Saved is { Pack: not null, AllowSend: false });
         runtime.Configure(_worldKey ?? "", WorldName);
         runtime.Changed += OnChanged;
-        var entry = new WorldScriptEntry(definition, runtime);
+        var entry = created = new WorldScriptEntry(definition, runtime);
         entry.PropertyChanged += (_, args) => { if (args.PropertyName != nameof(WorldScriptEntry.Runtime)) OnChanged(); };
         return entry;
+    }
+
+    private void DeliverPanelEvent(Guid scriptId, string message)
+    {
+        if (_disposed || _suspended) return;
+        // A callback is an ordinary script event: privacy, rate limits and the send policy all still apply.
+        Items.FirstOrDefault(entry => entry.Id == scriptId)?.Runtime.Publish(new("panel", message));
     }
 
     private Task<bool> SendAsync(string command)
@@ -82,7 +103,12 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         return _send(command);
     }
 
-    private void OnChanged() { if (!_refreshing) Changed?.Invoke(); }
+    private void OnChanged()
+    {
+        // A stopped script keeps no panels; the workspace closes their docked tools on the next sync.
+        foreach (var entry in Items) if (!entry.Runtime.IsRunning) Panels.RemoveScript(entry.Id);
+        if (!_refreshing) Changed?.Invoke();
+    }
 
     public void Configure(string key, string name)
     {
@@ -92,7 +118,7 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         {
             _worldKey = key;
             foreach (var entry in Items) { entry.Runtime.Changed -= OnChanged; _ = entry.Runtime.DisposeAsync(); }
-            Items.Clear(); Error = null;
+            Items.Clear(); Panels.Clear(); Error = null;
             try { foreach (var definition in _store.Load(key)) Items.Add(Create(definition)); }
             catch (Exception ex) when (IsStorageError(ex)) { Error = L.Format(L.ScriptLoadFailed, ex.Message); }
         }
@@ -134,6 +160,54 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         Changed?.Invoke();
     }
 
+    /// <summary>Adds or refreshes the scripts a world directory supplies. Hand-written scripts are untouched.</summary>
+    public void ApplyPack(IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing> supplied)
+    {
+        if (_disposed || _worldKey is null || supplied.Count == 0) return;
+        foreach (var listing in supplied)
+        {
+            var info = new ScriptPackInfo(listing.Id, listing.Provenance, listing.Version, listing.Description);
+            var id = ScriptPackInfo.IdFor(_worldKey, listing.Id);
+            var name = listing.Name.Trim();
+            var existing = Items.FirstOrDefault(entry => entry.Id == id);
+            if (existing is null)
+            {
+                // Supplied scripts arrive enabled, with sending refused until the user allows it.
+                AddDefinition(new(id, name, listing.Source, Enabled: true) { Pack = info });
+                continue;
+            }
+            // A refresh replaces the source and keeps the user's enable and send-policy choices.
+            if (existing.Saved.Pack is not { } previous || previous.Version == listing.Version) continue;
+            var saved = existing.Saved with { Name = name, Source = listing.Source, Pack = info };
+            if (!Persist(saved)) continue;
+            existing.Saved = saved;
+            existing.Name = saved.Name; existing.Source = saved.Source;
+            existing.Runtime.Source = saved.Source;
+            existing.NotifyPack();
+            existing.Runtime.Stop(); _attempted.Remove(existing.Id);
+        }
+        RefreshState();
+    }
+
+    /// <summary>Lifts or restores the restricted send policy of one supplied script.</summary>
+    public async Task SetAllowSendAsync(WorldScriptEntry entry, bool allow)
+    {
+        if (_disposed || !Items.Contains(entry) || !entry.IsPack || entry.AllowSend == allow) return;
+        var saved = entry.Saved with { AllowSend = allow };
+        if (!Persist(saved)) return;
+        entry.Saved = saved; entry.NotifyPack();
+        entry.Runtime.Stop(); _attempted.Remove(entry.Id);
+        await ActivateAsync(entry);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Copies a script into an editable hand-written entry.</summary>
+    public WorldScriptEntry Duplicate(WorldScriptEntry entry)
+    {
+        var name = L.Format(L.ScriptDuplicateName, entry.Name);
+        return AddDefinition(new(Guid.NewGuid(), name.Length > 120 ? name[..120] : name, entry.Source));
+    }
+
     public async Task SetEnabledAsync(WorldScriptEntry entry, bool enabled, bool persist = true)
     {
         if (_disposed || !Items.Contains(entry) || entry.Enabled == enabled) return;
@@ -147,7 +221,8 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
 
     public async Task SaveAsync(WorldScriptEntry entry)
     {
-        if (_disposed || !Items.Contains(entry)) return;
+        // A supplied script is read-only; the user duplicates it to make changes.
+        if (_disposed || !Items.Contains(entry) || entry.IsPack) return;
         WorldScriptDefinition saved;
         try { saved = entry.Saved with { Name = entry.Name.Trim(), Source = entry.Macro is { } macro ? MacroCompiler.Compile(macro) : entry.Source, Macro = entry.Macro }; }
         catch (ArgumentException error) { Error = error.Message; Changed?.Invoke(); return; }
@@ -202,7 +277,7 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         try
         {
             foreach (var entry in Items) { entry.Runtime.Changed -= OnChanged; await entry.Runtime.DisposeAsync(); }
-            Items.Clear(); _attempted.Clear(); Error = null;
+            Items.Clear(); Panels.Clear(); _attempted.Clear(); Error = null;
             foreach (var definition in definitions) Items.Add(Create(definition));
         }
         finally { _refreshing = false; }
@@ -260,6 +335,7 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        Panels.Clear();
         foreach (var entry in Items) { entry.Runtime.Changed -= OnChanged; await entry.Runtime.DisposeAsync(); }
     }
 }

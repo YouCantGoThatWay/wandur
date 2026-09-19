@@ -120,8 +120,9 @@ internal sealed class RecordingScriptRuntime(bool blockDispatch) : IScriptRuntim
     public List<ScriptEvent> Events { get; } = [];
     public TaskCompletionSource<ScriptResult> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public bool IsRunning { get; private set; }
-    public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default)
-    { IsRunning = true; return Task.FromResult(new ScriptResult(false, [])); }
+    public bool RestrictedSend { get; private set; }
+    public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false)
+    { IsRunning = true; RestrictedSend = restrictedSend; return Task.FromResult(new ScriptResult(false, [])); }
     public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default)
     {
         lock (Events) Events.Add(input);

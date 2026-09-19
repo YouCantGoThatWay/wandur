@@ -324,7 +324,7 @@ public sealed class ScriptEditorTests
         private readonly JavaScriptEngine _engine = new();
         private bool _stopped;
         public bool IsRunning => !_stopped && _engine.IsRunning;
-        public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default) => Task.FromResult(_engine.Load(source));
+        public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false) => Task.FromResult(_engine.Load(source, restrictedSend));
         public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default) => Task.FromResult(_engine.Dispatch(input));
         public void Stop() => _stopped = true;
         public ValueTask DisposeAsync() { Stop(); return ValueTask.CompletedTask; }

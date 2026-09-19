@@ -171,6 +171,7 @@ public sealed class MainWindow : Window
     public void ResetLayout()
     {
         Workspace.CloseEditorDocuments();
+        Workspace.CloseScriptPanels();
         Workspace.DetachNavigation();
         _dock.Layout?.Close.Execute(null);
         Workspace = new(Sessions, async () => await EditWorldAsync(), async () => await BrowseWorldsAsync(), async profile => await EditWorldAsync(profile), catalog: Catalog, editAutomation: async (controller, section) => await EditSessionAutomationAsync(controller, section));
@@ -316,6 +317,7 @@ public sealed class MainWindow : Window
         try
         {
             Workspace.CloseEditorDocuments();
+            Workspace.CloseScriptPanels();
             Workspace.DetachNavigation();
             await Sessions.DisposeAsync();
             _dock.Layout?.Close.Execute(null);

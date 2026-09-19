@@ -47,6 +47,31 @@ public sealed class ScriptRuntimeTests
         Assert.True(timer.Elapsed < TimeSpan.FromSeconds(3));
     }
 
+    [Fact]
+    public async Task RealWorkerCarriesPanelActionsAndHonoursTheRestrictedSendPolicy()
+    {
+        await using var runtime = CreateRuntime();
+        var loaded = await runtime.LoadAsync("""
+            const p = mud.panel("ship", { title: "Ship" });
+            p.gauge("hull", { label: "Hull", value: 12, max: 100 });
+            p.button("flee", { onClick: () => mud.send("flee") });
+            mud.trigger(/^hit$/, () => mud.send("flee"));
+            """, restrictedSend: true);
+        Assert.Null(loaded.Error);
+        Assert.Equal(
+        [
+            new ScriptAction("panel", """{"panel":"ship","action":"create","title":"Ship","dock":"right"}"""),
+            new ScriptAction("panel", """{"panel":"ship","action":"widget","widget":"hull","kind":"gauge","props":{"label":"Hull","value":12,"max":100}}"""),
+            new ScriptAction("panel", """{"panel":"ship","action":"widget","widget":"flee","kind":"button","props":{"label":"flee"}}""")
+        ], loaded.Actions);
+        var click = await runtime.DispatchAsync(new("panel", ScriptPanelAction.EventJson("ship", "flee", "click")));
+        Assert.Equal(new ScriptAction("send", "flee"), Assert.Single(click.Actions));
+        var refused = await runtime.DispatchAsync(new("line", "hit"));
+        Assert.Contains("Pack send policy", refused.Error);
+        Assert.Empty(refused.Actions);
+        Assert.False(runtime.IsRunning);
+    }
+
     private static IScriptRuntime CreateRuntime()
     {
         var worker = Path.Combine(AppContext.BaseDirectory, "ScriptWorkerHost", "Wandur.ScriptWorkerHost.dll");

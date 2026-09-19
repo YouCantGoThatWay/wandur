@@ -18,7 +18,7 @@ public static class ScriptWorker
                 var line = await ReadMessageAsync(input, CancellationToken.None).ConfigureAwait(false);
                 if (line is null) return;
                 var request = JsonSerializer.Deserialize<ScriptEvent>(line) ?? throw new JsonException("Missing request.");
-                result = request.Kind == "load" ? engine.Load(request.Text) : engine.Dispatch(request);
+                result = request.Kind == "load" ? engine.Load(request.Text, request.RestrictedSend) : engine.Dispatch(request);
             }
             catch (Exception error)
             {

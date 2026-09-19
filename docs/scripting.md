@@ -43,11 +43,11 @@ New scripts and scripts migrated from the original single-script editor start di
 
 Saved definitions are shared by world identity. Saving merges the edited rules into the on-disk library. Already-open connections retain their loaded definitions until explicitly reloaded. Deleting a rule from configuration requires an inline confirmation and removes its saved definition when you choose **Save world**; reload active connections to remove their previously loaded copy.
 
-The editor includes syntax highlighting, light/dark colors, line numbers, indentation, undo/redo, local output and API examples. Type `mud.` or `Events.` for completion suggestions, or press **Ctrl+Space**. **Tab/Enter** accepts and **Escape** cancels. Event callback parameters receive field suggestions (`text` for Line, `package` and `data` for Gmcp). Suggestions show signatures and descriptions. This is focused API completion, not full JavaScript type checking or a language server; dynamic GMCP fields depend on the MUD. **Cmd+S** on macOS or **Ctrl+S** on Windows/Linux saves. JavaScript is embedded; no Python or Node.js installation is required.
+The editor includes syntax highlighting, light/dark colors, line numbers, indentation, undo/redo, local output and API examples. Type `mud.` or `Events.` for completion suggestions, or press **Ctrl+Space**. **Tab/Enter** accepts and **Escape** cancels. Event callback parameters receive field suggestions (`text` for Line, `package` and `data` for Gmcp, `variable` and `value` for Msdp). Suggestions show signatures and descriptions. This is focused API completion, not full JavaScript type checking or a language server; dynamic GMCP fields depend on the MUD. **Cmd+S** on macOS or **Ctrl+S** on Windows/Linux saves. JavaScript is embedded; no Python or Node.js installation is required.
 
 ## Events
 
-`Events.Line` and `Events.Gmcp` are named JavaScript constants on a frozen global object. They are not a TypeScript enum. The object and its values cannot be replaced or extended. Existing scripts using `"line"` or `"gmcp"` strings continue to work.
+`Events.Line`, `Events.Gmcp` and `Events.Msdp` are named JavaScript constants on a frozen global object. They are not a TypeScript enum. The object and its values cannot be replaced or extended. Existing scripts using `"line"` or `"gmcp"` strings continue to work.
 
 ```js
 // Called for each newly completed server line, with ANSI styling removed.
@@ -66,6 +66,85 @@ mud.on(Events.Gmcp, event => {
 ```
 
 `mud.on(Events.Line, callback)` receives `{text}`. `mud.on(Events.Gmcp, callback)` receives `{package, data}`; `data` is parsed JSON, or `null` when the message contains only a package name. Malformed GMCP messages are ignored. Line subscribers run in registration order before regex triggers. Each script has its own globals and worker; sending a command does not create another command event or alias invocation.
+
+### Events.Msdp
+
+```js
+// One event per MSDP variable update, only when the server supplies MSDP.
+mud.on(Events.Msdp, event => {
+    if (event.variable === "SHIPHULL") mud.echo("Hull: " + event.value);
+    if (event.variable === "AFFECTS") mud.echo("Affects: " + event.value.join(", "));
+});
+```
+
+`mud.on(Events.Msdp, callback)` receives `{variable, value}`. The payload is decoded with the same MSDP reader the mapper uses, so a script sees exactly what the client sees. A plain MSDP value arrives as a string, an MSDP array as a JavaScript array and an MSDP table as an object. MSDP carries numbers as text, so a numeric-looking variable such as `SHIPHULL` stays a string; convert it with `Number(...)` when you need arithmetic. At most 64 variables from one payload become events, and a value whose JSON exceeds 8192 characters is skipped. Malformed payloads are ignored rather than reported as script failures, and private intervals are excluded exactly as they are for GMCP.
+
+## Current values: mud.state
+
+The worker keeps the latest value of everything a script has received, so a panel or a trigger can read a value without having cached it itself.
+
+```js
+mud.state.get("gmcp.Char.Vitals.hp");   // the newest Char.Vitals hp, or undefined
+mud.state.get("msdp.SHIPHULL");         // the newest SHIPHULL value, or undefined
+mud.state.snapshot();                   // { gmcp: {...}, msdp: {...} }
+```
+
+A path is `gmcp.<Package>.<field>...` or `msdp.<VARIABLE>`. A GMCP package name is split on dots, so `Char.Vitals` is stored under `gmcp.Char.Vitals`. An unknown path returns `undefined`, never `null`. Objects and arrays are returned as copies, so changing what `get` or `snapshot` handed you does not change the cache.
+
+The cache is fed by the same privacy-gated events a script subscribes to, so nothing private can enter it and no extra protocol traffic is generated. It holds at most 512 entries per protocol and 256 KiB per protocol; a value larger than 32 KiB, or an update that would exceed those bounds, is dropped and the previous value is kept.
+
+## Script panels
+
+A script never touches the user interface toolkit. It declares a panel as data, and the client renders it as a dockable tool with native controls and the current theme's brushes.
+
+```js
+const ship = mud.panel("ship", { title: "Ship", dock: "right" });
+ship.gauge("hull", { label: "Hull", value: 0, max: 100 });
+ship.gauge("shield", { label: "Shields", value: 0, max: 100, warn: 0.3 });
+ship.label("system", { text: "In orbit" });
+ship.button("flee", { label: "Flee", onClick: () => mud.send("flee") });
+ship.input("say", { placeholder: "Say...", onSubmit: text => mud.send("say " + text) });
+
+mud.on(Events.Msdp, event => {
+    if (event.variable === "SHIPHULL") ship.gauge("hull", { label: "Hull", value: Number(event.value), max: 100 });
+});
+```
+
+`mud.panel(id, options)` creates the panel the first time and returns the same builder afterwards. `options.title` is the tool title and defaults to the panel id; a later call that omits it keeps the title already set. `options.dock` is `"left"` or `"right"` and defaults to `"right"`.
+
+Every widget call is `panel.<kind>(id, properties)`. Calling it again with the same id updates that widget's properties in place; the panel is not rebuilt and unrelated widgets keep their state.
+
+| Widget | Properties | Callback | Rendered as |
+| --- | --- | --- | --- |
+| `gauge` | `label`, `value` (number, default 0), `max` (number, default 100), `warn` (fraction of `max`) | none | The resource bar used for mapped vitals; at or below `warn` it takes the warning color. |
+| `label` | `text` | none | A wrapping text block. |
+| `text` | `text` | none | A read-only wrapping text block for multi-line output. |
+| `list` | `title`, `items` (up to 500 strings) | `onSelect(item)` | A list box. |
+| `table` | `title`, `columns` (up to 32), `rows` (up to 500 rows of up to 32 cells) | none | A grid of text blocks. Numbers and booleans in cells become strings. |
+| `button` | `label` | `onClick()` | A button. |
+| `toggle` | `label`, `value` (boolean) | `onChange(value)` | A check box. |
+| `input` | `placeholder`, `value` | `onSubmit(text)` | A text box; Enter submits and clears it. |
+| `separator` | none | none | A separator line. |
+| `group` | `title`, `children` (widget ids) | none | A bordered section holding the named widgets, in the order given. |
+
+A widget id named by more than one group belongs to the first group that claims it. `panel.remove(id)` removes a widget and its callback. `panel.show()` and `panel.hide()` show and hide the docked tool; `panel.close()` closes it and forgets the panel. Closing the tool by hand has the same effect as `close()`, and the script may declare the panel again.
+
+Callbacks run in the worker under the same rules as a trigger: they are synchronous, they may call `mud.send` and `mud.echo`, and the usual send policy, rate limits and privacy pause apply. Panels belong to one session and disappear when their script stops, when the script is disabled or when the session closes.
+
+Panel and widget ids are 1 to 64 characters of letters, digits, dot, dash or underscore. A script may declare up to 8 panels with up to 64 widgets each and may emit up to 32 panel instructions per event. A property string is limited to 4096 characters, a single panel instruction to 64 KiB and one event's panel output to 256 KiB. Breaking a limit is reported as a script error and stops that script; it never affects the client.
+
+## Supplied script packs
+
+A world listing in the directory may carry a `scripts` array. Each entry has an `id`, `name`, `description`, `source`, a `provenance` of `generated` or `reviewed`, and an integer `version`. Anything else in the array is ignored, and a listing without the field changes nothing.
+
+When you open a world, supplied scripts that are not already in that world's library are added as pack scripts. They are marked **Pack** with their provenance in the Scripts page, their source is read-only, and they start enabled. Use **Duplicate** to make an ordinary hand-written copy you can edit; the copy has no pack marker and no policy.
+
+A pack script starts with a restricted send policy: `mud.send` is refused from triggers, timers, line, GMCP, MSDP and key events, panel toggles, inputs and lists, and from top-level code. It is allowed from an alias and from a panel button click. A refused call raises a script error that names the policy and stops that script until you change the setting. The Scripts page shows **Allow this script to send commands** for each pack script; turning it on lifts the restriction for that script only and is remembered.
+
+Pack scripts are refreshed when the listing's `version` changes: the source and name are replaced while your enable switch and your send choice are kept, so a pack script you disabled stays disabled. Hand-written scripts are never touched by a listing.
+
+Supplied source is still source you should read. Provenance says how it was produced, not that it is safe for your character.
+
 
 ## Aliases, regex triggers and timers
 
@@ -99,7 +178,7 @@ One isolated worker runs each script. Disabling, deleting or disconnecting stops
 
 Run scripts you have reviewed. Worker isolation and execution limits reduce accidents; this is not a hardened operating-system sandbox for hostile code. Jint allocation limits apply per execution rather than to the total retained heap.
 
-Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 actions per event, 128 queued events per script, and a shared maximum of 20 sends per second and 200 per minute. An unresponsive worker is killed after two seconds. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
+Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 send and echo actions per event, 32 panel instructions per event, 8 panels and 64 widgets per panel, 128 queued events per script, and a shared maximum of 20 sends per second and 200 per minute. `docs/scripting-reference.json` carries the same API and limits in machine-readable form, and a test keeps it in step with the engine. An unresponsive worker is killed after two seconds. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
 
 ## Implementation
 

@@ -68,27 +68,9 @@ public sealed class ResourceBarsView : UserControl
 
     private static Control Card(Item item)
     {
-        var label=new TextBlock {Text=item.Label,FontSize=12,TextTrimming=TextTrimming.CharacterEllipsis,VerticalAlignment=VerticalAlignment.Center};
-        var values=new TextBlock {Text=item.Current.ToString("0.##",Wandur.Core.Localization.UiLanguage.Culture)+" / "+item.Maximum.ToString("0.##",Wandur.Core.Localization.UiLanguage.Culture),
-            FontSize=11,VerticalAlignment=VerticalAlignment.Center};
-        values.Classes.Add("muted");
-        var heading=new Grid {ColumnDefinitions=new ColumnDefinitions("*,Auto"),ColumnSpacing=8,Children={label,values}};
-        Grid.SetColumn(values,1);
-        var bar=new ProgressBar {Minimum=0,Maximum=100,Value=item.Percentage,Height=6,MinHeight=0,IsIndeterminate=false};
-        bar.Bind(BackgroundProperty,new DynamicResourceExtension("LineBrush"));
-        var color=item.Key switch
-        {
-            "health"=>"#CE6474","mana" or "spell_points"=>"#6399D1","movement" or "endurance" or "energy" or "fuel"=>"#BD9B54",
-            "psionic_points"=>"#AB7AC9",
-            "shield"=>"#63B5BA","hull"=>"#95A4BE","experience" or "xp"=>"#6CAD8E",_=>null
-        };
-        if(color is null) bar.Bind(ForegroundProperty,new DynamicResourceExtension("AccentBrush"));
-        else bar.Foreground=Brush.Parse(color);
-        AutomationProperties.SetName(bar,item.Label);
-        var card=new Border {Margin=new Thickness(4),Padding=new Thickness(9,6),CornerRadius=new CornerRadius(5),
-            Child=new StackPanel {Spacing=5,Children={heading,bar}}};
-        card.Bind(Border.BackgroundProperty,new DynamicResourceExtension("PanelBrush"));
-        ToolTip.SetTip(card,item.Label+": "+values.Text);
+        var card=new ResourceBar();
+        card.Update(item.Label,item.Current.ToString("0.##",Wandur.Core.Localization.UiLanguage.Culture)+" / "+item.Maximum.ToString("0.##",Wandur.Core.Localization.UiLanguage.Culture),
+            item.Percentage,ResourceBar.ColorFor(item.Key));
         return card;
     }
     private static int Priority(string key)=>key switch {"health"=>0,"mana" or "spell_points"=>1,"movement" or "endurance"=>2,"energy" or "psionic_points"=>3,"shield"=>4,"hull"=>5,_=>10};
@@ -98,4 +80,44 @@ public sealed class ResourceBarsView : UserControl
         "ammunition"=>L.VitalsAmmunition,"shield"=>L.VitalsShield,"hull"=>L.VitalsHull,"fuel"=>L.VitalsFuel,
         "experience" or "xp"=>L.VitalsExperience,_=>fallback
     };
+}
+
+/// <summary>The one resource bar card. Script panels render their gauges with it, so a gauge looks
+/// and recolors exactly like a mapped vital.</summary>
+internal sealed class ResourceBar : Border
+{
+    private readonly TextBlock _label=new() {FontSize=12,TextTrimming=TextTrimming.CharacterEllipsis,VerticalAlignment=VerticalAlignment.Center};
+    private readonly TextBlock _values=new() {FontSize=11,VerticalAlignment=VerticalAlignment.Center};
+    private readonly ProgressBar _bar=new() {Minimum=0,Maximum=100,Height=6,MinHeight=0,IsIndeterminate=false};
+    private string? _color="";
+
+    public ResourceBar()
+    {
+        _values.Classes.Add("muted");
+        var heading=new Grid {ColumnDefinitions=new ColumnDefinitions("*,Auto"),ColumnSpacing=8,Children={_label,_values}};
+        Grid.SetColumn(_values,1);
+        _bar.Bind(BackgroundProperty,new DynamicResourceExtension("LineBrush"));
+        Margin=new Thickness(4); Padding=new Thickness(9,6); CornerRadius=new CornerRadius(5);
+        Child=new StackPanel {Spacing=5,Children={heading,_bar}};
+        this.Bind(BackgroundProperty,new DynamicResourceExtension("PanelBrush"));
+    }
+
+    public static string? ColorFor(string key)=>key switch
+    {
+        "health"=>"#CE6474","mana" or "spell_points"=>"#6399D1","movement" or "endurance" or "energy" or "fuel"=>"#BD9B54",
+        "psionic_points"=>"#AB7AC9",
+        "shield"=>"#63B5BA","hull"=>"#95A4BE","experience" or "xp"=>"#6CAD8E",_=>null
+    };
+
+    public void Update(string label,string values,double percentage,string? color)
+    {
+        _label.Text=label; _values.Text=values; _bar.Value=Math.Clamp(percentage,0,100);
+        AutomationProperties.SetName(_bar,label);
+        ToolTip.SetTip(this,label+": "+values);
+        if(_color==color) return;
+        _color=color;
+        // A named color is a literal brush; everything else follows the theme's accent.
+        if(color is null) _bar.Bind(RangeBase.ForegroundProperty,new DynamicResourceExtension("AccentBrush"));
+        else _bar.Foreground=Brush.Parse(color);
+    }
 }

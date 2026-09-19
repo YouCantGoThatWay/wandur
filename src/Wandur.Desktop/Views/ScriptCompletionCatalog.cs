@@ -10,7 +10,7 @@ internal sealed record ScriptCompletionContext(int PrefixLength, IReadOnlyList<S
 internal static class ScriptCompletionCatalog
 {
     private static readonly Regex Member = new(@"(?:(?<receiver>[$A-Za-z_][$\w]*)\s*\.\s*)?(?<prefix>[$A-Za-z_][$\w]*)?$", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(50));
-    private static readonly Regex Subscription = new("mud\\s*\\.\\s*on\\s*\\(\\s*(?:Events\\s*\\.\\s*(?<kind>Line|Gmcp)|[\"'](?<legacy>line|gmcp)[\"'])\\s*,\\s*(?:function\\s*)?\\(?\\s*(?<parameter>[$A-Za-z_][$\\w]*)\\s*\\)?\\s*(?:=>|\\{)", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(50));
+    private static readonly Regex Subscription = new("mud\\s*\\.\\s*on\\s*\\(\\s*(?:Events\\s*\\.\\s*(?<kind>Line|Gmcp|Msdp)|[\"'](?<legacy>line|gmcp|msdp)[\"'])\\s*,\\s*(?:function\\s*)?\\(?\\s*(?<parameter>[$A-Za-z_][$\\w]*)\\s*\\)?\\s*(?:=>|\\{)", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(50));
 
     public static ScriptCompletionContext Get(string beforeCaret)
     {
@@ -34,12 +34,15 @@ internal static class ScriptCompletionCatalog
             new("echo", "echo(text)", L.ScriptCompleteEcho),
             new("alias", "alias(pattern, callback)", L.ScriptCompleteAlias),
             new("trigger", "trigger(pattern, callback)", L.ScriptCompleteTrigger),
-            new("every", "every(seconds, callback)", L.ScriptCompleteEvery)
+            new("every", "every(seconds, callback)", L.ScriptCompleteEvery),
+            new("panel", "panel(id, options)", L.ScriptCompletePanel),
+            new("state", "state", L.ScriptCompleteState)
         ];
         else if (receiver == "Events") choices =
         [
             new("Line", "Line", L.ScriptCompleteLine),
-            new("Gmcp", "Gmcp", L.ScriptCompleteGmcp)
+            new("Gmcp", "Gmcp", L.ScriptCompleteGmcp),
+            new("Msdp", "Msdp", L.ScriptCompleteMsdp)
         ];
         else if (receiver.Length == 0) choices =
         [
@@ -50,9 +53,12 @@ internal static class ScriptCompletionCatalog
             var subscription = Subscription.Matches(context).LastOrDefault();
             if (subscription?.Groups["parameter"].Value != receiver) return new(prefix.Length, []);
             var kind = subscription.Groups["kind"].Value + subscription.Groups["legacy"].Value;
-            choices = kind.Equals("Line", StringComparison.OrdinalIgnoreCase)
-                ? [new("text", "text: string", L.ScriptCompleteText)]
-                : [new("package", "package: string", L.ScriptCompletePackage), new("data", "data: JSON | null", L.ScriptCompleteData)];
+            choices = kind.ToLowerInvariant() switch
+            {
+                "line" => [new("text", "text: string", L.ScriptCompleteText)],
+                "msdp" => [new("variable", "variable: string", L.ScriptCompleteVariable), new("value", "value: JSON", L.ScriptCompleteValue)],
+                _ => [new("package", "package: string", L.ScriptCompletePackage), new("data", "data: JSON | null", L.ScriptCompleteData)]
+            };
         }
         return new(prefix.Length, choices.Where(c => c.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToArray());
     }

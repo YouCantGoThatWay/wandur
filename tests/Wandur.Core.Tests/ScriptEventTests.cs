@@ -12,7 +12,7 @@ public sealed class ScriptEventTests
             if (!Object.isFrozen(Events)) throw Error('Events must be frozen');
             const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'Events');
             if (descriptor.writable || descriptor.configurable) throw Error('Events must be permanent');
-            if (Object.keys(Events).sort().join(',') !== 'Gmcp,Key,Line') throw Error('Unexpected event constants');
+            if (Object.keys(Events).sort().join(',') !== 'Gmcp,Key,Line,Msdp') throw Error('Unexpected event constants');
             if (typeof System !== 'undefined' || typeof require !== 'undefined' || typeof process !== 'undefined' || typeof fetch !== 'undefined')
                 throw Error('Host APIs must remain unavailable');
             mud.on(Events.Line, event => mud.echo(event.text));

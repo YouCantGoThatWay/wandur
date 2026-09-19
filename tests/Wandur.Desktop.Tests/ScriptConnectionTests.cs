@@ -93,6 +93,52 @@ public sealed class ScriptConnectionTests
     }
 
     [AvaloniaFact]
+    public async Task MsdpVariablesReachScriptsAsEventsAndFeedTheStateCache()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "wandur-msdp-script-" + Guid.NewGuid());
+        var store = new SettingsStore(Path.Combine(directory, "settings.json"));
+        await using var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+            new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore());
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await controller.StartAsync(new ConnectionProfile { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Name = "MSDP test" });
+        using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+        var script = controller.ScriptLibrary.Items[0].Runtime;
+        script.Source = """
+            mud.on(Events.Msdp, event => mud.echo(event.variable + "=" + JSON.stringify(event.value)));
+            mud.trigger(/^report$/, () => mud.echo("hull:" + mud.state.get("msdp.SHIPHULL") + " missing:" + mud.state.get("msdp.NOPE")));
+            """;
+        await script.RunAsync();
+        Assert.True(script.IsRunning, script.Error);
+        static byte[] Subnegotiation(params byte[] payload) => [255, 250, 69, .. payload, 255, 240];
+        await server.GetStream().WriteAsync(new byte[] { 255, 251, 69 }, timeout.Token);
+        await server.GetStream().WriteAsync(Subnegotiation([1, .. Encoding.UTF8.GetBytes("SHIPHULL"), 2, .. Encoding.UTF8.GetBytes("1200")]), timeout.Token);
+        await server.GetStream().WriteAsync(Subnegotiation([1, .. Encoding.UTF8.GetBytes("AFFECTS"), 2, 5,
+            2, .. Encoding.UTF8.GetBytes("haste"), 2, .. Encoding.UTF8.GetBytes("sanctuary"), 6]), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return script.Log.Contains("AFFECTS="); });
+        Assert.Contains("SHIPHULL=\"1200\"", script.Log);
+        Assert.Contains("AFFECTS=[\"haste\",\"sanctuary\"]", script.Log);
+        await server.GetStream().WriteAsync(Encoding.UTF8.GetBytes("report\r\n"), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return script.Log.Contains("hull:"); });
+        Assert.Contains("hull:1200 missing:undefined", script.Log);
+        // Private intervals never reach the cache or the events.
+        controller.SetManualPrivate(true);
+        await server.GetStream().WriteAsync(Subnegotiation([1, .. Encoding.UTF8.GetBytes("PASSWORDHINT"), 2, .. Encoding.UTF8.GetBytes("secret")]), timeout.Token);
+        // Wait for the receiving thread to stamp the message before privacy ends, as the GMCP case does.
+        var fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var queued = (System.Collections.ICollection)typeof(WorkspaceController).GetField("_pendingDiagnostics", fields)!.GetValue(controller)!;
+        var gate = typeof(WorkspaceController).GetField("_pendingLock", fields)!.GetValue(controller)!;
+        Assert.True(SpinWait.SpinUntil(() => { lock (gate) return queued.Count > 0; }, TimeSpan.FromSeconds(3)));
+        controller.SetManualPrivate(false);
+        controller.FlushOutput();
+        await server.GetStream().WriteAsync(Subnegotiation([1, .. Encoding.UTF8.GetBytes("SHIPHULL"), 2, .. Encoding.UTF8.GetBytes("900")]), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return script.Log.Contains("SHIPHULL=\"900\""); });
+        Assert.DoesNotContain("secret", script.Log);
+        await controller.DisconnectAsync();
+        if (Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+
+    [AvaloniaFact]
     public async Task AliasesSendOnceTriggersUseCompletedServerLinesAndPasswordsBypassScripts()
     {
         var directory = Path.Combine(Path.GetTempPath(), "wandur-script-connection-" + Guid.NewGuid());
@@ -142,7 +188,7 @@ internal sealed class InlineScriptFactory : IScriptRuntimeFactory
     {
         private JavaScriptEngine? _engine = new();
         public bool IsRunning => _engine?.IsRunning == true;
-        public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default) => Task.FromResult(_engine!.Load(source));
+        public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false) => Task.FromResult(_engine!.Load(source, restrictedSend));
         public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default) => Task.FromResult(_engine!.Dispatch(input));
         public void Stop() => _engine = null;
         public ValueTask DisposeAsync() { Stop(); return ValueTask.CompletedTask; }

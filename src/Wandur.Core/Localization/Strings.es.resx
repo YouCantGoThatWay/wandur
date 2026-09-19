@@ -1806,4 +1806,20 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="ShowChannelsPanel" xml:space="preserve"><value>Mostrar el panel de canales</value></data>
   <data name="ShowChannelsPanelHint" xml:space="preserve"><value>Las líneas de canal reconocidas se reflejan junto a la transcripción y permanecen en ella.</value></data>
   <data name="ChannelRulesInvalid" xml:space="preserve"><value>Las reglas de canal necesitan un nombre y un patrón que Wandur pueda leer.</value></data>
+  <data name="ScriptPackInvalid" xml:space="preserve"><value>Ese script suministrado no es válido y se ha ignorado.</value></data>
+  <data name="ScriptPackMarker" xml:space="preserve"><value>Paquete</value></data>
+  <data name="ScriptPackGenerated" xml:space="preserve"><value>Generado</value></data>
+  <data name="ScriptPackReviewed" xml:space="preserve"><value>Revisado</value></data>
+  <data name="ScriptPackReadOnly" xml:space="preserve"><value>Suministrado por el directorio de mundos. Duplícalo para crear tu propia versión.</value></data>
+  <data name="ScriptPackAllowSend" xml:space="preserve"><value>Permitir que este script envíe comandos</value></data>
+  <data name="ScriptPackSendRefused" xml:space="preserve"><value>Este script suministrado solo puede enviar comandos desde un alias o un botón de panel. Activa «Permitir que este script envíe comandos» para quitar ese límite.</value></data>
+  <data name="ScriptDuplicate" xml:space="preserve"><value>Duplicar</value></data>
+  <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (copia)</value></data>
+  <data name="ScriptPanelRejected" xml:space="preserve"><value>Se rechazó una instrucción de panel: {0}</value></data>
+  <data name="ScriptPanelEmpty" xml:space="preserve"><value>Este panel aún no tiene elementos.</value></data>
+  <data name="ScriptCompleteMsdp" xml:space="preserve"><value>Actualizaciones de variables MSDP. Datos: variable: string; value: JSON. Requiere soporte del servidor.</value></data>
+  <data name="ScriptCompleteState" xml:space="preserve"><value>Los últimos valores recibidos. state.get(path) lee gmcp.Char.Vitals.hp o msdp.SHIPHULL.</value></data>
+  <data name="ScriptCompletePanel" xml:space="preserve"><value>Crea o reutiliza un panel acoplado construido con declaraciones de elementos.</value></data>
+  <data name="ScriptCompleteVariable" xml:space="preserve"><value>El nombre de la variable MSDP, por ejemplo SHIPHULL.</value></data>
+  <data name="ScriptCompleteValue" xml:space="preserve"><value>El valor MSDP decodificado: una cadena, una lista o una tabla.</value></data>
 </root>

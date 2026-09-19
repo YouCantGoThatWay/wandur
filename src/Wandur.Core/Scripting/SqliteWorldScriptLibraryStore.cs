@@ -132,7 +132,7 @@ public sealed class SqliteWorldScriptLibraryStore(ClientDatabase database, strin
     {
         var scripts = new List<WorldScriptDefinition>();
         using var query = Command(connection, transaction,
-            "SELECT id, name, source, enabled, macro_json FROM scripts WHERE world_id = $world ORDER BY rowid", ("$world", world));
+            "SELECT id, name, source, enabled, macro_json, pack_json FROM scripts WHERE world_id = $world ORDER BY rowid", ("$world", world));
         using var rows = query.ExecuteReader();
         while (rows.Read())
         {
@@ -140,7 +140,9 @@ public sealed class SqliteWorldScriptLibraryStore(ClientDatabase database, strin
             try
             {
                 var macro = rows.IsDBNull(4) ? null : JsonSerializer.Deserialize<MacroDefinition>(rows.GetString(4)) ?? throw new IOException(L.MacroInvalid);
-                scripts.Add(new(id, rows.GetString(1), rows.GetString(2), rows.GetInt64(3) == 1, macro));
+                var pack = rows.IsDBNull(5) ? null : JsonSerializer.Deserialize<StoredPack>(rows.GetString(5)) ?? throw new IOException(L.ScriptPackInvalid);
+                scripts.Add(new(id, rows.GetString(1), rows.GetString(2), rows.GetInt64(3) == 1, macro)
+                { Pack = pack?.Info, AllowSend = pack?.AllowSend == true });
             }
             catch (JsonException error) { throw new IOException(L.MacroInvalid, error); }
         }
@@ -152,9 +154,10 @@ public sealed class SqliteWorldScriptLibraryStore(ClientDatabase database, strin
     private static void WriteScript(SqliteConnection connection, SqliteTransaction transaction, string world, WorldScriptDefinition script)
     {
         using var save = Command(connection, transaction,
-            "INSERT INTO scripts(world_id, id, name, source, enabled, macro_json) VALUES ($world, $id, $name, $source, $enabled, $macro) " +
-            "ON CONFLICT(world_id, id) DO UPDATE SET name = excluded.name, source = excluded.source, enabled = excluded.enabled, macro_json = excluded.macro_json",
-            ("$world", world), ("$id", script.Id.ToString("D")), ("$name", script.Name), ("$source", script.Source), ("$enabled", script.Enabled ? 1 : 0), ("$macro", script.Macro is null ? DBNull.Value : JsonSerializer.Serialize(script.Macro)));
+            "INSERT INTO scripts(world_id, id, name, source, enabled, macro_json, pack_json) VALUES ($world, $id, $name, $source, $enabled, $macro, $pack) " +
+            "ON CONFLICT(world_id, id) DO UPDATE SET name = excluded.name, source = excluded.source, enabled = excluded.enabled, macro_json = excluded.macro_json, pack_json = excluded.pack_json",
+            ("$world", world), ("$id", script.Id.ToString("D")), ("$name", script.Name), ("$source", script.Source), ("$enabled", script.Enabled ? 1 : 0), ("$macro", script.Macro is null ? DBNull.Value : JsonSerializer.Serialize(script.Macro)),
+            ("$pack", script.Pack is null ? DBNull.Value : JsonSerializer.Serialize(new StoredPack(script.Pack, script.AllowSend))));
         save.ExecuteNonQuery();
     }
 
@@ -163,8 +166,10 @@ public sealed class SqliteWorldScriptLibraryStore(ClientDatabase database, strin
         if (script is null || script.Id == Guid.Empty) throw new ArgumentException(L.ScriptLibraryInvalid);
         if (string.IsNullOrWhiteSpace(script.Name) || script.Name.Length > 120 || script.Name.Any(char.IsControl)) throw new ArgumentException(L.ScriptInvalidName);
         if (script.Source is null || Encoding.UTF8.GetByteCount(script.Source) > WorldScriptStore.MaximumBytes) throw new ArgumentException(L.ScriptSourceTooLarge);
+        script.Pack?.Validate();
         MacroCompiler.Validate(script);
     }
+    private sealed record StoredPack(ScriptPackInfo Info, bool AllowSend);
     private static void ValidateLibrary(IReadOnlyList<WorldScriptDefinition> scripts)
     {
         if (scripts.Count > WorldScriptLibraryStore.MaximumScripts) throw new ArgumentException(L.ScriptLibraryTooLarge);

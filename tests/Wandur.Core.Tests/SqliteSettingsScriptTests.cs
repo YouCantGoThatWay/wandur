@@ -20,6 +20,34 @@ public sealed class SqliteSettingsScriptTests : IDisposable
     private SqliteWorldScriptLibraryStore Scripts => new(Database, ScriptsDirectory);
 
     [Fact]
+    public void SuppliedScriptProvenanceAndSendChoiceRoundTripAndInvalidPacksAreRejected()
+    {
+        const string key = "packs.example.org:4000:False";
+        var store = Scripts;
+        var id = ScriptPackInfo.IdFor(key, "ship-panel");
+        var pack = new ScriptPackInfo("ship-panel", ScriptPackInfo.Generated, 3, "Ship telemetry panel.");
+        store.Upsert(key, new(id, "Ship panel", "mud.panel('ship');", Enabled: true) { Pack = pack });
+        var saved = Assert.Single(Scripts.Load(key), script => script.Id == id);
+        Assert.Equal(pack, saved.Pack);
+        Assert.True(saved.Enabled);
+        Assert.False(saved.AllowSend);
+
+        store.Upsert(key, saved with { AllowSend = true, Pack = pack with { Version = 4 } });
+        var updated = Assert.Single(Scripts.Load(key), script => script.Id == id);
+        Assert.True(updated.AllowSend);
+        Assert.Equal(4, updated.Pack!.Version);
+
+        // A hand-written script keeps no pack metadata at all.
+        var plain = Guid.NewGuid();
+        store.Upsert(key, new(plain, "Mine", "mud.echo('hi');"));
+        Assert.Null(Assert.Single(Scripts.Load(key), script => script.Id == plain).Pack);
+
+        Assert.Throws<ArgumentException>(() => store.Upsert(key, new(Guid.NewGuid(), "Bad", "") { Pack = new("x", "community", 1) }));
+        Assert.Throws<ArgumentException>(() => store.Upsert(key, new(Guid.NewGuid(), "Bad", "") { Pack = new("", ScriptPackInfo.Generated, 1) }));
+        Assert.Throws<ArgumentException>(() => store.Upsert(key, new(Guid.NewGuid(), "Bad", "") { Pack = new("x", ScriptPackInfo.Reviewed, -1) }));
+    }
+
+    [Fact]
     public void MalformedPersistedPaletteReportsLoadWarningInsteadOfAbortingStartup()
     {
         var theme = UserTheme.FromPreset("Ember") with { Name = "Custom" };
