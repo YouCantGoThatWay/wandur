@@ -76,6 +76,8 @@ public sealed record ClientSettings
     public bool MapAutoCenter { get; init; } = true;
     /// <summary>Whether the docked Channels panel mirrors recognized channel traffic beside the transcript.</summary>
     public bool ShowChannelsPanel { get; init; } = true;
+    /// <summary>Whether the composer offers grayed completions from command history and words seen in the session.</summary>
+    public bool ComposerSuggestions { get; init; } = true;
     public List<UserTheme> CustomThemes { get; init; } = [];
     public List<ConnectionProfile> Profiles { get; init; } = [];
     public void Validate()

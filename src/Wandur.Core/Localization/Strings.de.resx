@@ -1823,4 +1823,7 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="ScriptCompleteVariable" xml:space="preserve"><value>Der Name der MSDP-Variablen, zum Beispiel SHIPHULL.</value></data>
   <data name="ScriptCompleteValue" xml:space="preserve"><value>Der dekodierte MSDP-Wert: eine Zeichenkette, eine Liste oder eine Tabelle.</value></data>
   <data name="ScriptCompleteFormat" xml:space="preserve"><value>Anzeigetext für jeden Wert: null ergibt eine leere Zeichenkette, Listen werden mit Kommas verbunden und Objekte werden zu Paaren Schlüssel: Wert.</value></data>
+  <data name="ComposerSuggestions" xml:space="preserve"><value>Vervollständigungen beim Tippen vorschlagen</value></data>
+  <data name="ComposerSuggestionsHint" xml:space="preserve"><value>Grauer Text hinter der Eingabe stammt aus dem Befehlsverlauf und aus Wörtern, die in dieser Welt zu sehen waren. Tab oder Pfeil rechts übernimmt ihn, Escape blendet ihn aus.</value></data>
+  <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ Verlauf · Tab ergänzen · Enter senden</value></data>
 </root>

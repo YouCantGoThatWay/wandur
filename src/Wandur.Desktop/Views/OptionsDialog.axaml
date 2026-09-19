@@ -101,6 +101,8 @@
             <StackPanel Margin="0,0,10,24" Spacing="12">
             <CheckBox Name="LocalEcho" Content="{ReflectionBinding [ShowMyCommandsInTheTranscript], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding LocalEcho}" />
             <TextBlock Text="{ReflectionBinding [LocalEchoStartsOffUsePrivateInputForPasswords], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
+            <CheckBox Name="ComposerSuggestions" Content="{ReflectionBinding [ComposerSuggestions], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding ComposerSuggestions}" />
+            <TextBlock Text="{ReflectionBinding [ComposerSuggestionsHint], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
           </StackPanel>
           </ScrollViewer>
       </Grid>

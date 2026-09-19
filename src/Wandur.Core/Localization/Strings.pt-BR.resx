@@ -1823,4 +1823,7 @@ Pare após receber uma lista do inventário.</value></data>
   <data name="ScriptCompleteVariable" xml:space="preserve"><value>O nome da variável MSDP, por exemplo SHIPHULL.</value></data>
   <data name="ScriptCompleteValue" xml:space="preserve"><value>O valor MSDP decodificado: uma cadeia, uma lista ou uma tabela.</value></data>
   <data name="ScriptCompleteFormat" xml:space="preserve"><value>Texto de exibição para qualquer valor: null dá uma string vazia, listas são unidas por vírgulas e objetos viram pares chave: valor.</value></data>
+  <data name="ComposerSuggestions" xml:space="preserve"><value>Sugerir complementos ao digitar</value></data>
+  <data name="ComposerSuggestionsHint" xml:space="preserve"><value>O texto cinza após o que você digita vem do histórico de comandos e de palavras vistas neste mundo. Tab ou seta para a direita aceita, Esc oculta.</value></data>
+  <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ histórico · Tab completar · Enter enviar</value></data>
 </root>

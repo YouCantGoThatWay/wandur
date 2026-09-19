@@ -67,6 +67,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     public AnsiTerminal Terminal { get; } = new();
     public Wandur.Desktop.Terminal.ITranscriptDisplay Display { get; }
     public CommandHistory History { get; private set; } = new();
+    /// <summary>Words this session has shown or sent, for inline completion. One per world: reset with the history.</summary>
+    public Wandur.Core.Input.CompletionLearner Completions { get; private set; } = new();
     public string WorldName { get; private set; } = L.YourNextAdventure;
     public string Endpoint { get; private set; } = L.ChooseASavedWorldOrTryTheOfflineDemo;
     public string Status { get; private set; } = L.ReadyToWander;
@@ -146,7 +148,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             // Clearing the transcript announces the session, which is what puts the tab on screen with
             // its connecting status. Everything this world needs from storage is read after that, so a
             // slow map, script library or agent profile cannot hold the new tab back.
-            using (SessionOpenTrace.Measure("transcript reset")) { History = new(); ClearTranscript(); _promptTerminal.Clear(); }
+            using (SessionOpenTrace.Measure("transcript reset")) { History = new(); Completions = new(); ClearTranscript(); _promptTerminal.Clear(); }
             using (SessionOpenTrace.Measure("mapping start")) StartMapping(profile, session);
             using (SessionOpenTrace.Measure("script library"))
             {
@@ -320,7 +322,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             {
                 if (chunk.Event is null)
                 {
-                    if (isPublic) { FeedAgentText(chunk.Text); FeedChannels(chunk.Text); }
+                    // Completion learns from the same public lines, never from one that carries a remembered secret.
+                    if (isPublic) { FeedAgentText(chunk.Text); FeedChannels(chunk.Text); Completions.Observe(chunk.Text, ContainsSecret); }
                     else _channels.Reset();
                 }
                 else if (isPublic && chunk.Event.Kind == "gmcp") FeedChannelProtocol(chunk.Event.Text);
@@ -345,7 +348,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         var wasPrivate = IsPrivate;
         if (!wasPrivate && await ScriptLibrary.HandleCommandAsync(command))
         {
-            if (ReferenceEquals(_session, session) && !IsPrivate) History.Add(command, false);
+            if (ReferenceEquals(_session, session) && !IsPrivate) { History.Add(command, false); Completions.Learn(command); }
             return true;
         }
         // A queued alias must never turn into password input or cross a reconnect.
@@ -380,7 +383,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         {
             await session.SendCommandAsync(command, cancellationToken);
             if (!ReferenceEquals(_session, session)) return true;
-            if (!fromScript && !fromMapWalk && !fromAgent) History.Add(command, isPrivate);
+            if (!fromScript && !fromMapWalk && !fromAgent) { History.Add(command, isPrivate); if (!isPrivate) Completions.Learn(command); }
             CommandsSent++;
             FlushOutput();
             Changed?.Invoke();
