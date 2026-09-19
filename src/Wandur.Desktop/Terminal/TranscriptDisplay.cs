@@ -20,16 +20,13 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
     private readonly TerminalStreamFramer _framer = new();
     private bool _disposed, _updatingScroll;
     private readonly List<IDisposable> _bindings = [];
-    private static readonly StyledProperty<IBrush?>[] PaletteProperties = new StyledProperty<IBrush?>[16];
-    static TranscriptDisplay()
-    { for (var i = 0; i < 16; i++) PaletteProperties[i] = AvaloniaProperty.Register<MudTerminalSurface, IBrush?>("AnsiPalette" + i); }
 
     public TranscriptDisplay(AnsiTerminal source)
     {
         _source = source;
         _surface = new MudTerminalSurface
         {
-            Name = "Transcript", Process = "", FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"),
+            Name = "Transcript", Process = "", FontFamily = new FontFamily(TerminalPalette.Monospace),
             BufferSize = 2000, ConvertEol = true, AllowWindowOps = false, ShowCaretOnClick = false,
             Options = new TerminalOptions
             {
@@ -43,7 +40,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.BackgroundProperty, new DynamicResourceExtension("TerminalBrush")));
         _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.ForegroundProperty, new DynamicResourceExtension("TerminalTextBrush")));
         _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.SelectionBrushProperty, new DynamicResourceExtension("WorldSelectionBrush")));
-        for (var i = 0; i < 16; i++) _bindings.Add(_surface.Bind(PaletteProperties[i], new DynamicResourceExtension($"AnsiColor{i}Brush")));
+        TerminalPalette.Bind(_surface, _bindings);
         _surface.PropertyChanged += SurfaceChanged;
         _scrollbar = new ScrollBar { Orientation = Orientation.Vertical, SmallChange = 3, MinWidth = 12 };
         _scrollbar.PropertyChanged += (_, e) =>
@@ -87,7 +84,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
 
     private void SurfaceChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (PaletteProperties.Contains(e.Property) || e.Property == Iciclecreek.Terminal.TerminalView.ForegroundProperty || e.Property == Iciclecreek.Terminal.TerminalView.BackgroundProperty) UpdatePalette();
+        if (TerminalPalette.Colors.Contains(e.Property) || e.Property == Iciclecreek.Terminal.TerminalView.ForegroundProperty || e.Property == Iciclecreek.Terminal.TerminalView.BackgroundProperty) UpdatePalette();
         if (e.Property == Iciclecreek.Terminal.TerminalView.ViewportYProperty || e.Property == Iciclecreek.Terminal.TerminalView.MaxScrollbackProperty || e.Property == Iciclecreek.Terminal.TerminalView.ViewportLinesProperty) UpdateScroll();
     }
     private void UpdatePalette()
@@ -97,7 +94,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         {
             Foreground = Hex(_surface.Foreground, "#C8C8C8"), Background = Hex(_surface.Background, "#101214")
         };
-        string Color(int i) => Hex(_surface.GetValue(PaletteProperties[i]), AnsiPalette.Defaults[i]);
+        string Color(int i) => Hex(_surface.GetValue(TerminalPalette.Colors[i]), AnsiPalette.Defaults[i]);
         theme.Black = Color(0); theme.Red = Color(1); theme.Green = Color(2); theme.Yellow = Color(3);
         theme.Blue = Color(4); theme.Magenta = Color(5); theme.Cyan = Color(6); theme.White = Color(7);
         theme.BrightBlack = Color(8); theme.BrightRed = Color(9); theme.BrightGreen = Color(10); theme.BrightYellow = Color(11);
@@ -105,7 +102,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         _surface.Terminal.Options.Theme = theme;
         _surface.InvalidateVisual();
     }
-    private static string Hex(IBrush? brush, string fallback) => brush is ISolidColorBrush b ? $"#{b.Color.R:X2}{b.Color.G:X2}{b.Color.B:X2}" : fallback;
+    private static string Hex(IBrush? brush, string fallback) => TerminalPalette.Hex(brush, fallback);
 
     private void Append(string text, bool local)
     {

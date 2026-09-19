@@ -530,6 +530,15 @@ Salidas: north · east
   <data name="ColorScheme" xml:space="preserve">
     <value>Esquema de colores</value>
   </data>
+  <data name="LiveTailWhileScrolledUp" xml:space="preserve">
+    <value>Vista en vivo al desplazarse hacia arriba</value>
+  </data>
+  <data name="LiveTailKeepsTheNewestLinesInView" xml:space="preserve">
+    <value>Un panel pequeño mantiene a la vista las líneas más recientes mientras relees. Escribe 0 para desactivarlo.</value>
+  </data>
+  <data name="LiveTailLinesMustBeBetween0And30" xml:space="preserve">
+    <value>Las líneas de la vista en vivo deben estar entre 0 y 30.</value>
+  </data>
   <data name="SessionTextSize" xml:space="preserve">
     <value>Tamaño del texto de la sesión</value>
   </data>

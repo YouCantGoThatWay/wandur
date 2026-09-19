@@ -20,6 +20,7 @@ public sealed class TerminalView : UserControl
     private readonly Button _quickCommands;
     private readonly List<Button> _liveButtons = [];
     private readonly Button _latest;
+    private readonly Wandur.Desktop.Terminal.TranscriptTailPane _tail;
     private readonly Border _welcome;
     private readonly ResourceBarsView _resources = new();
     private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
@@ -36,6 +37,11 @@ public sealed class TerminalView : UserControl
         _latest.VerticalAlignment = VerticalAlignment.Bottom;
         _latest.Margin = new Thickness(16);
         _latest.IsVisible = false;
+        _tail = new Wandur.Desktop.Terminal.TranscriptTailPane(controller.Terminal, () => controller.Display.FollowTail());
+        _tail.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.LiveTailWhileScrolledUp)));
+        _tail.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.LiveTailWhileScrolledUp)));
+        // The jump button steps above the pane rather than covering the lines it is there to show.
+        _tail.SizeChanged += (_, _) => PlaceLatest();
         _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
         _send.Name = "SendCommand";
         _send.Height = 36;
@@ -69,7 +75,7 @@ public sealed class TerminalView : UserControl
         var display = controller.Display.View;
         if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
         display.Margin = new Thickness(8, 4, 4, 4);
-        var output = new Grid { Children = { display, _welcome, _latest } };
+        var output = new Grid { Children = { display, _tail, _welcome, _latest } };
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
         var actions = new StackPanel { Name = "ComposerActions", Orientation = Orientation.Horizontal, Spacing = 4, Children = { _look, _quickCommands } };
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 10 };
@@ -216,7 +222,19 @@ public sealed class TerminalView : UserControl
         _syncingPrivate = false;
         RefreshScroll();
     }
-    private void RefreshScroll() => _latest.IsVisible = !_controller.Display.IsFollowingTail;
+    private void RefreshScroll()
+    {
+        // Scrolled away from the tail is the one condition, and it can only hold once there is scrollback
+        // to read: the pane and the jump button appear and leave together.
+        var scrolledBack = !_controller.Display.IsFollowingTail;
+        _latest.IsVisible = scrolledBack;
+        _tail.Lines = _controller.Settings.ScrollTailLines;
+        _tail.TextSize = _controller.Settings.FontSize;
+        _tail.IsVisible = scrolledBack && _tail.Lines > 0;
+        PlaceLatest();
+    }
+
+    private void PlaceLatest() => _latest.Margin = new Thickness(16, 16, 16, _tail.IsVisible ? 16 + _tail.Bounds.Height : 16);
 
     private async Task Send()
     {

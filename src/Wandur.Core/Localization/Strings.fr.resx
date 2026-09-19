@@ -530,6 +530,15 @@ Sorties : north · east
   <data name="ColorScheme" xml:space="preserve">
     <value>Palette de couleurs</value>
   </data>
+  <data name="LiveTailWhileScrolledUp" xml:space="preserve">
+    <value>Aperçu en direct pendant le défilement</value>
+  </data>
+  <data name="LiveTailKeepsTheNewestLinesInView" xml:space="preserve">
+    <value>Un petit volet garde les lignes les plus récentes visibles pendant que vous relisez. Indiquez 0 pour le désactiver.</value>
+  </data>
+  <data name="LiveTailLinesMustBeBetween0And30" xml:space="preserve">
+    <value>Le nombre de lignes de l'aperçu en direct doit être compris entre 0 et 30.</value>
+  </data>
   <data name="SessionTextSize" xml:space="preserve">
     <value>Taille du texte de la session</value>
   </data>
