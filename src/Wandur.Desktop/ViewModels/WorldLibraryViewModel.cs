@@ -8,7 +8,6 @@ public sealed partial class WorldLibraryViewModel : ObservableObject
 {
     private readonly SessionWorkspace _sessions;
     private readonly Action<ConnectionProfile>? _editProfile;
-    private bool _refreshing;
     [ObservableProperty] private IReadOnlyList<ConnectionProfile> _profiles = [];
     [ObservableProperty] private ConnectionProfile? _selectedProfile;
     public bool HasWorlds => Profiles.Count > 0;
@@ -26,24 +25,20 @@ public sealed partial class WorldLibraryViewModel : ObservableObject
     }
 
     public void Attach() { _sessions.Changed += Refresh; Refresh(); }
-    public void Detach() { _sessions.Changed -= Refresh; _sessions.EndThemePreview(this); }
+    public void Detach() => _sessions.Changed -= Refresh;
     private void Refresh()
     {
         if (ReferenceEquals(Profiles, _sessions.Active.Controller.Settings.Profiles)) return;
         var id = SelectedProfile?.Id;
-        _refreshing = true;
         Profiles = _sessions.Active.Controller.Settings.Profiles;
         SelectedProfile = Profiles.FirstOrDefault(p => p.Id == id) ?? Profiles.FirstOrDefault();
-        _refreshing = false;
-        _sessions.PreviewWorldProfile(this, SelectedProfile, activate: false);
         OnPropertyChanged(nameof(HasWorlds)); OnPropertyChanged(nameof(IsEmpty));
     }
+    // Selecting a saved world only chooses what Connect will open; its theme arrives with the session.
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
         EditCommand.NotifyCanExecuteChanged(); ConnectCommand.NotifyCanExecuteChanged(); DeleteCommand.NotifyCanExecuteChanged();
-        if (!_refreshing) PreviewSelectedTheme();
     }
-    public void PreviewSelectedTheme() => _sessions.PreviewWorldProfile(this, SelectedProfile);
     private bool CanEdit() => _editProfile is not null && SelectedProfile is not null;
     private bool CanConnect() => SelectedProfile is not null;
     [RelayCommand(CanExecute = nameof(CanEdit))]

@@ -79,7 +79,6 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
         Wandur.Core.Localization.UiLanguage.Changed += CatalogChanged;
         _attached = true;
         RefreshCatalog();
-        PreviewSelectedTheme();
     }
     public void Detach()
     {
@@ -87,18 +86,10 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
         _catalog.Changed -= CatalogChanged;
         Wandur.Core.Localization.UiLanguage.Changed -= CatalogChanged;
         _attached = false;
-        _sessions.EndThemePreview(this);
         _lifetime.Cancel();
     }
     private void CatalogChanged() => _dispatch(() => { if (_attached && !_disposed) RefreshCatalog(); });
-    private bool _refreshingCatalog;
     private void RefreshCatalog()
-    {
-        _refreshingCatalog = true;
-        try { RefreshCatalogCore(); }
-        finally { _refreshingCatalog = false; }
-    }
-    private void RefreshCatalogCore()
     {
         CanRefresh = !_catalog.Loading;
         Status = _catalog.Loading ? L.LoadingTheDirectoryTheFirstFullDownloadMayTake :
@@ -112,16 +103,12 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
     }
     partial void OnQueryChanged(WorldBrowserQuery value) => RefreshResults();
     partial void OnCanRefreshChanged(bool value) => RefreshCommand.NotifyCanExecuteChanged();
+    // Highlighting a listing never themes the window: a world theme arrives with its session.
     partial void OnSelectedWorldChanged(WorldListing? value)
     {
-        PreviewSelectedTheme(activate: !_refreshingCatalog);
         Feedback = "";
         UseTls = value?.Port is null && value?.TlsPort is not null;
         SaveCommand.NotifyCanExecuteChanged(); ConnectCommand.NotifyCanExecuteChanged();
-    }
-    public void PreviewSelectedTheme(bool activate = true)
-    {
-        if (_attached) _sessions.PreviewWorldTheme(this, SelectedWorld?.Theme, activate);
     }
     private void RefreshResults()
     {
@@ -206,7 +193,6 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
     {
         if (_disposed) return;
         _disposed = true;
-        _sessions.EndThemePreview(this);
         if (_attached) _catalog.Changed -= CatalogChanged;
         Wandur.Core.Localization.UiLanguage.Changed -= CatalogChanged;
         _lifetime.Cancel(); _lifetime.Dispose();

@@ -8,14 +8,19 @@ namespace Wandur.Desktop;
 
 internal static class ThemeMaterials
 {
-    public static void Apply(IResourceDictionary resources, WorldTheme? theme, IReadOnlyDictionary<string, Bitmap>? images)
+    /// <summary>
+    /// Textured or metallic surfaces replace whole brushes, so they are applied only when the theme asks
+    /// for them. A plain theme keeps the solid brushes <see cref="ThemeService"/> already updated in place.
+    /// </summary>
+    public static void Apply(ThemeResources resources, WorldTheme? theme, IReadOnlyDictionary<string, Bitmap>? images, string panelColor)
     {
-        var panel = (IBrush)resources["PanelBrush"]!;
-        var shell = (IBrush)resources["ShellBrush"]!;
-        var chrome = panel;
-        if (theme?.Surface == "metallic")
+        var chromeImage = images?.GetValueOrDefault("chrome");
+        var shellImage = images?.GetValueOrDefault("shell");
+        var metallic = theme?.Surface == "metallic";
+        IBrush chrome = resources.Read("PanelBrush");
+        if (metallic)
         {
-            var source = Color.Parse(theme.Colors.Panel);
+            var source = Color.Parse(theme!.Colors.Panel);
             var gray = (byte)((source.R + source.G + source.B) / 3);
             var color = Color.FromRgb((byte)((gray * 3 + source.R) / 4),
                 (byte)((gray * 3 + source.G) / 4), (byte)((gray * 3 + source.B) / 4));
@@ -37,19 +42,27 @@ internal static class ThemeMaterials
                 ]
             };
         }
-        var chromeImage = images?.GetValueOrDefault("chrome");
-        var shellImage = images?.GetValueOrDefault("shell");
-        if (chromeImage is not null || theme?.Surface == "metallic")
+        var textured = chromeImage is not null || metallic;
+        if (textured) chrome = Overlay(chrome, chromeImage, theme?.Images?.Chrome?.Opacity ?? .12, height: 64);
+        // ThemeService has already restored every solid surface, so only textures are written here.
+        if (shellImage is not null)
         {
-            chrome = Overlay(chrome, chromeImage, theme?.Images?.Chrome?.Opacity ?? .12, height: 64);
+            var shell = Overlay(resources.Read("ShellBrush"), shellImage, theme?.Images?.Shell?.Opacity ?? .12);
+            foreach (var key in new[] { "ShellBrush", "DockSurfacePanelBrush", "DockSurfaceSidebarBrush", "DockSurfaceWorkbenchBrush", "DockWindowChromeBackgroundBrush" })
+                resources.Brush(key, shell);
         }
-        if (shellImage is not null) shell = Overlay(shell, shellImage, theme?.Images?.Shell?.Opacity ?? .12);
-        resources["DockHeaderBrush"] = theme?.Surface == "metallic" || chromeImage is not null
-            ? chrome : resources["ButtonFaceBrush"]!;
-        resources["PanelBrush"] = panel; resources["ShellBrush"] = shell; resources["ChromeBrush"] = chrome;
-        foreach (var key in new[] { "DockSurfacePanelBrush", "DockSurfaceSidebarBrush", "DockSurfaceWorkbenchBrush", "DockWindowChromeBackgroundBrush" }) resources[key] = shell;
-        if (theme?.Surface == "metallic" || chromeImage is not null)
-            foreach (var key in new[] { "DockSurfaceHeaderBrush", "DockSurfaceHeaderActiveBrush", "DockWindowChromeTitleBarBackgroundBrush", "DockDocumentTabStripBackgroundBrush" }) resources[key] = chrome;
+        if (textured)
+        {
+            resources.Brush("ChromeBrush", chrome);
+            resources.Brush("DockHeaderBrush", chrome);
+            foreach (var key in new[] { "DockSurfaceHeaderBrush", "DockSurfaceHeaderActiveBrush", "DockWindowChromeTitleBarBackgroundBrush", "DockDocumentTabStripBackgroundBrush" })
+                resources.Brush(key, chrome);
+        }
+        else
+        {
+            resources.Color("ChromeBrush", panelColor);
+            resources.Brush("DockHeaderBrush", resources.Read("ButtonFaceBrush"));
+        }
     }
 
     private static IBrush Overlay(IBrush surface, Bitmap? bitmap, double opacity, double height = 256)

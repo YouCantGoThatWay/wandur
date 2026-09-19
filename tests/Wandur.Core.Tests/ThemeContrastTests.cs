@@ -116,6 +116,25 @@ public sealed class ThemeContrastTests
         Assert.Equal(theme.IsLight, Luminance(theme.Colors["Shell"]) > Luminance(theme.Colors["Text"]));
     }
 
+    [Theory]
+    [MemberData(nameof(Presets))]
+    public void TheFallbackPaletteIsLegibleOnEveryPresetTerminalBackground(string name)
+    {
+        // A world theme or a custom background color can be the opposite lightness of the personal
+        // preset, and the palette then comes from this fallback instead of from the preset itself.
+        var theme = UserTheme.FromPreset(name);
+        var background = theme.Colors["Terminal"];
+        Assert.Equal(theme.IsLight, UserTheme.IsLightBackground(background));
+        var palette = UserTheme.PaletteForBackground(background);
+        Assert.Equal(16, palette.Count);
+        for (var index = 0; index < 16; index++)
+        {
+            var required = index == 0 ? 3 : 4.5;
+            Assert.True(Contrast(palette[index], background) >= required,
+                $"{name} fallback ANSI {index} ({palette[index]}) has {Contrast(palette[index], background):F2}:1 on {background}");
+        }
+    }
+
     [Fact]
     public void LightAndDarkPresetsAreBothOffered()
     {

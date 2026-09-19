@@ -23,11 +23,12 @@ public sealed class WorldThemeViewTests
     private static string ColorOf(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color.ToString();
 
     [AvaloniaFact]
-    public async Task SelectingWorldThemesTheShellDockToolbarsAndDialogsAndRestoresUserDefault()
+    public async Task AnOpenSessionThemesTheShellDockToolbarsAndDialogsAndClosingItRestoresTheUserDefault()
     {
         var path = Path.Combine(Path.GetTempPath(), "wandur-whole-theme-" + Guid.NewGuid());
         Directory.CreateDirectory(path);
-        var themed = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "legendsofthejedi.com", Port = 5656, Theme = Theme };
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var themed = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Theme = Theme };
         var plain = new WorldListing { Id = "other", Name = "Other world", Host = "other.example", Port = 4000 };
         var store = new SettingsStore(Path.Combine(path, "settings.json"));
         var saved = themed.ToProfile() with { Theme = null };
@@ -39,18 +40,30 @@ public sealed class WorldThemeViewTests
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
-            Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
-            Assert.Equal("#ff091821", ColorOf(window.Background));
             var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
-            Assert.Equal("#ff112532", ColorOf(toolbar.Background));
-            Assert.Equal("#ff091821", ColorOf((IBrush)Application.Current!.Resources["DockSurfaceHeaderBrush"]!));
             var search = window.GetVisualDescendants().OfType<ListBox>().Single(b => b.Name == "DirectoryResults");
-            search.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
-            Assert.Equal(ThemeVariant.Light, window.ActualThemeVariant);
             var worlds = window.GetVisualDescendants().OfType<ListBox>().Single(b => b.Name == "WorldProfiles");
+            // Highlighting the themed world in the directory or in the saved list leaves the personal theme.
+            search.SelectedIndex = 0; Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ThemeVariant.Light, window.ActualThemeVariant);
             var savedRow = Assert.IsType<ListBoxItem>(worlds.ContainerFromIndex(0));
             var click = savedRow.TranslatePoint(new Point(20, savedRow.Bounds.Height / 2), window)!.Value;
             window.MouseDown(click, MouseButton.Left); window.MouseUp(click, MouseButton.Left); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ThemeVariant.Light, window.ActualThemeVariant);
+
+            await window.Sessions.OpenAsync(window.Controller.Settings.Profiles[0]);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
+            Dispatcher.UIThread.RunJobs();
+            var session = window.Sessions.Active;
+            Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
+            Assert.Equal("#ff091821", ColorOf(window.Background));
+            Assert.Equal("#ff112532", ColorOf(toolbar.Background));
+            Assert.Equal("#ff091821", ColorOf((IBrush)Application.Current!.Resources["DockSurfaceHeaderBrush"]!));
+            // Nothing a reader does in the directory, the saved list or a dialog moves it off that session.
+            search.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
+            worlds.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
             window.Controller.ShowNotice("status update"); Dispatcher.UIThread.RunJobs();
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
@@ -60,7 +73,7 @@ public sealed class WorldThemeViewTests
             var dialog = new BrowserTestWindow(dialogModel, catalog);
             dialog.Show(window); Dispatcher.UIThread.RunJobs();
             dialog.GetVisualDescendants().OfType<ListBox>().Single(b => b.Name == "DirectoryResults").SelectedIndex = 1;
-            Dispatcher.UIThread.RunJobs(); Assert.Equal(ThemeVariant.Light, window.ActualThemeVariant);
+            Dispatcher.UIThread.RunJobs(); Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
             dialog.Close(); Dispatcher.UIThread.RunJobs();
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
             Assert.Equal("Paper", store.Load().Settings.Theme);
@@ -75,11 +88,16 @@ public sealed class WorldThemeViewTests
             Assert.Equal("#ff070d15", ColorOf((IBrush)Application.Current!.Resources["TerminalBrush"]!));
             if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } captures)
             {
-                // Preview the themed listing for a complete workspace capture.
-                search.SelectedIndex = 0; Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+                Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
                 using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
                 Directory.CreateDirectory(captures); frame.Save(Path.Combine(captures, "whole-world-theme.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
+            // Closing the session hands the window back to the personal theme.
+            await window.Sessions.CloseAsync(session); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ThemeVariant.Light, Application.Current!.RequestedThemeVariant);
+            Assert.Equal("#ffeeefef", ColorOf(window.Background));
+            Assert.Equal(Color.Parse(UserTheme.FromPreset("Paper").Colors["Terminal"]),
+                Assert.IsAssignableFrom<ISolidColorBrush>(Application.Current!.Resources["TerminalBrush"]).Color);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }
@@ -175,8 +193,9 @@ public sealed class WorldThemeViewTests
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
+            // Browsing never themes the window: the personal default stays until a session opens.
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
-            Assert.Equal("#ff091821", ColorOf(window.Background));
+            Assert.Equal("#ff141519", ColorOf(window.Background));
             var title = browser.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "DirectoryWorldTitle");
             var children = Assert.IsType<StackPanel>(title.Parent).Children;
             Assert.Equal("DirectoryWorldTitle", children[0].Name);
@@ -193,6 +212,8 @@ public sealed class WorldThemeViewTests
             { Directory.CreateDirectory(captures); frame.Save(Path.Combine(captures, "world-theme-directory.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
             var list = browser.GetVisualDescendants().OfType<ListBox>().Single(t => t.Name == "DirectoryResults");
             list.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
+            Assert.Equal("#ff141519", ColorOf(window.Background));
+            list.SelectedIndex = 0; Dispatcher.UIThread.RunJobs();
             Assert.Equal("#ff141519", ColorOf(window.Background));
         }
         finally { window.Close(); }

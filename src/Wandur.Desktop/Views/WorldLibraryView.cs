@@ -64,7 +64,6 @@ public sealed class WorldLibraryView : UserControl
             var pointer = args.GetCurrentPoint(worlds).Properties;
             if (!pointer.IsLeftButtonPressed && !pointer.IsRightButtonPressed) return;
             _model.SelectedProfile = profile;
-            _model.PreviewSelectedTheme();
         }, RoutingStrategies.Tunnel);
         worlds.DoubleTapped += async (_, _) => await _model.ConnectCommand.ExecuteAsync(null);
         worlds.KeyDown += async (_, args) =>

@@ -108,7 +108,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         if (_disposed || !Tabs.Contains(tab) || tab.IsClosing) return;
         Active = tab;
         IsBrowsing = !tab.Controller.HasSession;
-        ResetAppearanceSelection();
+        ApplyAppearance();
         tab.HasActivity = false;
         tab.Refresh();
         SelectionChanged?.Invoke();
@@ -129,7 +129,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         if (_disposed) return;
         // Reuse only a blank tab. Disconnected transcripts remain available until closed.
         var tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
-        ResetAppearanceSelection();
+        ApplyAppearance();
         var themeCacheFailed = false;
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)
         {

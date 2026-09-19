@@ -1,56 +1,11 @@
 using Avalonia.Threading;
-using Wandur.Core.Discovery;
 using Wandur.Core.Settings;
 
 namespace Wandur.Desktop;
 
 public sealed partial class SessionWorkspace
 {
-    // Most recently selected visible context wins. Leaving the directory page
-    // returns to the selection underneath it; switching sessions clears previews.
-    private sealed record AppearancePreview(object Owner, WorldTheme? Theme, ConnectionProfile? Profile);
-    private readonly List<AppearancePreview> _appearancePreviews = [];
     private ClientSettings? _previewSettings;
-
-    public void PreviewWorldTheme(object owner, WorldTheme? theme, bool activate = true)
-    {
-        if (_disposed) return;
-        var index = _appearancePreviews.FindIndex(p => ReferenceEquals(p.Owner, owner));
-        if (!activate)
-        {
-            if (index < 0) return;
-            _appearancePreviews[index] = new(owner, theme, null);
-        }
-        else
-        {
-            if (index >= 0) _appearancePreviews.RemoveAt(index);
-            _appearancePreviews.Add(new(owner, theme, null));
-        }
-        ApplyAppearance();
-    }
-
-    public void PreviewWorldProfile(object owner, ConnectionProfile? profile, bool activate = true)
-    {
-        if (_disposed) return;
-        var index = _appearancePreviews.FindIndex(p => ReferenceEquals(p.Owner, owner));
-        if (!activate)
-        {
-            if (index < 0) return;
-            _appearancePreviews[index] = new(owner, null, profile);
-        }
-        else
-        {
-            if (index >= 0) _appearancePreviews.RemoveAt(index);
-            _appearancePreviews.Add(new(owner, null, profile));
-        }
-        ApplyAppearance();
-    }
-
-    public void EndThemePreview(object owner)
-    {
-        if (_disposed) return;
-        if (_appearancePreviews.RemoveAll(p => ReferenceEquals(p.Owner, owner)) > 0) ApplyAppearance();
-    }
 
     public void PreviewAppearanceSettings(ClientSettings settings)
     {
@@ -66,27 +21,21 @@ public sealed partial class SessionWorkspace
         ApplyAppearance();
     }
 
+    /// <summary>
+    /// A world theme belongs to an open session, not to a highlighted row: it applies when that session
+    /// opens and whenever its tab is the active one, and the personal theme returns as soon as no active
+    /// session carries one. Browsing the directory or the saved world list never changes the appearance.
+    /// </summary>
     public void ApplyAppearance()
     {
         if (_disposed) return;
-        var theme = Active.Controller.WorldTheme;
-        if (_appearancePreviews.LastOrDefault() is { } preview)
-        {
-            theme = preview.Theme;
-            if (preview.Profile is { } selected)
-            {
-                var profile = Active.Controller.Settings.Profiles.FirstOrDefault(p => p.Id == selected.Id);
-                if (profile is not null)
-                    theme = _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing ? listing.Theme : profile.Theme;
-            }
-        }
-        if (!(_previewSettings ?? Active.Controller.Settings).UseWorldThemes) theme = null;
+        var settings = _previewSettings ?? Active.Controller.Settings;
+        var theme = settings.UseWorldThemes ? Active.Controller.WorldTheme : null;
         var oldImages = PrepareThemeImages(theme);
-        ThemeService.Apply(_previewSettings ?? Active.Controller.Settings, theme, _themeImages);
+        ThemeService.Apply(settings, theme, _themeImages);
         if (oldImages is not null) foreach (var bitmap in oldImages.Values) bitmap.Dispose();
     }
 
-    private void ResetAppearanceSelection() { _appearancePreviews.Clear(); ApplyAppearance(); }
     private void RefreshCatalogProfiles()
     {
         if (_disposed || _catalog is null || _catalog.Loading) return;

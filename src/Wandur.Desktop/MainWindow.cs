@@ -41,7 +41,6 @@ public sealed class MainWindow : Window
     private List<ConnectionProfile>? _profiles;
     private bool _closing;
     private bool _closed;
-    private bool _refreshingProfiles;
     private Window? _dialog;
     private readonly IProfileAutomationFactory _profileAutomationFactory;
     private readonly IAgentClientServices? _agents;
@@ -70,11 +69,8 @@ public sealed class MainWindow : Window
 
         _menus = new DesktopMenus(this);
         _worldPicker.ItemTemplate = new FuncDataTemplate<ConnectionProfile>((profile, _) => new TextBlock { Text = profile?.Name, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12 });
-        _worldPicker.SelectionChanged += (_, _) =>
-        {
-            _menus.Refresh();
-            if (!_refreshingProfiles) Sessions.PreviewWorldProfile(_worldPicker, SelectedProfile);
-        };
+        // Choosing a world here only changes what Connect will open; the theme follows the session.
+        _worldPicker.SelectionChanged += (_, _) => _menus.Refresh();
         ToolTip.SetTip(_worldPicker, L.ChooseASavedWorldToOpenInASession);
         Avalonia.Automation.AutomationProperties.SetName(_worldPicker, L.ChooseAWorld);
         _worldPicker.Classes.Add("toolbar-world-picker");
@@ -252,12 +248,9 @@ public sealed class MainWindow : Window
         if (!ReferenceEquals(_profiles, Controller.Settings.Profiles))
         {
             var selected = SelectedProfile?.Id;
-            _refreshingProfiles = true;
             _profiles = Controller.Settings.Profiles;
             _worldPicker.ItemsSource = _profiles;
             _worldPicker.SelectedItem = _profiles.FirstOrDefault(p => p.Id == selected) ?? _profiles.FirstOrDefault();
-            _refreshingProfiles = false;
-            Sessions.PreviewWorldProfile(_worldPicker, SelectedProfile, activate: false);
         }
         Title = Controller.HasSession ? $"{Controller.WorldName} — Wandur" : "Wandur";
         var connected = Sessions.Tabs.Count(t => t.Controller.IsConnected);

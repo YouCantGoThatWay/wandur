@@ -70,14 +70,6 @@ public sealed partial class WorldBrowserView : UserControl
             _model.SelectedWorld = _list.SelectedItem as WorldListing;
             ShowSelection();
         };
-        _list.AddHandler(PointerPressedEvent, (_, args) =>
-        {
-            if (args.Source is not Visual source ||
-                source.GetSelfAndVisualAncestors().OfType<ListBoxItem>().FirstOrDefault()?.Content is not WorldListing world ||
-                world.Id != _model.SelectedWorld?.Id) return;
-            var pointer = args.GetCurrentPoint(_list).Properties;
-            if (pointer.IsLeftButtonPressed || pointer.IsRightButtonPressed) _model.PreviewSelectedTheme();
-        }, RoutingStrategies.Tunnel);
         var sortRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 10, Children = { _onlineFilter, _sort } };
         Grid.SetColumn(_sort, 1);
         _sort.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.SortWorldsByRelevanceNamePopulationRatingOrDate)));

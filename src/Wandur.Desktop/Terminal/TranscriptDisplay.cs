@@ -55,6 +55,10 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         View = grid;
         _source.OutputAppended += Append;
         _source.Cleared += Clear;
+        // The palette brushes keep their identity across theme changes, so only their colors move and
+        // the bound properties raise nothing. One notification per applied theme rebuilds the engine
+        // palette and repaints the existing buffer once, without reparsing it.
+        ThemeService.Applied += UpdatePalette;
         UpdatePalette();
     }
     public Control View { get; }
@@ -153,6 +157,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
     {
         if (_disposed) return;
         _disposed = true;
+        ThemeService.Applied -= UpdatePalette;
         _source.OutputAppended -= Append; _source.Cleared -= Clear;
         _surface.PropertyChanged -= SurfaceChanged;
         _surface.StopBlinking();

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -22,7 +23,8 @@ public sealed class MetallicThemeTests
     {
         var path = Path.Combine(Path.GetTempPath(), "wandur-metal-" + Guid.NewGuid()); Directory.CreateDirectory(path);
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-metallic.json")))!;
-        var world = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "legendsofthejedi.com", Port = 5656, Theme = theme,
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var world = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Theme = theme,
             Summary = "A galaxy shaped by its players.", Description = "Explore distant worlds, pilot starships and take a side in an evolving galactic story.", Tags = ["Star Wars", "Roleplay"] };
         File.WriteAllText(Path.Combine(path, "directory.json"), JsonSerializer.Serialize(new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.UtcNow, worlds = new[] { world } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower }));
         var handler = new ImageHandler(narrowImage); using var http = new HttpClient(handler);
@@ -32,6 +34,9 @@ public sealed class MetallicThemeTests
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
             var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
+            // The world theme arrives with its session, not with a highlighted directory row.
+            Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
+            await window.Sessions.OpenAsync(world.ToProfile()); Dispatcher.UIThread.RunJobs();
             Assert.IsType<DrawingBrush>(toolbar.Background);
             var end = DateTime.UtcNow.AddSeconds(5);
             while (!HasImage(toolbar.Background) && DateTime.UtcNow < end) { await Task.Delay(15); Dispatcher.UIThread.RunJobs(); }
@@ -51,10 +56,12 @@ public sealed class MetallicThemeTests
             using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
             if (!narrowImage && Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } captures)
             { Directory.CreateDirectory(captures); frame.Save(Path.Combine(captures, "metallic-workspace.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
-            window.Sessions.PreviewWorldTheme(this, null); Dispatcher.UIThread.RunJobs();
+            var themed = window.Sessions.Active;
+            await window.Sessions.CloseAsync(themed); Dispatcher.UIThread.RunJobs();
             Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
-            window.Sessions.PreviewWorldTheme(this, theme);
-            window.Sessions.PreviewWorldTheme(this, null); // Cancel queued texture load before it runs.
+            // Reopening and closing at once has to cancel the queued texture load before it runs.
+            await window.Sessions.OpenAsync(world.ToProfile());
+            await window.Sessions.CloseAsync(window.Sessions.Active);
             Dispatcher.UIThread.RunJobs(); await Task.Delay(25); Dispatcher.UIThread.RunJobs();
             Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
         }

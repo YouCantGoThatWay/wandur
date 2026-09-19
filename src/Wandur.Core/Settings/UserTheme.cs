@@ -79,6 +79,35 @@ public sealed record UserTheme
              "#6F6B5D", "#920808", "#04521E", "#4E4804", "#0840A0", "#7D0783", "#054D5C", "#28261F"])
     ];
     public static IReadOnlyList<string> PresetNames { get; } = Array.AsReadOnly(Presets.Select(p => p.Name).ToArray());
+
+    /// <summary>WCAG 2.x relative luminance of an #RRGGBB color.</summary>
+    private static double Luminance(string hex)
+    {
+        static double Linear(int channel)
+        {
+            var value = channel / 255d;
+            return value <= 0.03928 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Linear(Convert.ToInt32(hex[1..3], 16))
+            + 0.7152 * Linear(Convert.ToInt32(hex[3..5], 16))
+            + 0.0722 * Linear(Convert.ToInt32(hex[5..7], 16));
+    }
+
+    /// <summary>True when black reads better than white on this background. 0.1791 is the
+    /// luminance where the WCAG contrast of black and white against it is equal.</summary>
+    public static bool IsLightBackground(string hex) => IsColor(hex) && Luminance(hex) > 0.1791;
+
+    /// <summary>
+    /// A contrast checked sixteen color terminal palette for a background the personal theme did not
+    /// choose itself, such as a world theme's terminal or a custom background color. A preset's own
+    /// colors are only legible on a background of its own lightness. Ember and Linen are the two
+    /// presets whose palettes clear the contrast floor on every other preset background of their
+    /// lightness, which the contrast tests enforce.
+    /// </summary>
+    public static IReadOnlyDictionary<int, string> PaletteForBackground(string background)
+        => IsLightBackground(background) ? LightTerminalPalette : DarkTerminalPalette;
+    private static readonly IReadOnlyDictionary<int, string> DarkTerminalPalette = FromPreset("Ember").AnsiColors;
+    private static readonly IReadOnlyDictionary<int, string> LightTerminalPalette = FromPreset("Linen").AnsiColors;
     /// <summary>Localized display name for a preset. Other identifiers are returned unchanged.</summary>
     public static string DisplayName(string? name) => name switch
     {
