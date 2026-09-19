@@ -137,8 +137,10 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         using (SessionOpenTrace.Measure("catalog theme lookup"))
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)
         {
-            // A missing/corrupt optional catalog map must not evict the last valid endpoint-bound copy.
-            var updated = profile with { Theme = listing.Theme,
+            // A missing/corrupt optional catalog map must not evict the last valid endpoint-bound copy,
+            // and neither must a listing that carries no theme: a directory that has stopped supplying
+            // one says nothing about this world's appearance, and the saved theme is what opens offline.
+            var updated = profile with { Theme = listing.Theme ?? profile.Theme,
                 ProtocolMapping = listing.MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) ?? profile.GetProtocolMapping() };
             if (updated != profile && tab.Controller.Settings.Profiles.Any(p => p.Id == profile.Id))
             {

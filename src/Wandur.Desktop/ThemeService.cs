@@ -65,6 +65,8 @@ public static class ThemeService
     /// <summary>Raised once per applied palette, for views that read brush colors rather than binding them.</summary>
     public static event Action? Applied;
     private static (Application App, string Theme, string? Foreground, string? Background, WorldTheme? World, UserTheme? Personal, UserTheme? AnsiTheme, IReadOnlyDictionary<string, Bitmap>? Images)? _lastAppearance;
+    /// <summary>The world theme currently on screen, for tests that assert what the palette came from.</summary>
+    internal static WorldTheme? AppliedWorldTheme => _lastAppearance?.World;
     private static ThemeResources? _resources;
     private static (string Accent, string Panel, string Text, string Muted, string Shell, string Line)? _lastFluentPalette;
     private static Color? _gripColor;

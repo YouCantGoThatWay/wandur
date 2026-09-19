@@ -286,8 +286,9 @@ default; world previews never overwrite that preference. Closing a directory
 dialog restores the selection beneath it, and background directory/status updates
 do not take precedence over the user's last selection. The theme travels with the
 saved profile in SQLite for offline use. Existing profiles pick up directory changes by exact
-host, port and TLS matching on their next connection. Editing only a profile's
-name keeps its theme; changing its endpoint clears it.
+host, port and TLS matching on their next connection. A listing without a theme
+leaves a saved theme untouched, as a missing protocol mapping does; editing only a
+profile's name keeps its theme, and changing its endpoint clears it.
 
 Explicit terminal foreground/background preferences take priority. Server ANSI
 colors and semantic map terrain colors retain their meaning. Optional theme

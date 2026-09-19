@@ -12,6 +12,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Wandur.Core.Discovery;
 using Wandur.Core.Settings;
+using Wandur.Core.Storage;
 using Wandur.Desktop.ViewModels;
 using Wandur.Desktop.Views;
 
@@ -98,6 +99,94 @@ public sealed class WorldThemeViewTests
             Assert.Equal("#ffeeefef", ColorOf(window.Background));
             Assert.Equal(Color.Parse(UserTheme.FromPreset("Paper").Colors["Terminal"]),
                 Assert.IsAssignableFrom<ISolidColorBrush>(Application.Current!.Resources["TerminalBrush"]).Color);
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    private static string Snapshot(params WorldListing[] worlds) => JsonSerializer.Serialize(
+        new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.UtcNow, worlds },
+        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+
+    /// <summary>
+    /// The saved world list, the toolbar picker and the directory's Connect all open through
+    /// <see cref="SessionWorkspace.OpenAsync"/>, over the real client database. A theme reaches the
+    /// session whether the directory snapshot carries it or only the saved profile still does: a
+    /// listing without a theme says nothing about that world's appearance, so it never evicts one.
+    /// </summary>
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OpeningASavedWorldFromTheListThemesTheShellWhicheverSideCarriesTheTheme(bool fromDirectory)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-open-theme-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var listing = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "127.0.0.1",
+            Port = ((IPEndPoint)listener.LocalEndpoint).Port, Theme = fromDirectory ? Theme : null };
+        var database = new ClientDatabase(Path.Combine(path, "wandur.db"));
+        var store = new SqliteSettingsStore(database, Path.Combine(path, "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper", Profiles = [listing.ToProfile() with { Theme = fromDirectory ? null : Theme }] });
+        var cache = new SqliteWorldCatalogCache(database, Path.Combine(path, "directory.json"));
+        cache.WriteSnapshot(Snapshot(listing));
+        using var catalog = new WorldCatalog(cache, http: OfflineHttp.Client());
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            var library = Assert.IsType<WorldLibraryViewModel>(window.GetVisualDescendants().OfType<WorldLibraryView>().First().DataContext);
+            library.SelectedProfile = library.Profiles[0];
+            await library.ConnectCommand.ExecuteAsync(null);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Theme, window.Sessions.Active.Controller.WorldTheme);
+            Assert.Equal(Theme, ThemeService.AppliedWorldTheme);
+            Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
+            Assert.Equal("#ff091821", ColorOf(window.Background));
+            Assert.Equal("#ff091821", ColorOf((IBrush)Application.Current!.Resources["ShellBrush"]!));
+            // The theme the world already had survives in storage, and saving the listing again keeps it.
+            Assert.Equal(Theme, Assert.Single(store.Load().Settings.Profiles).Theme);
+            using var browser = new WorldBrowserViewModel(catalog, window.Sessions);
+            browser.Attach(action => action());
+            Assert.Equal(Theme, browser.SaveSelectedWorld()!.Theme);
+            Assert.Equal(Theme, Assert.Single(store.Load().Settings.Profiles).Theme);
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    /// <summary>A theme that only reaches the client on a later refresh still finds the open session.</summary>
+    [AvaloniaFact]
+    public async Task AThemeArrivingWithALaterDirectoryRefreshReachesTheOpenSession()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-late-theme-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var themed = new WorldListing { Id = "lotj", Name = "Legends of the Jedi", Host = "127.0.0.1",
+            Port = ((IPEndPoint)listener.LocalEndpoint).Port, Theme = Theme };
+        var database = new ClientDatabase(Path.Combine(path, "wandur.db"));
+        var store = new SqliteSettingsStore(database, Path.Combine(path, "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper", Profiles = [themed.ToProfile() with { Theme = null }] });
+        var cache = new SqliteWorldCatalogCache(database, Path.Combine(path, "directory.json"));
+        cache.WriteSnapshot(Snapshot(themed with { Theme = null }));
+        var published = false;
+        using var http = new HttpClient(new NoArtwork(() => Snapshot(published ? themed : themed with { Theme = null })));
+        using var catalog = new WorldCatalog(cache, http: http);
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            await window.Sessions.OpenAsync(window.Controller.Settings.Profiles[0]);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var socket = await listener.AcceptTcpClientAsync(timeout.Token);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(ThemeService.AppliedWorldTheme);
+            // The world gains a theme only once the session is already open.
+            published = true;
+            await catalog.LoadAsync(force: true); Dispatcher.UIThread.RunJobs();
+            Assert.Equal(Theme, ThemeService.AppliedWorldTheme);
+            Assert.Equal("#ff091821", ColorOf(window.Background));
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }
@@ -218,11 +307,15 @@ public sealed class WorldThemeViewTests
         }
         finally { window.Close(); }
     }
-    private sealed class NoArtwork(string? snapshot = null) : HttpMessageHandler
+    private sealed class NoArtwork : HttpMessageHandler
     {
+        private readonly Func<string>? _snapshot;
+        public NoArtwork() { }
+        public NoArtwork(string snapshot) => _snapshot = () => snapshot;
+        public NoArtwork(Func<string> snapshot) => _snapshot = snapshot;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(snapshot is not null && request.RequestUri!.AbsolutePath == "/directory"
-                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(snapshot) }
+            => Task.FromResult(_snapshot is not null && request.RequestUri!.AbsolutePath == "/directory"
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(_snapshot()) }
                 : new HttpResponseMessage(HttpStatusCode.NotFound));
     }
     private sealed class ReadOnlyStore(ISettingsStore inner) : ISettingsStore
