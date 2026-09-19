@@ -33,6 +33,8 @@ public sealed class ScriptPanelView : UserControl
     {
         _panel = panel;
         Name = "ScriptPanel_" + Safe(panel.Id);
+        // Panel content is game data, so it reads like the transcript: every widget inherits the terminal's monospace face.
+        FontFamily = new FontFamily(Terminal.TerminalPalette.Monospace);
         _empty.Margin = new Thickness(12);
         _empty.TextWrapping = TextWrapping.Wrap;
         var host = new Grid { Children = { _body, _empty } };

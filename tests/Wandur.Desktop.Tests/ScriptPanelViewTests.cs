@@ -65,8 +65,10 @@ public sealed class ScriptPanelViewTests
             var view = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>());
             var gauge = Assert.Single(view.GetVisualDescendants().OfType<ProgressBar>());
             Assert.Equal(10, gauge.Value);
-            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == "In orbit");
+            var orbit = Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == "In orbit");
+            Assert.Equal(new FontFamily(Wandur.Desktop.Terminal.TerminalPalette.Monospace), orbit.FontFamily);
             var button = Assert.Single(view.GetVisualDescendants().OfType<Button>());
+            Assert.Equal(new FontFamily(Wandur.Desktop.Terminal.TerminalPalette.Monospace), button.FontFamily);
             Assert.Equal("Flee", button.Content);
             var input = Assert.Single(view.GetVisualDescendants().OfType<TextBox>());
             Assert.Equal("Say...", input.PlaceholderText);
