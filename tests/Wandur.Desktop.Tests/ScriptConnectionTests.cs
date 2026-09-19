@@ -298,6 +298,130 @@ public sealed class ScriptConnectionTests
         Assert.False(controller.ScriptLibrary.Items[0].Runtime.IsRunning);
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
+
+    /// <summary>A generated pack panel of the kind the Legends of the Jedi trial showed empty: a skill level read once, redrawn on every MSDP event.</summary>
+    private const string LevelsScript = """
+        const p = mud.panel("skills", { title: "Skills", dock: "right" });
+        function refresh() {
+          const level = mud.state.get("msdp.LEVELCOMBAT");
+          p.table("levels", { columns: ["Skill", "Level"], rows: [["Combat", level === undefined ? "" : String(level)]] });
+        }
+        mud.on(Events.Msdp, refresh);
+        refresh();
+        """;
+
+    private static string? CombatLevel(WorkspaceController controller)
+        => controller.ScriptLibrary.Panels.Panels.FirstOrDefault(panel => panel.Id == "skills")?.Widgets.FirstOrDefault(widget => widget.Id == "levels")?.Properties.Rows[0][1];
+
+    private static byte[] Frame(string content) => [255, 250, 69, .. Encoding.UTF8.GetBytes(content), 255, 240];
+    private static byte[] LevelReport => Frame("\u0001REPORT\u0002LEVELCOMBAT").Concat(Frame("\u0001SEND\u0002LEVELCOMBAT")).ToArray();
+
+    private static async Task<byte[]> ReadUntilAsync(Stream stream, byte[] expected, CancellationToken token)
+    {
+        var bytes = new List<byte>();
+        var one = new byte[1];
+        while (bytes.Count < 4096 && !bytes.TakeLast(expected.Length).SequenceEqual(expected) && await stream.ReadAsync(one, token) == 1) bytes.Add(one[0]);
+        return bytes.ToArray();
+    }
+
+    private static async Task<string> ReadRawLineAsync(Stream stream, CancellationToken token)
+    {
+        var bytes = new List<byte>();
+        var one = new byte[1];
+        while (await stream.ReadAsync(one, token) == 1 && one[0] != (byte)'\n') bytes.Add(one[0]);
+        return Encoding.UTF8.GetString(bytes.ToArray()).TrimEnd('\r');
+    }
+
+    /// <summary>Starts a session whose only script is an enabled pack script, negotiates MSDP and consumes the REPORT the script's read provokes.</summary>
+    private static async Task<(WorkspaceController Controller, TcpClient Server, ConnectionProfile Profile)> StartPackSessionAsync(TcpListener listener, string tag, CancellationToken token)
+    {
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), tag + Guid.NewGuid(), "settings.json"));
+        var scripts = new MemoryScriptLibraryStore();
+        var profile = new ConnectionProfile { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Name = "Pack test" };
+        var key = $"{profile.Host}:{profile.Port}:{profile.UseTls}";
+        scripts.Upsert(key, Assert.Single(scripts.Load(key)) with { Enabled = true, Source = LevelsScript, Pack = new ScriptPackInfo("skills", ScriptPackInfo.Generated, 1) });
+        var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), scripts);
+        await controller.StartAsync(profile);
+        var server = await listener.AcceptTcpClientAsync(token);
+        var stream = server.GetStream();
+        var script = controller.ScriptLibrary.Items[0];
+        // A pack script runs as soon as the session can, before any login.
+        await ScriptSessionTests.WaitFor(() => script.Runtime.IsRunning);
+        Assert.True(script.IsPack);
+        Assert.Equal("", CombatLevel(controller));
+        await stream.WriteAsync(new byte[] { 255, 251, 69 }, token);
+        await ScriptSessionTests.WaitFor(() => controller.ProtocolEvidence.Msdp == Wandur.Core.Protocol.TelnetOptionState.Enabled);
+        var handshake = new Wandur.Core.Protocol.TelnetParser().Feed(new byte[] { 255, 251, 69 }).Reply;
+        await stream.ReadExactlyAsync(new byte[handshake.Length], token);
+        // The script read the level at load; once MSDP is on, the next output flush asks the world for it.
+        await stream.WriteAsync(Encoding.UTF8.GetBytes("Welcome to the test world.\r\n"), token);
+        var expected = LevelReport;
+        var actual = new byte[expected.Length];
+        await stream.ReadExactlyAsync(actual, token);
+        Assert.Equal(expected, actual);
+        return (controller, server, profile);
+    }
+
+    /// <summary>The Legends of the Jedi trial with a manual login: the world reports skill levels in the packet that
+    /// also turns echo back on after the password, which the privacy stamp still covers, and never again since they
+    /// do not change. The client asks again once play is public, as it does for the mapped variables.</summary>
+    [AvaloniaFact]
+    public async Task AValueReportedInThePacketThatEndsThePasswordPromptReachesARunningPackScript()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var (controller, server, _) = await StartPackSessionAsync(listener, "wandur-pack-password-", timeout.Token);
+        await using var owned = controller;
+        using var connection = server;
+        var stream = server.GetStream();
+        var script = controller.ScriptLibrary.Items[0];
+        await stream.WriteAsync((byte[])[255, 251, 1, .. Encoding.UTF8.GetBytes("Password: ")], timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.IsPrivate; });
+        Assert.True(await controller.SendAsync("secret"));
+        // The line follows the client's answer to WILL ECHO.
+        Assert.EndsWith("secret", await ReadRawLineAsync(stream, timeout.Token));
+        await stream.WriteAsync((byte[])[255, 252, 1, .. Encoding.UTF8.GetBytes("Welcome back.\r\n"), .. MsdpFrame("LEVELCOMBAT", "50")], timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return !controller.IsPrivate && controller.Terminal.PlainText.Contains("Welcome back."); });
+        // The value in that packet was stamped private; public play asks the world for the script's variables again
+        // (after the client's answer to WONT ECHO).
+        var received = await ReadUntilAsync(stream, LevelReport, timeout.Token);
+        Assert.Equal(LevelReport, received.TakeLast(LevelReport.Length).ToArray());
+        await stream.WriteAsync(MsdpFrame("LEVELCOMBAT", "50"), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return CombatLevel(controller) == "50"; });
+        Assert.True(script.Runtime.IsRunning, script.Runtime.Error);
+        Assert.DoesNotContain("secret", controller.Terminal.PlainText);
+        await controller.DisconnectAsync();
+    }
+
+    /// <summary>A value the host cache takes while the login handshake owns the session is delivered to a script that
+    /// was already running when the handshake ends, as an ordinary event, with no further server traffic.</summary>
+    [AvaloniaFact]
+    public async Task ValuesCachedWhileTheLoginHandshakeOwnsTheSessionAreReplayedToARunningScriptWhenItEnds()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var (controller, server, profile) = await StartPackSessionAsync(listener, "wandur-pack-replay-", timeout.Token);
+        await using var owned = controller;
+        using var connection = server;
+        var stream = server.GetStream();
+        var script = controller.ScriptLibrary.Items[0];
+        // The handshake takes the session while the script runs (no public path sets it after connect; a reconnect
+        // that outpaces the handshake is the closest), and the privacy toggle refreshes the script state.
+        var fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var attempt = typeof(WorkspaceController).GetNestedType("LoginAttempt", System.Reflection.BindingFlags.NonPublic)!;
+        typeof(WorkspaceController).GetField("_login", fields)!.SetValue(controller, Activator.CreateInstance(attempt, profile, "secret"));
+        controller.SetManualPrivate(false);
+        Assert.True(script.Runtime.IsPaused);
+        await stream.WriteAsync((byte[])[255, 251, 201, .. MsdpFrame("LEVELCOMBAT", "50"), .. GmcpFrame("Char.Vitals {\"hp\":42}")], timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.ScriptState.TryGetGmcp("Char.Vitals") is not null; });
+        Assert.Equal("\"50\"", controller.ScriptState.TryGetMsdp("LEVELCOMBAT"));
+        Assert.Equal("", CombatLevel(controller));
+        // Manual input ends the handshake; the cached values reach the script as ordinary events.
+        Assert.True(await controller.SendAsync("look"));
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return CombatLevel(controller) == "50"; });
+        Assert.True(script.Runtime.IsRunning, script.Runtime.Error);
+        await controller.DisconnectAsync();
+    }
 }
 
 internal sealed class InlineScriptFactory : IScriptRuntimeFactory

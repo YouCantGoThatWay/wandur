@@ -29,7 +29,7 @@ public sealed class ProtocolMappingSessionTests
         var store = new SettingsStore(Path.Combine(path, "settings.json"));
         var profile = world.ToProfile() with { ProtocolMapping = null };
         store.Save(new ClientSettings { Theme = "Paper", Profiles = [profile] });
-        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"));
+        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"), http: OfflineHttp.Client());
         await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
         await sessions.OpenAsync(profile);
         using var socket = await server.AcceptTcpClientAsync();
@@ -208,7 +208,7 @@ public sealed class ProtocolMappingSessionTests
         var profile = world.ToProfile() with { ProtocolMapping = cached, Name = "My saved name" };
         var store = new SettingsStore(Path.Combine(path, "settings.json"));
         store.Save(new ClientSettings { Theme = "Paper", Profiles = [profile] });
-        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"));
+        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"), http: OfflineHttp.Client());
         await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
         await sessions.OpenAsync(profile);
         using var socket = await server.AcceptTcpClientAsync();

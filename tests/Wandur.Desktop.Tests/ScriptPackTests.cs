@@ -36,6 +36,77 @@ public sealed class ScriptPackTests
         ]
     };
 
+    private const string ThirdVersion = "mud.panel('ship', { title: 'Ship' }).label('a', { text: 'v3' });";
+
+    /// <summary>Serves whatever the directory file on disk holds at request time, so a pack change on the server is one file write.</summary>
+    private sealed class FileServedDirectory(string path) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(File.ReadAllText(path)) });
+        }
+    }
+
+    private sealed class CatalogClock : TimeProvider
+    {
+        public long Seconds;
+        public override long TimestampFrequency => 1;
+        public override long GetTimestamp() => Seconds;
+    }
+
+    /// <summary>The owner opened a world minutes after regenerating its pack and got the previous scripts: the catalog
+    /// served its five minute snapshot. An open now refreshes a snapshot older than a minute first.</summary>
+    [AvaloniaFact]
+    public async Task OpeningAWorldRefreshesAStaleDirectorySnapshotSoAChangedPackIsAppliedAtOnce()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-script-pack-fresh-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        var directory = Path.Combine(path, "server-directory.json");
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var store = new SettingsStore(Path.Combine(path, "settings.json"));
+        var profile = Listing(port, FirstVersion, 1).ToProfile();
+        store.Save(new ClientSettings { Profiles = [profile] });
+        WriteDirectory(directory, Listing(port, FirstVersion, 1));
+        var clock = new CatalogClock();
+        using var served = new FileServedDirectory(directory);
+        using var catalog = new WorldCatalog(Path.Combine(path, "cache.json"), http: new HttpClient(served), timeProvider: clock);
+        await catalog.LoadAsync();
+        Assert.Equal(1, served.Calls);
+        await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+            new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
+        try
+        {
+            // Fresh snapshot: the open uses it as it is.
+            await sessions.OpenAsync(profile);
+            Assert.Equal(1, served.Calls);
+            Assert.Equal(FirstVersion, Assert.Single(sessions.Active.Controller.ScriptLibrary.Items, entry => entry.IsPack).Source);
+
+            // The pack changes on the server; the next open, 90 seconds later and well inside the five minute cadence, sees it.
+            WriteDirectory(directory, Listing(port, SecondVersion, 2));
+            clock.Seconds = 90;
+            await sessions.OpenAsync(profile);
+            Assert.Equal(2, served.Calls);
+            var refreshed = Assert.Single(sessions.Active.Controller.ScriptLibrary.Items, entry => entry.IsPack);
+            Assert.Equal(SecondVersion, refreshed.Source);
+            Assert.Equal(2, refreshed.Pack!.Version);
+
+            // Within a minute of that fetch the open goes ahead with the snapshot in hand.
+            WriteDirectory(directory, Listing(port, ThirdVersion, 3));
+            clock.Seconds = 100;
+            await sessions.OpenAsync(profile);
+            Assert.Equal(2, served.Calls);
+            Assert.Equal(SecondVersion, Assert.Single(sessions.Active.Controller.ScriptLibrary.Items, entry => entry.IsPack).Source);
+        }
+        finally
+        {
+            foreach (var tab in sessions.Tabs.ToArray()) await tab.Controller.DisconnectAsync();
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
     [AvaloniaFact]
     public async Task ASuppliedScriptIsAttachedOnOpenMarkedAsAPackAndRefreshedWhenItsVersionChanges()
     {

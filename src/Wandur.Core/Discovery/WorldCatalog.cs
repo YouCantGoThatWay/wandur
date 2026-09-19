@@ -14,10 +14,19 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
     private readonly SemaphoreSlim _loadLock = new(1);
     private readonly CancellationTokenSource _lifetime = new();
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
+    /// <summary>A world opens with a snapshot at most this old; an older one is refreshed first, so a pack changed on
+    /// the server since the last fetch is applied on open instead of five minutes later.</summary>
+    public static readonly TimeSpan OpenRefreshAge = TimeSpan.FromSeconds(60);
+    /// <summary>How long an open waits for that refresh before it goes ahead with the cached copy.</summary>
+    public static readonly TimeSpan OpenRefreshTimeout = TimeSpan.FromSeconds(5);
     private readonly TimeProvider _time;
     private long? _lastAttempt;
+    private long? _lastLoaded;
     public IReadOnlyList<WorldListing> Worlds { get; private set; } = [];
+    /// <summary>The snapshot's own timestamp, which describes the source listings, not when this process fetched it.</summary>
     public DateTimeOffset? FetchedAt { get; private set; }
+    /// <summary>How long ago this process fetched the snapshot in use, or null when it came from the cache on disk.</summary>
+    public TimeSpan? SnapshotAge => _lastLoaded is { } loaded ? _time.GetElapsedTime(loaded) : null;
     public string? Warning { get; private set; }
     public bool Loading { get; private set; }
     public Uri BaseUri { get; }
@@ -75,6 +84,7 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
             token.ThrowIfCancellationRequested();
             _cache.WriteSnapshot(parsed.ToJson());
             (Worlds, FetchedAt) = (parsed.Worlds, parsed.FetchedAt);
+            _lastLoaded = _time.GetTimestamp();
             if (response.Headers.TryGetValues("X-Wandur-Stale", out var values) && values.Contains("true"))
                 Warning = L.ShowingTheSavedDirectoryWhileTheServerRefreshesIt;
         }
@@ -85,6 +95,19 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
                 L.Format(L.DirectoryUnavailableAtStartTheDirectoryServerSavedWorlds, BaseUri);
         }
         finally { Loading = false; _loadLock.Release(); Changed?.Invoke(); }
+    }
+
+    /// <summary>Refreshes before a listed world opens when the snapshot in use is older than <see cref="OpenRefreshAge"/>
+    /// or came from disk. Bounded by <see cref="OpenRefreshTimeout"/>; a failure or timeout leaves the cached copy in
+    /// use, exactly as before. A world the snapshot does not list opens without waiting: the periodic refresh will
+    /// list it, and the client never delays a private world on the directory's account.</summary>
+    public async Task RefreshBeforeOpenAsync(string host, int port, bool tls, CancellationToken cancellationToken = default)
+    {
+        if (FindEndpoint(host, port, tls) is null || SnapshotAge is { } age && age < OpenRefreshAge) return;
+        using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        bounded.CancelAfter(OpenRefreshTimeout);
+        try { await LoadAsync(force: true, bounded.Token); }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { /* The cached copy opens the world. */ }
     }
 
     public WorldListing? FindEndpoint(string host, int port, bool tls)

@@ -204,7 +204,7 @@ public sealed class WorldThemeViewTests
         var store = new SettingsStore(Path.Combine(path, "settings.json"));
         store.Save(new ClientSettings { Theme = "Paper", Profiles = [profile] });
         File.WriteAllText(Path.Combine(path, "directory.json"), JsonSerializer.Serialize(new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.UtcNow, worlds = new[] { world } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower }));
-        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"));
+        using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"), http: OfflineHttp.Client());
         await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), readOnly ? new ReadOnlyStore(store) : store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog);
         var tools = new ActiveSessionView(sessions, _ => new TextBlock { Text = "Navigation" });
         var window = new Window { Content = tools };

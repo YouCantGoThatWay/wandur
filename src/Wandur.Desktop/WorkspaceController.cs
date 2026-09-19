@@ -54,7 +54,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         Display.ApplySettings(Settings);
         ThemeService.Apply(Settings);
         if (loaded.Warning is not null) Notice = loaded.Warning;
-        _outputTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => { FlushOutput(); SaveMap(); ScriptLibrary.Tick(); });
+        _outputTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => { FlushOutput(); ReplayCachedState(); SaveMap(); ScriptLibrary.Tick(); });
         _outputTimer.Start();
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
     }
@@ -198,7 +198,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             session.StatusChanged += status => Dispatch(session, () =>
             {
                 Status = status.Message;
-                if (!status.Connected) { ResetAgentContext(); StopMapWalk("MapWalkDisconnected"); ScriptLibrary.Stop(); ScriptState.Clear(); _login = null; IsConnecting = false; _serverPrivate = _promptPrivate = _manualPrivate = false; }
+                if (!status.Connected) { ResetAgentContext(); StopMapWalk("MapWalkDisconnected"); ScriptLibrary.Stop(); ClearScriptState(); _login = null; IsConnecting = false; _serverPrivate = _promptPrivate = _manualPrivate = false; }
                 RefreshScriptState(); Changed?.Invoke();
             });
             session.PrivateInputChanged += value =>
@@ -236,13 +236,23 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             if (_session is TelnetSession telnet) telnet.SetLocalPrivateInput(blocked);
             if (_scriptPrivacyBlocked != blocked)
             {
-                // REPORT often predates login. Ask for a current snapshot once public play resumes.
-                if (_scriptPrivacyBlocked && !blocked && _protocolBindings is not null) _mappingRefreshPending = true;
+                if (_scriptPrivacyBlocked && !blocked)
+                {
+                    // REPORT often predates login. Ask for a current snapshot once public play resumes.
+                    if (_protocolBindings is not null) _mappingRefreshPending = true;
+                    // The same for what scripts asked to have reported: a world sends a reported variable once and
+                    // then only on change, and the answer often lands in the packet that ends the private interval
+                    // (echo back on after the password), which the privacy stamp still covers. Asking again is the
+                    // only way to see a value that never changes, such as a skill level.
+                    _scriptReportsSent.Clear();
+                }
                 _scriptPrivacyBlocked = blocked; _scriptOutputEpoch++;
             }
             if (_cachePrivate != IsPrivate) { _cachePrivate = IsPrivate; _cacheEpoch++; }
         }
         ScriptLibrary.RefreshState();
+        // Scripts activated just now are still seeding, so they get the cache that way rather than as events.
+        ReplayCachedState();
         _ = RefreshMappedProtocolSubscriptionAsync();
         _ = RefreshScriptReportsAsync();
     }
@@ -291,7 +301,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             // once, when the REPORT is accepted, which is during connect and login, then only on change. A
             // script seeded later still needs those values. Private intervals stay out, as everywhere else.
             if (item.CacheEpoch == currentCacheEpoch && !IsPrivate && item.Message.Option == 69 && item.Message.Payload is { } data && !ContainsSecret(data))
-                ScriptState.RecordMsdp(data);
+                foreach (var (variable, json) in MsdpScriptEvents.DecodeValues(data))
+                    // Cached while scripts get nothing: replayed to them once play is public.
+                    if (ScriptState.RecordMsdp(variable, json) && payload is null) _replayMsdp.TryAdd(variable, true);
             Diagnostics.AppendContent(item.Message.ReceivedAt, item.Message.Option, item.Message.Content);
             if (payload is not null) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
             FeedAgentProtocol(item.Message.Option, payload);
@@ -301,10 +313,11 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         }
         foreach (var chunk in scriptChunks)
         {
-            if (chunk.Event is { Kind: "gmcp" } gmcp && chunk.CacheEpoch == currentCacheEpoch && !IsPrivate && !ContainsSecret(gmcp.Text)) ScriptState.RecordGmcp(gmcp.Text);
+            var isPublic = !IsPrivate && _login is null;
+            if (chunk.Event is { Kind: "gmcp" } gmcp && chunk.CacheEpoch == currentCacheEpoch && !IsPrivate && !ContainsSecret(gmcp.Text)
+                && ScriptState.RecordGmcp(gmcp.Text, out var package) && (chunk.Epoch != currentEpoch || !isPublic)) _replayGmcp.TryAdd(package, true);
             if (chunk.Epoch == currentEpoch)
             {
-                var isPublic = !IsPrivate && _login is null;
                 if (chunk.Event is null)
                 {
                     if (isPublic) { FeedAgentText(chunk.Text); FeedChannels(chunk.Text); }
@@ -393,7 +406,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         ScriptLibrary.Stop();
         _login = null;
         FlushOutput();
-        ScriptState.Clear();
+        ClearScriptState();
         SaveMap(force: true);
         _promptTerminal.Clear();
         var previous = _session;
