@@ -392,7 +392,6 @@ public static class Strings
     public static string MapExerciseStairs => Get(nameof(MapExerciseStairs));
     public static string MapExerciseStairsDescription => Get(nameof(MapExerciseStairsDescription));
     public static string MapEmpty => Get(nameof(MapEmpty));
-    public static string MapCenter => Get(nameof(MapCenter));
     public static string MapAutoCenter => Get(nameof(MapAutoCenter));
     public static string MapNextObservation => Get(nameof(MapNextObservation));
     public static string MapLegend => Get(nameof(MapLegend));
@@ -653,8 +652,7 @@ public static class Strings
     public static string DiagnosticsMalformed => Get(nameof(DiagnosticsMalformed));
     public static string DiagnosticsTruncated => Get(nameof(DiagnosticsTruncated));
     public static string DiagnosticsEmpty => Get(nameof(DiagnosticsEmpty));
-    public static string MapZoomIn => Get(nameof(MapZoomIn));
-    public static string MapZoomOut => Get(nameof(MapZoomOut));
+    public static string MapZoom => Get(nameof(MapZoom));
     public static string Workspace => Get(nameof(Workspace));
     public static string SavedWorlds => Get(nameof(SavedWorlds));
     public static string NextWorkspaceItem => Get(nameof(NextWorkspaceItem));

@@ -1099,7 +1099,6 @@ La demo sin conexión está en Archivo.</value>
   <data name="MapExerciseStairs" xml:space="preserve"><value>Galería elevada</value></data>
   <data name="MapExerciseStairsDescription" xml:space="preserve"><value>Unos escalones suben a una galería sobre el pasillo.</value></data>
   <data name="MapEmpty" xml:space="preserve"><value>Explora un mundo para crear su mapa. Las salas aparecen cuando el servidor proporciona sus datos.</value></data>
-  <data name="MapCenter" xml:space="preserve"><value>Centrar en la posición</value></data>
   <data name="MapAutoCenter" xml:space="preserve"><value>Mantener centrada la sala actual</value></data>
   <data name="MapNextObservation" xml:space="preserve"><value>Siguiente: norte</value></data>
   <data name="MapLegend" xml:space="preserve"><value>Menta: actual · Ámbar ?: posible · Borde blanco: seleccionada</value></data>
@@ -1463,8 +1462,7 @@ mud.alias(/^lh$/, () =&gt; mud.send("look"));</value>
   <data name="DiagnosticsEmpty" xml:space="preserve">
     <value>Aún no se han recibido mensajes GMCP o MSDP. Conéctate a un MUD compatible e inicia sesión o mira a tu alrededor.</value>
   </data>
-  <data name="MapZoomIn" xml:space="preserve"><value>Acercar</value></data>
-  <data name="MapZoomOut" xml:space="preserve"><value>Alejar</value></data>
+  <data name="MapZoom" xml:space="preserve"><value>Zoom</value></data>
   <data name="Workspace" xml:space="preserve"><value>Espacio de trabajo</value></data>
   <data name="SavedWorlds" xml:space="preserve"><value>Mundos guardados</value></data>
   <data name="NextWorkspaceItem" xml:space="preserve"><value>Siguiente elemento</value></data>

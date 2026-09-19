@@ -211,8 +211,6 @@ public sealed partial class MapViewModel : ObservableObject
         var projected = CreateViewport(_viewportWidth, _viewportHeight).Project(location.X, location.Y);
         PanX += anchor.X - projected.X; PanY += anchor.Y - projected.Y;
     }
-    [RelayCommand] private void ZoomIn() => ChangeZoom(2);
-    [RelayCommand] private void ZoomOut() => ChangeZoom(-2);
     public void SetViewportSize(double width, double height)
     {
         _viewportWidth = Math.Max(1, width); _viewportHeight = Math.Max(1, height);

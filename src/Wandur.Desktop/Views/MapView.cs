@@ -49,8 +49,6 @@ public sealed partial class MapView : UserControl
         var empty = Ui.TextKey(nameof(L.MapEmpty), 12, "muted"); empty.HorizontalAlignment = HorizontalAlignment.Center; empty.VerticalAlignment = VerticalAlignment.Center; empty.Margin = new Thickness(18);
         empty.Bind(IsVisibleProperty, new Binding(nameof(model.IsEmpty)));
         var map = new Grid { Children = { canvas, empty } };
-        var center = Ui.ToolbarIconKey(new Button { Name = "CenterMap", Command = model.CenterCommand },
-            "M 8,3 A 5,5 0 1 0 8,13 A 5,5 0 1 0 8,3 M 8,0 V 5 M 8,11 V 16 M 0,8 H 5 M 11,8 H 16", nameof(L.MapCenter));
         var autoCenter = Ui.ToolbarIconKey(new ToggleButton { Name = "MapAutoCenterToggle" },
             "M 8,2 V 5 M 8,11 V 14 M 2,8 H 5 M 11,8 H 14 M 8,6 A 2,2 0 1 0 8,10 A 2,2 0 1 0 8,6", nameof(L.MapAutoCenter));
         autoCenter.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.AutoCenter)) { Mode = BindingMode.TwoWay });
@@ -61,8 +59,6 @@ public sealed partial class MapView : UserControl
         recheck.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MapRecheckHint))); recheck.Margin = new Thickness(0, 0, 6, 4);
         var fit = Ui.ToolbarIconKey(new Button { Name = "FitMapFloor", Command = model.FitFloorCommand },
             "M 1,6 V 1 H 6 M 10,1 H 15 V 6 M 15,10 V 15 H 10 M 6,15 H 1 V 10", nameof(L.MapFitFloor));
-        var zoomOut = Ui.ToolbarIconKey(new Button { Name = "MapZoomOut", Command = model.ZoomOutCommand }, "M 7,2 A 5,5 0 1 0 7,12 A 5,5 0 1 0 7,2 M 11,11 L 15,15 M 4,7 H 10", nameof(L.MapZoomOut));
-        var zoomIn = Ui.ToolbarIconKey(new Button { Name = "MapZoomIn", Command = model.ZoomInCommand }, "M 7,2 A 5,5 0 1 0 7,12 A 5,5 0 1 0 7,2 M 11,11 L 15,15 M 4,7 H 10 M 7,4 V 10", nameof(L.MapZoomIn));
         var stop = Ui.ToolbarIconKey(new Button { Name = "MapStopWalkingToolbar", Command = model.StopWalkingCommand }, "M 3,3 H 13 V 13 H 3 Z", nameof(L.MapStopWalk));
         stop.Bind(IsVisibleProperty, new Binding(nameof(model.IsWalking)));
         var gridToggle = Ui.ToolbarIconKey(new ToggleButton { Name = "MapGridToggle" },
@@ -139,7 +135,7 @@ public sealed partial class MapView : UserControl
         tools.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { floorDown, floorLabel, floorUp, zoomOut, zoomIn, center, autoCenter, fit, gridToggle, stop } };
+            Children = { floorDown, floorLabel, floorUp, autoCenter, fit, gridToggle, stop } };
         Control workspace = map;
         if (editingWorkspace)
         {
@@ -174,12 +170,33 @@ public sealed partial class MapView : UserControl
         var walkStatus = Label(nameof(model.NavigationFeedback), 10);
         walkStatus.Name = "MapWalkStatus";
         walkStatus.Bind(IsVisibleProperty, new Binding(nameof(model.HasWalkFeedback)));
+        var zoomSlider = new Slider
+        {
+            Name = "MapZoomSlider", Minimum = 0.05, Maximum = 4, Width = 100,
+            Height = 20, MinHeight = 0, VerticalAlignment = VerticalAlignment.Center,
+            TickPlacement = TickPlacement.None
+        };
+        zoomSlider.Bind(RangeBase.ValueProperty, new Binding(nameof(model.Zoom)) { Mode = BindingMode.TwoWay });
+        zoomSlider.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MapZoom)));
+        zoomSlider.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.MapZoom)));
+        var zoomOutGlyph = Ui.Text("-", 11, "muted"); zoomOutGlyph.VerticalAlignment = VerticalAlignment.Center;
+        var zoomInGlyph = Ui.Text("+", 11, "muted"); zoomInGlyph.VerticalAlignment = VerticalAlignment.Center;
+        var zoomBar = new StackPanel
+        {
+            Name = "MapZoomBar", Orientation = Orientation.Horizontal, Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { zoomOutGlyph, zoomSlider, zoomInGlyph }
+        };
+        protocols.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(protocols, 0);
+        Grid.SetColumn(zoomBar, 1);
+        var statusLine = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { protocols, zoomBar } };
         var statusBar = new Border
         {
             Name = "MapStatusBar",
             Padding = new Thickness(8, 4),
             BorderThickness = new Thickness(0, 1, 0, 0),
-            Child = new StackPanel { Spacing = 2, Children = { walkStatus, protocols } }
+            Child = new StackPanel { Spacing = 2, Children = { walkStatus, statusLine } }
         };
         statusBar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ShellBrush"));
         statusBar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
