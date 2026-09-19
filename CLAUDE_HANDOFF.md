@@ -94,7 +94,11 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   listing may carry a `scripts` array; `WorldScriptLibrary.ApplyPack` installs
   and upgrades those by version, marks them as a pack, and runs them with a
   send policy (`mud.send` refused outside aliases and buttons until the user
-  turns the toggle on). `docs/scripting-reference.json` is the machine-readable
+  turns the toggle on). Panels dock into a tool dock of their own, never as
+  tabs of the map or the world library: `panels-dock` between the map and the
+  channels on the right, `panels-left-dock` below the library on the left,
+  each created when the first panel on that side shows and removed with the
+  last (map 0.40, panels 0.35, channels 0.25; back to 0.58 / 0.42 without). `docs/scripting-reference.json` is the machine-readable
   surface the discovery worker's `generate-scripts` command feeds to the model;
   `docs/scripting.md` is the human guide. First trial: Legends of the Jedi
   (`mudverse:509`), seven generated panels imported into the local site loop

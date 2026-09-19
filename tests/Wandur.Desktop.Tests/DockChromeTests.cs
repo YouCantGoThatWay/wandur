@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -79,5 +81,65 @@ public sealed class DockChromeTests
             if (!string.IsNullOrEmpty(directory)) { Directory.CreateDirectory(directory); frame.Save(Path.Combine(directory, "dock-after.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ScriptPanelDocksAreRoundedLikeTheEdgeTheyShare()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-dock-panels-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var profile = new ConnectionProfile { Name = "Panel world", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port };
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(path, "settings.json")), new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore()) { Width = 1200, Height = 800 };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            await window.Sessions.OpenAsync(profile);
+            using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+            var script = window.Controller.ScriptLibrary.Items[0];
+            script.Runtime.Source = "mud.panel('ship', { title: 'Ship' }).label('a', { text: 'Hull 80%' }); mud.panel('nav', { title: 'Nav', dock: 'left' }).label('b', { text: 'Tatooine' });";
+            await script.Runtime.RunAsync();
+            Assert.True(script.Runtime.IsRunning, script.Runtime.Error);
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+
+            var document = ChromeBorder<DocumentControl>(window, _ => true);
+            var panelsHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Right, "panels-dock"));
+            var panelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "panels-dock"));
+            var leftPanelsHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
+            var leftPanelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
+            var mapContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "map-dock"));
+            var channelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "channels-dock"));
+            var libraryContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Left, "left"));
+
+            // A panels dock is rounded on the outer edge it shares with its neighbours and squared towards the centre, like them.
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), panelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), panelsContent.CornerRadius);
+            Assert.Equal(new CornerRadius(10, 0, 0, 0), leftPanelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, 10), leftPanelsContent.CornerRadius);
+
+            var centre = Frame(document, window);
+            var map = Frame(mapContent, window);
+            var panels = Frame(panelsContent, window);
+            var channels = Frame(channelsContent, window);
+            Assert.Equal(map.Left, panels.Left);
+            Assert.Equal(map.Right, panels.Right);
+            Assert.True(panels.Top >= map.Bottom, "the panels sit below the map");
+            Assert.True(channels.Top >= panels.Bottom, "the channels sit below the panels");
+            Assert.InRange(panels.Left - centre.Right, 0, 6);
+            var library = Frame(libraryContent, window);
+            var leftPanels = Frame(leftPanelsContent, window);
+            Assert.Equal(library.Left, leftPanels.Left);
+            Assert.Equal(library.Right, leftPanels.Right);
+            Assert.True(leftPanels.Top >= library.Bottom, "the left panels sit below the world library");
+            Assert.InRange(centre.Left - leftPanels.Right, 0, 6);
+        }
+        finally
+        {
+            await window.Sessions.DisposeAsync(); window.Close();
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
     }
 }
