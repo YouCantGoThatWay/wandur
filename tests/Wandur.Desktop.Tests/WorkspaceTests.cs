@@ -388,28 +388,52 @@ public sealed class WorkspaceTests
     }
 
     [AvaloniaFact]
-    public async Task FooterPrivateToggleDrivesOnlyTheActiveSessionAndSyncsOnTabSwitch()
+    public async Task SessionBarPrivateToggleDrivesOnlyThatSessionAndSyncsOnTabSwitch()
     {
         var window = CreateWindow();
         try
         {
             await window.Sessions.OpenAsync();
             var first = window.Sessions.Active;
+            Dispatcher.UIThread.RunJobs(); // Materialize the browser-to-terminal content swap.
             await window.Sessions.OpenAsync();
             var second = window.Sessions.Active;
+            Dispatcher.UIThread.RunJobs();
             Assert.NotSame(first, second);
+            // Only the active session's TerminalView (and its own PrivateInputToggle) is in the visual tree.
             var toggle = Find<CheckBox>(window, "PrivateInputToggle");
             Assert.NotEqual(true, toggle.IsChecked);
             toggle.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(second.Controller.ManualPrivate);
             Assert.False(first.Controller.ManualPrivate);
+            first.Controller.SetManualPrivate(true);
             window.Sessions.Select(first);
             Dispatcher.UIThread.RunJobs();
-            Assert.NotEqual(true, Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+            Assert.True(Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
             window.Sessions.Select(second);
             Dispatcher.UIThread.RunJobs();
             Assert.True(Find<CheckBox>(window, "PrivateInputToggle").IsChecked);
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ComposerInputAndSendButtonFillTheTerminalPaneWidth()
+    {
+        var window = CreateWindow();
+        window.Width = 900;
+        window.Height = 700;
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            await window.Sessions.OpenAsync();
+            Dispatcher.UIThread.RunJobs();
+            var composer = Find<Border>(window, "Composer");
+            var terminalPane = (Control)composer.GetVisualParent()!;
+            var entry = (Grid)((TextBox)Find<TextBox>(window, "CommandInput")).Parent!;
+            Assert.True(terminalPane.Bounds.Width > 0);
+            Assert.Equal(terminalPane.Bounds.Width - 8, entry.Bounds.Width, 1);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }

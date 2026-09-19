@@ -19,6 +19,9 @@ public sealed class TerminalView : UserControl
     private readonly Button _latest;
     private readonly Border _welcome;
     private readonly ResourceBarsView _resources = new();
+    private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
+    private readonly CheckBox _privateToggle = new() { Name = "PrivateInputToggle", [!ContentControl.ContentProperty] = LocalizedText.Binding(nameof(L.PrivateInput2)), FontSize = 11, MinHeight = 0, Height = 22, Padding = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+    private bool _syncingPrivate;
     private bool _sending;
     private bool _wasPrivate;
 
@@ -32,6 +35,9 @@ public sealed class TerminalView : UserControl
         _latest.IsVisible = false;
         _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
         _send.Name = "SendCommand";
+        _send.Height = 36;
+        _send.MinHeight = 0;
+        _send.VerticalAlignment = VerticalAlignment.Stretch;
         _input.AddHandler(KeyDownEvent, (_, args) =>
         {
             if (controller.Pages.IsPlay && args.KeyModifiers == KeyModifiers.None && args.Key >= Key.F1 && args.Key <= Key.F12)
@@ -58,7 +64,7 @@ public sealed class TerminalView : UserControl
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
         entry.Children.Add(_input); Grid.SetColumn(_send, 1); entry.Children.Add(_send);
-        var composer = new Border { Name = "Composer", Padding = new Thickness(12, 8), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
+        var composer = new Border { Name = "Composer", Padding = new Thickness(4, 4), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
         composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics) { Name = "ProtocolDiagnostics" };
         diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
@@ -85,8 +91,14 @@ public sealed class TerminalView : UserControl
         tabBar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         tabBar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ShellBrush"));
         var automation = new SessionAutomationToolbar(controller.Pages.Automation, editConfiguration, controller.Agent) { Margin = new Thickness(12, 0, 0, 0) };
-        var footerContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { tabs, automation } };
-        Grid.SetColumn(automation, 1); tabBar.Child = null; tabBar.Child = footerContent;
+        _footerHint.VerticalAlignment = VerticalAlignment.Center;
+        _footerHint.TextWrapping = TextWrapping.NoWrap;
+        _footerHint.TextTrimming = TextTrimming.CharacterEllipsis;
+        _privateToggle.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MasksYourInputAndKeepsItOutOfCommand)));
+        _privateToggle.IsCheckedChanged += (_, _) => { if (!_syncingPrivate) controller.SetManualPrivate(_privateToggle.IsChecked == true); };
+        var privateGroup = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { _footerHint, _privateToggle } };
+        var footerContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Children = { tabs, automation, privateGroup } };
+        Grid.SetColumn(automation, 1); Grid.SetColumn(privateGroup, 2); tabBar.Child = null; tabBar.Child = footerContent;
         var outputViews = new Grid { Children = { terminalPane, diagnostics } };
         var root = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Children = { outputViews, tabBar } };
         Grid.SetRow(tabBar, 1);
@@ -109,6 +121,10 @@ public sealed class TerminalView : UserControl
         _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
         _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
         _resources.Update(_controller.GameState, _controller.IsConnected);
+        _footerHint.Text = _controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : L.CommandHistoryEnterSend;
+        _syncingPrivate = true;
+        _privateToggle.IsChecked = _controller.ManualPrivate;
+        _syncingPrivate = false;
         RefreshScroll();
     }
     private void RefreshScroll() => _latest.IsVisible = !_controller.Display.IsFollowingTail;

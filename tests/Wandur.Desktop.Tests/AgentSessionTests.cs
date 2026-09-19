@@ -28,7 +28,11 @@ public sealed class AgentSessionTests
             var footer = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "OutputFooter");
             var status = footer.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SessionAgentStatus");
             var scripts = footer.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "SessionScripts");
-            Assert.Equal(28, footer.Bounds.Height); Assert.True(status.Bounds.Width > 10); Assert.True(scripts.Bounds.Width > 50);
+            var toggle = footer.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "PrivateInputToggle");
+            // The private toggle group is fixed width and takes priority over the agent status ellipsis text,
+            // so status is only guaranteed room once the bar is wide enough (the toggle must never be clipped).
+            Assert.Equal(28, footer.Bounds.Height); Assert.True(scripts.Bounds.Width > 50); Assert.True(toggle.Bounds.Width > 10);
+            if (width >= 900) Assert.True(status.Bounds.Width > 10);
             Assert.Equal(world.Controller.Agent!.Status, status.Text);
             Assert.Equal(2, footer.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.TabStripItem>().Count());
             if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } folder)
