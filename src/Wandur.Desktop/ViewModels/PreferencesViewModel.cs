@@ -40,6 +40,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string? _background;
     [ObservableProperty] private bool _localEcho;
     [ObservableProperty] private bool _allowBlinkingText;
+    [ObservableProperty] private bool _showChannelsPanel;
     [ObservableProperty] private decimal? _scrollTailPercent;
     [ObservableProperty] private LanguageChoice _language;
     [ObservableProperty] private string _error = "";
@@ -61,6 +62,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
         _foreground = _original.Foreground; _background = _original.Background; _localEcho = _original.LocalEcho;
         _useWorldThemes = _original.UseWorldThemes;
         _allowBlinkingText = _original.AllowBlinkingText;
+        _showChannelsPanel = _original.ShowChannelsPanel;
         _scrollTailPercent = (decimal)Math.Round(_original.ScrollTailShare * 100);
         _language = Languages.First(l => l.Code == _original.Language);
         LoadPalette();
@@ -71,7 +73,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     {
         Theme = Theme, FontSize = PreviewFontSize, Foreground = string.IsNullOrWhiteSpace(Foreground) ? null : Foreground.Trim(),
         Background = string.IsNullOrWhiteSpace(Background) ? null : Background.Trim(), LocalEcho = LocalEcho, Language = Language.Code,
-        AllowBlinkingText = AllowBlinkingText, UseWorldThemes = UseWorldThemes, ScrollTailShare = TailShare, CustomThemes = _drafts.Select(t => t with { Colors = new(t.Colors), AnsiColors = new(t.AnsiColors) }).ToList()
+        AllowBlinkingText = AllowBlinkingText, UseWorldThemes = UseWorldThemes, ShowChannelsPanel = ShowChannelsPanel, ScrollTailShare = TailShare, CustomThemes = _drafts.Select(t => t with { Colors = new(t.Colors), AnsiColors = new(t.AnsiColors) }).ToList()
     };
     private void LoadPalette()
     {
@@ -115,6 +117,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     partial void OnThemeChanged(string value) { LoadPalette(); Preview(); }
     partial void OnFontSizeChanged(decimal? value) { OnPropertyChanged(nameof(PreviewFontSize)); Preview(); }
     partial void OnAllowBlinkingTextChanged(bool value) => Preview();
+    partial void OnShowChannelsPanelChanged(bool value) => Preview();
     partial void OnScrollTailPercentChanged(decimal? value) => Preview();
     partial void OnForegroundChanged(string? value) => Preview();
     partial void OnBackgroundChanged(string? value) => Preview();

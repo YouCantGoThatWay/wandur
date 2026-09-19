@@ -17,6 +17,10 @@ public sealed record ConnectionProfile
     public bool UseTls { get; init; }
     public string Encoding { get; init; } = "utf-8";
     public Wandur.Core.Discovery.WorldTheme? Theme { get; init; }
+    /// <summary>The directory's free-text codebase, which chooses the channel family when this world has no rules of its own.</summary>
+    public string Codebase { get; init; } = "";
+    /// <summary>Channel shapes for this world. Empty means the family defaults; a channel pack fills the same list.</summary>
+    public Wandur.Core.Channels.ChannelRuleList ChannelRules { get; init; } = [];
     public string Username { get; init; } = "";
     public Guid? PasswordId { get; init; }
     public bool AutoLogin { get; init; }
@@ -39,6 +43,15 @@ public sealed record ConnectionProfile
         if (Encoding is not ("utf-8" or "latin1")) throw new ArgumentException(L.ChooseUTF8OrLatin1Encoding);
         if (Username is null || Username.Length > 256 || Username.Any(char.IsControl)) throw new ArgumentException(L.UsernameMustBeASingleLineOfAtMost);
         if (AutoLogin && (string.IsNullOrWhiteSpace(Username) || PasswordId is null)) throw new ArgumentException(L.AutoLoginNeedsAUsernameAndASavedPassword);
+        if (Codebase is null || Codebase.Length > 100 || Codebase.Any(char.IsControl)) throw new ArgumentException(L.InvalidWorldProfile);
+        if (ChannelRules is null || ChannelRules.Count > 200) throw new ArgumentException(L.ChannelRulesInvalid);
+        foreach (var rule in ChannelRules)
+        {
+            if (rule is null || string.IsNullOrWhiteSpace(rule.Channel) || rule.Channel.Length > 40 || string.IsNullOrEmpty(rule.Pattern)
+                || rule.Pattern.Length > 400 || rule.ReplyCommand is { Length: > 80 }) throw new ArgumentException(L.ChannelRulesInvalid);
+            try { _ = new Regex(rule.Pattern, RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)); }
+            catch (ArgumentException ex) { throw new ArgumentException(L.ChannelRulesInvalid, ex); }
+        }
         try { AutoLoginSequence.Compile(UsernamePrompt); AutoLoginSequence.Compile(PasswordPrompt); }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException) { throw new ArgumentException(L.InvalidLoginPromptPatternUseASimpleRegularExpression, ex); }
 
@@ -61,6 +74,8 @@ public sealed record ClientSettings
     public bool ClassifyRoomsLocally { get; init; } = true;
     public double RoomClassificationThreshold { get; init; } = 0.8;
     public bool MapAutoCenter { get; init; } = true;
+    /// <summary>Whether the docked Channels panel mirrors recognized channel traffic beside the transcript.</summary>
+    public bool ShowChannelsPanel { get; init; } = true;
     public List<UserTheme> CustomThemes { get; init; } = [];
     public List<ConnectionProfile> Profiles { get; init; } = [];
     public void Validate()

@@ -77,7 +77,8 @@ public sealed record WorldListing
     {
         var profile = new ConnectionProfile { Name = Name[..Math.Min(Name.Length, 100)], Host = Host,
             Port = tls ? TlsPort ?? throw new ArgumentException(L.ThisWorldHasNoTLSPort) : Port ?? TlsPort ?? 0,
-            UseTls = tls || Port is null, Theme = Theme };
+            UseTls = tls || Port is null, Theme = Theme,
+            Codebase = Features.Codebase is { Length: > 0 and <= 100 } codebase && !codebase.Any(char.IsControl) ? codebase : "" };
         if (!CanConnect) throw new ArgumentException(L.ThisListingHasNoSupportedMUDConnection);
         profile = profile with { ProtocolMapping = MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) };
         profile.Validate();

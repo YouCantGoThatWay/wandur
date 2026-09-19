@@ -1795,4 +1795,15 @@ Stop after receiving one inventory listing.</value></data>
   <data name="VitalsHull" xml:space="preserve"><value>Hull</value></data>
   <data name="VitalsFuel" xml:space="preserve"><value>Fuel</value></data>
   <data name="VitalsExperience" xml:space="preserve"><value>Experience</value></data>
+  <data name="Channels" xml:space="preserve"><value>Channels</value></data>
+  <data name="ChannelsPanel" xml:space="preserve"><value>Channels panel</value></data>
+  <data name="ChannelsAll" xml:space="preserve"><value>All</value></data>
+  <data name="ChannelsMirrorNote" xml:space="preserve"><value>Channel messages appear here and stay in the transcript.</value></data>
+  <data name="ChannelsSend" xml:space="preserve"><value>Send</value></data>
+  <data name="ChannelsReplyPlaceholder" xml:space="preserve"><value>Say something on {0}</value></data>
+  <data name="ChannelsReplyAllHint" xml:space="preserve"><value>Choose a channel to reply.</value></data>
+  <data name="ChannelsReplyUnknown" xml:space="preserve"><value>Wandur does not know the command for this channel yet.</value></data>
+  <data name="ShowChannelsPanel" xml:space="preserve"><value>Show the Channels panel</value></data>
+  <data name="ShowChannelsPanelHint" xml:space="preserve"><value>Recognized channel lines are mirrored beside the transcript and stay in it.</value></data>
+  <data name="ChannelRulesInvalid" xml:space="preserve"><value>Channel rules need a name and a pattern Wandur can read.</value></data>
 </root>

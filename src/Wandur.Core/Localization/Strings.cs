@@ -832,4 +832,15 @@ public static class Strings
     public static string VitalsHull => Get(nameof(VitalsHull));
     public static string VitalsFuel => Get(nameof(VitalsFuel));
     public static string VitalsExperience => Get(nameof(VitalsExperience));
+    public static string Channels => Get(nameof(Channels));
+    public static string ChannelsPanel => Get(nameof(ChannelsPanel));
+    public static string ChannelsAll => Get(nameof(ChannelsAll));
+    public static string ChannelsMirrorNote => Get(nameof(ChannelsMirrorNote));
+    public static string ChannelsSend => Get(nameof(ChannelsSend));
+    public static string ChannelsReplyPlaceholder => Get(nameof(ChannelsReplyPlaceholder));
+    public static string ChannelsReplyAllHint => Get(nameof(ChannelsReplyAllHint));
+    public static string ChannelsReplyUnknown => Get(nameof(ChannelsReplyUnknown));
+    public static string ShowChannelsPanel => Get(nameof(ShowChannelsPanel));
+    public static string ShowChannelsPanelHint => Get(nameof(ShowChannelsPanelHint));
+    public static string ChannelRulesInvalid => Get(nameof(ChannelRulesInvalid));
 }

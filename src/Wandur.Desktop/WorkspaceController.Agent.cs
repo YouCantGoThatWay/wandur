@@ -41,12 +41,8 @@ public sealed partial class WorkspaceController
         if (plain == _agentPublicText) return;
         _agentPublicText = plain; _agentRevision++;
     }
-    private static bool IsChat(string line)
-    {
-        var trimmed = line.TrimStart();
-        return new[] { "(OOC)", "(CHAT)", "(GOSSIP)", "(NEWBIE)", "ComNet", "[OOC]" }
-            .Any(prefix => trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-    }
+    /// <summary>The panel and the agent filter agree on what chat is because both ask the classifier.</summary>
+    private bool IsChat(string line) => _channels.IsChannelLine(line);
     private void FeedAgentProtocol(byte option, byte[]? payload)
     {
         if (_agentRunner is null || payload is null) return;

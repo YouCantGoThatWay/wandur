@@ -39,6 +39,7 @@ public sealed class MainWindow : Window
     private readonly DesktopMenus _menus;
     private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 28, Height = 28, FontSize = 12, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
     private List<ConnectionProfile>? _profiles;
+    private bool? _channelsPreference;
     private bool _closing;
     private bool _closed;
     private Window? _dialog;
@@ -199,6 +200,15 @@ public sealed class MainWindow : Window
         _menus.Refresh();
     }
 
+    public bool IsChannelsVisible => Workspace.ChannelsTool is { Owner: Dock.Model.Core.IDock owner } tool && owner.VisibleDockables?.Contains(tool) == true;
+    public void ToggleChannels() { SetChannelsVisible(!IsChannelsVisible); _menus.Refresh(); }
+
+    private void SetChannelsVisible(bool visible)
+    {
+        if (Workspace.ChannelsTool is not { } tool || IsChannelsVisible == visible) return;
+        if (visible) Workspace.RestoreDockable(tool); else Workspace.HideDockable(tool);
+    }
+
     public void FocusCommandInput() => this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => t.Name == "CommandInput" && t.IsEffectivelyVisible)?.Focus();
     public Task ConnectSelectedAsync() => SelectedProfile is { } profile ? Sessions.OpenAsync(profile) : Task.CompletedTask;
     internal Task EditWorldAsync(ConnectionProfile? profile = null) => ShowDialogAsync(() => new ProfileDialog(new ProfileEditorViewModel(Controller, Catalog, profile, _profileAutomationFactory, _agents)));
@@ -240,12 +250,16 @@ public sealed class MainWindow : Window
     {
         if (Workspace.WorldsTool is { } worlds) worlds.Title = L.Workspace;
         if (Workspace.MapTool is { } map) map.Title = L.Map;
+        if (Workspace.ChannelsTool is { } channels) channels.Title = L.Channels;
         Refresh();
     }
 
     private void Refresh()
     {
         SessionOpenTrace.Count("window refresh");
+        // The preference owns the panel until the reader overrides it from the View menu, which does not save.
+        if (_channelsPreference != Controller.Settings.ShowChannelsPanel)
+        { _channelsPreference = Controller.Settings.ShowChannelsPanel; SetChannelsVisible(_channelsPreference.Value); }
         Workspace.PruneEditorDocuments();
         if (!ReferenceEquals(_profiles, Controller.Settings.Profiles))
         {

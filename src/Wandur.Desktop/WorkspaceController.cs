@@ -84,7 +84,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
 
     public void SetManualPrivate(bool enabled) { _manualPrivate = enabled; RefreshScriptState(); Changed?.Invoke(); }
     public void ShowNotice(string? notice) { Notice = notice; Changed?.Invoke(); }
-    public void ClearTranscript() { Terminal.Clear(); TerminalVersion++; Changed?.Invoke(); }
+    public void ClearTranscript() { Terminal.Clear(); _channels.Reset(); TerminalVersion++; Changed?.Invoke(); }
 
     private void RefreshLanguage()
     {
@@ -133,6 +133,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             HasSession = true;
             _mappingRefreshPending = false;
             _protocolBindings = profile?.GetProtocolMapping() is { } mapping ? new Wandur.Core.Protocol.ProtocolBindingEngine(mapping) : null;
+            ConfigureChannels(profile);
             WorldTheme = profile?.Theme is { IsValid: true } theme ? theme : null;
             _connectionCancellation = new();
             var token = _connectionCancellation.Token;
@@ -251,7 +252,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             diagnostics = [.. _pendingDiagnostics]; _pendingDiagnostics.Clear(); _pendingDiagnosticBytes = 0;
             dropped = _droppedOutput; _droppedOutput = false;
         }
-        if (dropped) { ResetAgentContext(); StopMapWalk("MapWalkOutputLost"); Terminal.Clear(); Notice = L.OutputArrivedTooQuicklyOlderOutputWasDiscardedTo; }
+        if (dropped) { ResetAgentContext(); StopMapWalk("MapWalkOutputLost"); Terminal.Clear(); _channels.Reset(); Notice = L.OutputArrivedTooQuicklyOlderOutputWasDiscardedTo; }
         bool changed = false;
         var scriptChunks = new List<(string Text, long Epoch, ScriptEvent? Event)>();
         foreach (var item in batch)
@@ -282,11 +283,17 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         {
             if (chunk.Epoch == currentEpoch)
             {
-                if (chunk.Event is null && !IsPrivate && _login is null) FeedAgentText(chunk.Text);
+                var isPublic = !IsPrivate && _login is null;
+                if (chunk.Event is null)
+                {
+                    if (isPublic) { FeedAgentText(chunk.Text); FeedChannels(chunk.Text); }
+                    else _channels.Reset();
+                }
+                else if (isPublic && chunk.Event.Kind == "gmcp") FeedChannelProtocol(chunk.Event.Text);
                 if (chunk.Event is not null) ScriptLibrary.Publish(chunk.Event);
                 else ScriptLibrary.Feed(chunk.Text);
             }
-            else ScriptLibrary.DiscardPartialLine();
+            else { ScriptLibrary.DiscardPartialLine(); if (chunk.Event is null) _channels.Reset(); }
         }
         Changed?.Invoke();
         if (_session is { } session) _ = TryAutoLoginAsync(session);

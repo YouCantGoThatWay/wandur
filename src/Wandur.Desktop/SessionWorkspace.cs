@@ -141,6 +141,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
             // and neither must a listing that carries no theme: a directory that has stopped supplying
             // one says nothing about this world's appearance, and the saved theme is what opens offline.
             var updated = profile with { Theme = listing.Theme ?? profile.Theme,
+                Codebase = listing.Features.Codebase is { Length: > 0 and <= 100 } codebase && !codebase.Any(char.IsControl) ? codebase : profile.Codebase,
                 ProtocolMapping = listing.MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) ?? profile.GetProtocolMapping() };
             if (updated != profile && tab.Controller.Settings.Profiles.Any(p => p.Id == profile.Id))
             {

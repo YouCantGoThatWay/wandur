@@ -20,6 +20,8 @@
             <TextBlock Text="{ReflectionBinding [InterfaceLanguage], Source={x:Static loc:LocalizedText.Instance}}" />
             <ComboBox Name="LanguageChoice" ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" HorizontalAlignment="Stretch" />
             <TextBlock Text="{ReflectionBinding [LanguageLiveHint], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
+            <CheckBox Name="ShowChannelsPanel" Content="{ReflectionBinding [ShowChannelsPanel], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding ShowChannelsPanel}" />
+            <TextBlock Text="{ReflectionBinding [ShowChannelsPanelHint], Source={x:Static loc:LocalizedText.Instance}}" Classes="muted" TextWrapping="Wrap" />
           </StackPanel>
           </ScrollViewer>
           <ScrollViewer Name="AppearanceScroll" IsVisible="{Binding IsAppearance}" HorizontalScrollBarVisibility="Disabled">
