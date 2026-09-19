@@ -29,7 +29,7 @@ For a real MUD, choose **+ Add world**, paste `host:port` or enter the fields se
 - Smart address entry (`host:port`, `host port`, `telnet://host:port`, and bracketed IPv6) plus automatic MUD-name suggestions.
 - Saved world profiles, four palettes (Ember, Moonlight, Forest, Paper), custom foreground/background colors and text size.
 - Explicit plain-text transcript export. No automatic logs or persistent command history. Optional saved login uses the system credential store, never plaintext settings.
-- Quick command buttons and a local demo adventure.
+- **Look** and **Commands** buttons beside the command box: Look sends `look`, and Commands opens quick commands, a compass, and up/down. Plus a local demo adventure.
 - Form-based **Macros** configuration section for text triggers, exact command aliases, repeating timers, and F1–F12 shortcuts. Save rules per world and enable them individually; advanced JavaScript stays in Scripts. See [automation](docs/scripting.md).
 - Telnet negotiation for ECHO, SGA, TTYPE, NAWS, GMCP and MSDP. Room metadata feeds the mapper; compact **Play / Diagnostics** tabs show received protocol messages with timestamps and formatted, copyable details. See [protocol diagnostics](docs/protocol-diagnostics.md) for history limits and privacy behavior.
 
@@ -41,7 +41,7 @@ Enter advances the transcript even with local echo disabled. Enable **Show my co
 
 Shortcuts: Cmd/Ctrl+T opens Find a MUD, Cmd/Ctrl+N adds a saved world, Cmd/Ctrl+W closes the selected workspace item, Cmd/Ctrl+S saves the current transcript (or all sections when editing a connection), Cmd/Ctrl+D disconnects the active session, and Cmd/Ctrl+L focuses command input. Ctrl+Tab / Ctrl+Shift+Tab switch between search, sessions, and open map editors. Closing the last session returns to search. Disconnected sessions retain their transcripts until closed. Each session remembers its **Play** or **Diagnostics** bottom tab while you switch elsewhere. The footer has separate **Scripts**, **Macros**, and **Agent** controls, with selectable agent goals, Play/Stop, and live status; configure the model and commands in world settings → **Agent settings**. See [agent setup](docs/agent.md).
 
-Drag the shaded panel headers to rearrange them or move them outside the window to float. Use **×** to close a tool panel; **View → Restore Panels** reopens all panels in their default positions while preserving every session. The View menu also toggles Workspace, Controls, and the toolbar individually. Layout arrangement is not yet saved across restarts.
+Drag the shaded panel headers to rearrange them or move them outside the window to float. Use **×** to close a tool panel; **View → Restore Panels** reopens all panels in their default positions while preserving every session. The View menu also toggles Workspace, Map, and the toolbar individually. Layout arrangement is not yet saved across restarts.
 
 ### World-name discovery
 

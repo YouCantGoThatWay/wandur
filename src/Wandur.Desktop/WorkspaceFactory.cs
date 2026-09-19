@@ -33,7 +33,6 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
     private DocumentDock? _documents;
     private SessionDocument? _sessionDocument;
     public WorkspaceTool? WorldsTool { get; private set; }
-    public WorkspaceTool? CommandsTool { get; private set; }
     public WorkspaceTool? MapTool { get; private set; }
 
     public static void RegisterTemplates(DataTemplates templates)
@@ -49,15 +48,12 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
         sessions.SelectionChanged += SessionSelected;
         UpdateDocumentTabs();
         var library = WorldsTool = new WorkspaceTool { Id = "worlds", Title = L.Workspace, CanClose = true, Build = () => new WorkspaceNavigationView(Navigation, new WorldLibraryView(sessions, editWorld, browseWorlds, editProfile)) };
-        CommandsTool = new WorkspaceTool { Id = "commands", Title = L.Controls, CanClose = true, Build = () => new ActiveSessionView(sessions, controller => new CommandPanelView(controller)) };
         MapTool = new WorkspaceTool { Id = "map", Title = L.Map, CanClose = true, Build = () => new ActiveSessionView(sessions, controller => new MapView(controller, source => OpenMapEditor(controller, source))) };
         var session = _sessionDocument = new SessionDocument { Id = "session", Title = L.Session, CanClose = false, CanFloat = false, Sessions = sessions, Catalog = catalog, EditAutomation = editAutomation, Selected = () => { SelectedKey = sessions.IsBrowsing ? SearchKey : sessions.Active; Navigation.Refresh(); } };
         var documents = _documents = new DocumentDock { Id = "documents", CanCreateDocument = false, VisibleDockables = CreateList<IDockable>(session), ActiveDockable = session, Proportion = 0.59 };
         var left = new ToolDock { Id = "left", Alignment = Alignment.Left, Proportion = 0.18, VisibleDockables = CreateList<IDockable>(library), ActiveDockable = library };
-        var right = new ToolDock { Id = "right", Alignment = Alignment.Right, Proportion = 0.32, VisibleDockables = CreateList<IDockable>(CommandsTool), ActiveDockable = CommandsTool };
-        var map = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.68, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
-        var tools = new ProportionalDock { Id = "right-tools", Orientation = Dock.Model.Core.Orientation.Vertical, Proportion = 0.23, VisibleDockables = CreateList<IDockable>(right, new ProportionalDockSplitter(), map), ActiveDockable = map };
-        var layout = new ProportionalDock { Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), tools), ActiveDockable = documents };
+        var map = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.23, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
+        var layout = new ProportionalDock { Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), map), ActiveDockable = documents };
         return new RootDock { Id = "root", IsCollapsable = false, VisibleDockables = CreateList<IDockable>(layout), ActiveDockable = layout, DefaultDockable = layout };
     }
 
