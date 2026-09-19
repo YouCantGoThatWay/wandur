@@ -53,13 +53,8 @@ public sealed class ProtocolDiagnosticsView : UserControl
         empty.Bind(IsVisibleProperty, new Binding(nameof(model.IsEmpty)));
         panes.Bind(IsVisibleProperty, new Binding("!" + nameof(model.IsEmpty)));
         var body = new Grid { Children = { panes, empty } };
-        var schema = new TextBox
-        {
-            Name = "ProtocolSchemaDetail", IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap,
-            FontFamily = detail.FontFamily, FontSize = 12, BorderThickness = new Thickness(0),
-            Padding = new Thickness(14), Background = Brushes.Transparent
-        };
-        schema.Bind(TextBox.TextProperty, new Binding(nameof(model.SchemaDetail)));
+        var schema = new DiagnosticsBodyEditor(wordWrap: false) { Name = "ProtocolSchemaDetail" };
+        schema.Bind(DiagnosticsBodyEditor.SourceTextProperty, new Binding(nameof(model.SchemaDetail)));
         var explanation = Ui.TextKey(nameof(L.DiagnosticsSchemaHelp), 12, "muted");
         explanation.Margin = new Thickness(14, 8); explanation.TextWrapping = TextWrapping.Wrap;
         var schemaBody = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { explanation, schema } };

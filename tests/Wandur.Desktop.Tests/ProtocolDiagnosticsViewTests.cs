@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -61,9 +62,9 @@ public sealed class ProtocolDiagnosticsViewTests
             if (!string.IsNullOrEmpty(folder)) { Directory.CreateDirectory(folder); frame.Save(Path.Combine(folder, "protocol-diagnostics.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
             var schemaTab = diagnostics.GetVisualDescendants().OfType<TabItem>().Single(t => t.Name == "ProtocolSchemaTab");
             Click(schemaTab); Dispatcher.UIThread.RunJobs();
-            var schema = diagnostics.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "ProtocolSchemaDetail");
+            var schema = diagnostics.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolSchemaDetail");
             Assert.True(schema.IsEffectivelyVisible);
-            Assert.Contains("/hp", schema.Text); Assert.Contains("/HEALTH_MAX", schema.Text);
+            Assert.Contains("/hp", schema.Document.Text); Assert.Contains("/HEALTH_MAX", schema.Document.Text);
             AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
             using var schemaFrame = window.CaptureRenderedFrame(); Assert.NotNull(schemaFrame);
             if (!string.IsNullOrEmpty(folder)) schemaFrame.Save(Path.Combine(folder, "protocol-fields.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
@@ -116,6 +117,30 @@ public sealed class ProtocolDiagnosticsViewTests
             var editor = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolMessageDetail");
             Assert.Equal(model.SelectedEntry!.Content!.Body, editor.Document.Text);
             Assert.Equal("Json", editor.SyntaxHighlighting.Name);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ObservedFieldsShowInAJsonHighlightedNonWrappingEditor()
+    {
+        var model = new ProtocolDiagnosticsViewModel();
+        var view = new ProtocolDiagnosticsView(model);
+        var window = new Window { Content = view, Width = 900, Height = 620 };
+        try
+        {
+            window.Show();
+            model.Append(DateTimeOffset.Now, 201, Encoding.UTF8.GetBytes("Room.Info {\"name\":\"The Cockpit\",\"coords\":{\"x\":1,\"y\":2},\"exits\":[\"south\"]}"));
+            var tabs = view.GetVisualDescendants().OfType<TabControl>().Single(t => t.Name == "ProtocolDiagnosticTabs");
+            tabs.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            var editor = view.GetVisualDescendants().OfType<DiagnosticsBodyEditor>().Single(t => t.Name == "ProtocolSchemaDetail");
+            Assert.Equal(model.SchemaDetail, editor.Document.Text);
+            Assert.Contains("/coords/x", editor.Document.Text);
+            Assert.Equal("Json", editor.SyntaxHighlighting.Name);
+            using var parsed = JsonDocument.Parse(editor.Document.Text);
+            Assert.Equal(JsonValueKind.Object, parsed.RootElement.ValueKind);
+            Assert.False(editor.WordWrap);
         }
         finally { window.Close(); }
     }

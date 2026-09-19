@@ -22,11 +22,11 @@ public sealed class DiagnosticsBodyEditor : TextEditor
     protected override Type StyleKeyOverride => typeof(TextEditor);
     public string SourceText { get => GetValue(SourceTextProperty); set => SetValue(SourceTextProperty, value); }
 
-    public DiagnosticsBodyEditor()
+    public DiagnosticsBodyEditor(bool wordWrap = true)
     {
         IsReadOnly = true;
         ShowLineNumbers = false;
-        WordWrap = true;
+        WordWrap = wordWrap;
         FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono");
         FontSize = 12;
         Padding = new Thickness(14);
