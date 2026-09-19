@@ -66,8 +66,10 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Nothing in flight. The owner planned to move the three repositories under
-  one `wandur` directory and rename this checkout to `wandur`.
+- Nothing in flight. The three repositories now live under one workspace,
+  `~/wandur` (a symlink to the external SSD): `wandur-client/` (this
+  checkout), `wandur-site/`, `room-classifier/`, with a top-level
+  `CLAUDE.md` pointing at the handoffs.
 - Follow-up from the session-open work: with the terrain classifier
   installed, `RoomsNeedingInference` hashes every room on the UI thread after
   the tab shows; move it off the UI thread.
