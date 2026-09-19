@@ -70,6 +70,8 @@ public static class ThemeService
     private static ThemeResources? _resources;
     private static (string Accent, string Panel, string Text, string Muted, string Shell, string Line)? _lastFluentPalette;
     private static Color? _gripColor;
+    /// <summary>Opacity of the transcript's selection highlight, which is drawn on top of the text.</summary>
+    internal const byte TranscriptSelectionAlpha = 0x66;
     public static void Apply(ClientSettings settings) => Apply(settings, null);
     public static void Apply(ClientSettings settings, WorldTheme? worldTheme, IReadOnlyDictionary<string, Bitmap>? images = null)
     {
@@ -145,6 +147,10 @@ public static class ThemeService
             (byte)(color.B + (target.B - color.B) * amount));
         if (worldTheme is null) Set("WorldSelectionBrush", line);
         else resources.Color("WorldSelectionBrush", Mix(surface, Color.Parse(accent), .16));
+        // The terminal control paints its selection over the glyphs, not under them, so the transcript's
+        // brush has to be translucent or the selected text disappears behind it. The world list keeps the
+        // opaque row color above; the transcript takes the accent at forty percent, readable on every preset.
+        resources.Color("TranscriptSelectionBrush", Color.FromArgb(TranscriptSelectionAlpha, highlight.R, highlight.G, highlight.B));
         resources.Gradient("ButtonFaceBrush", Mix(surface, Colors.White, light ? .8 : .065), surface);
         resources.Gradient("ButtonHoverBrush", Mix(surface, Colors.White, light ? 1 : .13), Mix(surface, Colors.White, .04));
         resources.Gradient("ButtonEdgeBrush", Mix(surface, Colors.White, light ? .1 : .2), Mix(surface, Colors.Black, .1));

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Headless.XUnit;
@@ -178,6 +180,52 @@ public sealed class TerminalRenderingTests
         finally { window.Close(); }
     }
 
+
+    [AvaloniaFact]
+    public async Task SelectionIsATranslucentHighlightAndTheSelectedTextStaysVisible()
+    {
+        await using var controller = new WorkspaceController(new TranscriptDisplayFactory(), new SettingsStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid()+".json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        var window = new Window { Width = 900, Height = 550, Content = new TerminalView(controller) }; window.Show();
+        try
+        {
+            var surface = Assert.Single(window.GetVisualDescendants().OfType<Surface>());
+            for (var i = 0; i < 8; i++) controller.Terminal.Append($"Line {i}: the quick brown fox jumps over the lazy dog\r\n");
+            controller.ApplySettings(controller.Settings); Dispatcher.UIThread.RunJobs();
+            // A mouse drag from the second line to the fifth, whole rows in between, like the owner's screenshot.
+            surface.Terminal.Selection.StartSelection(0, 1);
+            surface.Terminal.Selection.UpdateSelection(surface.Terminal.Cols - 1, 4);
+            surface.Terminal.Selection.EndSelection();
+            Assert.True(surface.Terminal.Selection.HasSelection);
+            surface.InvalidateVisual();
+            Dispatcher.UIThread.RunJobs(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+            using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+            if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } folder)
+            { Directory.CreateDirectory(folder); frame.Save(Path.Combine(folder, "transcript-selection.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
+            using var stream = new MemoryStream(); frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+            using var pixels = SkiaSharp.SKBitmap.Decode(stream.ToArray());
+            var scaleX = pixels.Width / window.Bounds.Width; var scaleY = pixels.Height / window.Bounds.Height;
+            var origin = surface.TranslatePoint(new Point(0, 0), window)!.Value;
+            var background = ((ISolidColorBrush)window.FindResource("TerminalBrush")!).Color;
+            var text = ((ISolidColorBrush)window.FindResource("TerminalTextBrush")!).Color;
+            // The third line sits wholly inside the selection: its glyphs must still read as text, and the
+            // empty cells beyond the text must carry the highlight, so neither the text nor the tint is lost.
+            var top = (int)Math.Round((origin.Y + 2 * surface.CharHeight) * scaleY); var bottom = (int)Math.Round((origin.Y + 3 * surface.CharHeight) * scaleY);
+            var left = (int)Math.Round(origin.X * scaleX); var textRight = (int)Math.Round((origin.X + 50 * surface.CharWidth) * scaleX);
+            var right = (int)Math.Round((origin.X + surface.Bounds.Width - 20) * scaleX);
+            static int Distance(SkiaSharp.SKColor pixel, Color color) => Math.Abs(pixel.Red - color.R) + Math.Abs(pixel.Green - color.G) + Math.Abs(pixel.Blue - color.B);
+            var glyphs = 0; var tinted = 0;
+            for (var y = top; y < bottom; y++)
+            {
+                for (var x = left; x < textRight; x++) if (Distance(pixels.GetPixel(x, y), text) < Distance(pixels.GetPixel(x, y), background)) glyphs++;
+                for (var x = textRight; x < right; x++) if (Distance(pixels.GetPixel(x, y), background) > 24) tinted++;
+            }
+            Assert.True(glyphs > 20, $"selected text must stay legible on top of the highlight; {glyphs} text-colored pixels in the selected row");
+            Assert.True(tinted > 0, "the selection highlight must be visible where the row has no text");
+            var brush = Assert.IsAssignableFrom<ISolidColorBrush>(surface.SelectionBrush);
+            Assert.Equal(ThemeService.TranscriptSelectionAlpha, brush.Color.A);
+        }
+        finally { window.Close(); }
+    }
 
     [AvaloniaFact]
     public async Task LocalEchoUsesLiteralCharactersEvenWhenServerSelectsLineDrawing()
