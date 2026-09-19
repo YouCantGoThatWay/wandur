@@ -2,7 +2,7 @@
 
 ## Implementation status (2026-09-18)
 
-The anonymous-probe-first service path is now implemented. Shared contracts live in `src/Wandur.Models`; `src/Wandur.Discovery.Worker` handles daily discovery, persistent evidence, Azure generation and publication; the client applies validated mappings to normalized game state. See [the worker guide](../../src/Wandur.Discovery.Worker/README.md) for the actual version-1 wire format, configuration and limitations. The earlier contract examples below are design history, not the implemented wire format. The manual mapping editor and HUD widgets remain future work.
+The anonymous-probe-first service path is now implemented. Shared contracts live in `Wandur.Models`, which now comes from the `wandur-sdk` submodule at `external/wandur-sdk`; the discovery worker, which handles daily discovery, persistent evidence, Azure generation and publication, moved to the separate `wandur-discovery` repository; the client applies validated mappings to normalized game state. See that repository's worker guide for the actual version-1 wire format, configuration and limitations. The earlier contract examples below are design history, not the implemented wire format. The manual mapping editor and HUD widgets remain future work.
 
 ## Goal
 

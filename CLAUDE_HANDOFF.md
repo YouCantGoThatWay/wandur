@@ -27,11 +27,13 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## State of the code
 
-- .NET 10, Avalonia 12 code-first views, CommunityToolkit.Mvvm. Projects:
-  `Wandur.Models` and `Wandur.Protocol` (both packed to NuGet with version
-  0.1.0 by `.github/workflows/publish-packages.yml` on `v*` tags),
-  `Wandur.Core`, `Wandur.Desktop`, `Wandur.Discovery.Worker` (to be moved to
-  the site repository in a later phase).
+- .NET 10, Avalonia 12 code-first views, CommunityToolkit.Mvvm. Projects in
+  this repository: `Wandur.Core` and `Wandur.Desktop`, plus the test projects.
+  `Wandur.Models` and `Wandur.Protocol` now come from the `wandur-sdk`
+  submodule at `external/wandur-sdk` and are listed in `Wandur.sln` from there;
+  edit and commit them in that repository. The discovery worker moved to the
+  private `wandur-discovery` repository. Clone this repository with
+  `--recurse-submodules`, or run `git submodule update --init --recursive`.
 - Room terrain inference: the ONNX room classifier (package v0.1.1 from the
   public `room-classifier` repository) colors mapped rooms by inferred
   environment. Design in `docs/superpowers/specs/2026-09-18-room-terrain-inference-design.md`.
@@ -56,9 +58,10 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 - World themes (commit b0a00e7, merged 2770a20): a catalog merge may add a
   theme but never remove one; the production directory carried no themes
   until the site's seeding step ran.
-- Last green run on main (September 19, after 2770a20): Core 475,
-  Desktop 302 (Discovery 25 unchanged); `artifacts/macos/Wandur.app`
-  rebuilt by `scripts/package-macos.sh`. No worktrees; tree clean.
+- Last green run on main (September 19, after the repository split): Core 475,
+  Desktop 302; `artifacts/macos/Wandur.app` rebuilt by
+  `scripts/package-macos.sh`. The discovery suite (25) now runs in
+  `wandur-discovery`. No worktrees; tree clean.
 - Verification commands: `dotnet build Wandur.sln -c Release`, then
   `dotnet test tests/<project>/<project>.csproj -c Release --no-build` for
   each test project. Some Desktop tests use a local directory API on
@@ -66,10 +69,13 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Nothing in flight. The three repositories now live under one workspace,
-  `~/wandur` (a symlink to the external SSD): `wandur-client/` (this
-  checkout), `wandur-site/`, `room-classifier/`, with a top-level
-  `CLAUDE.md` pointing at the handoffs.
+- Nothing in flight. The repositories live under one workspace, `~/wandur`
+  (a symlink to the external SSD): `wandur-client/` (this checkout),
+  `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with
+  a top-level `CLAUDE.md` pointing at the handoffs. `wandur-sdk` and
+  `wandur-discovery` have no remote history yet; the owner pushes them first,
+  after which the submodule URL `https://github.com/YouCantGoThatWay/wandur-sdk.git`
+  in `.gitmodules` resolves for anyone cloning.
 - Follow-up from the session-open work: with the terrain classifier
   installed, `RoomsNeedingInference` hashes every room on the UI thread after
   the tab shows; move it off the UI thread.
@@ -88,7 +94,14 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## Related repositories
 
+- `wandur-sdk` (public, MIT): `Wandur.Models` and `Wandur.Protocol`, consumed
+  here as the `external/wandur-sdk` submodule. It carries the NuGet publish
+  workflow, which stays inert until a NuGet key exists.
+- `wandur-discovery` (private): the daily protocol discovery worker, its tests
+  and the macOS installer. It consumes the same SDK submodule and no longer
+  needs `Wandur.Core`.
 - `wandur-site` (private): the C# directory API and site for wandur.net, with
-  its own `HANDOFF.md`. Its CI restores `Wandur.Models` and `Wandur.Protocol`
-  from packages tracked in that repository until they are on NuGet.org.
+  its own `HANDOFF.md`. Its CI still restores `Wandur.Models` and
+  `Wandur.Protocol` from packages tracked in that repository; switching it to
+  the SDK submodule is a later step.
 - `room-classifier` (public): the training pipeline and model releases.

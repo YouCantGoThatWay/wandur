@@ -1,4 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../Wandur.Core/Wandur.Core.csproj" /><ProjectReference Include="../Wandur.Models/Wandur.Models.csproj" /><ProjectReference Include="../Wandur.Protocol/Wandur.Protocol.csproj" /></ItemGroup>
-</Project>

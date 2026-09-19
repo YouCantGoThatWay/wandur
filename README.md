@@ -6,12 +6,19 @@ This is the first playable foundation. The client is independent of any particul
 
 ## Run
 
-Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then:
+Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), then
+clone with submodules and run:
 
 ```sh
+git clone --recurse-submodules https://github.com/YouCantGoThatWay/wandur.git
+cd wandur
 dotnet restore Wandur.sln
 dotnet run --project src/Wandur.Desktop/Wandur.Desktop.csproj
 ```
+
+An existing checkout without the submodule needs `git submodule update --init
+--recursive` once; `external/wandur-sdk` supplies `Wandur.Models` and
+`Wandur.Protocol`.
 
 Choose **File → Open Offline Demo** to explore a five-room offline world. Try `look`, `north`, `east`, `up`, `who`, `inventory`, and `say hello`. The demo is scripted and runs entirely in the client; it is not the planned MUD server or an AI simulation.
 
@@ -83,12 +90,20 @@ On macOS external drives, keep the NuGet package cache on the internal disk. The
 
 | Project | Responsibility |
 | --- | --- |
-| `src/Wandur.Models` | Game-neutral state and protocol mapping contracts; published as the `Wandur.Models` package |
-| `src/Wandur.Protocol` | Telnet negotiation, GMCP and MSDP decoding and protocol diagnostics; published as the `Wandur.Protocol` package |
+| `external/wandur-sdk/Wandur.Models` | Game-neutral state and protocol mapping contracts; comes from the `wandur-sdk` submodule |
+| `external/wandur-sdk/Wandur.Protocol` | Telnet negotiation, GMCP and MSDP decoding and protocol diagnostics; comes from the `wandur-sdk` submodule |
 | `src/Wandur.Core` | ANSI transcript, session lifecycle, mapping, demo, history and settings; no GUI dependency |
 | `src/Wandur.Desktop` | Avalonia workspace, docking, input, dialogs and appearance |
 | `tests/Wandur.Core.Tests` | Protocol, socket and persistence regression tests |
 | `tests/Wandur.Desktop.Tests` | Input, privacy, docking, themes, lifecycle and render checks |
+
+`Wandur.Models` and `Wandur.Protocol` live in the separate
+[wandur-sdk](https://github.com/YouCantGoThatWay/wandur-sdk) repository and are
+checked out here as a git submodule at `external/wandur-sdk`. The solution
+builds them from that path, so the two projects are edited and built exactly as
+before; commits to them belong in the SDK repository. The daily protocol
+discovery worker that used to live in `src/Wandur.Discovery.Worker` now has its
+own repository, `wandur-discovery`.
 
 Persistent client data lives in one `wandur.db` SQLite file in the `Wandur` folder beneath `.NET`'s application-data directory. It contains world profiles, scripts, maps, agent settings, directory snapshots/artwork, and historical protocol observations. Password values remain in the operating system credential vault. Existing JSON settings, script libraries, map files, and directory caches are imported transactionally on first use and left in place as migration backups. SQLite uses transactions and indexes for cross-platform lookups; the map graph is still held in memory while a session is active. This version targets Windows, macOS and Linux; native manual testing so far covers Apple Silicon macOS. The CI matrix is configured for all three platforms but has not been run remotely yet.
 
@@ -107,9 +122,10 @@ The dedicated display handles terminal cursor addressing and screen updates; MUD
 ## Shared packages
 
 `Wandur.Models` (contracts and validation) and `Wandur.Protocol` (telnet parsing and
-protocol decoding) are published to NuGet.org by the `Publish packages` workflow when a
-`v*` tag is pushed; the tag supplies the version. The repository secret `NUGET_API_KEY`
-must hold a NuGet.org key scoped to those two package ids.
+protocol decoding) are no longer packed from this repository. NuGet publishing lives in
+the [wandur-sdk](https://github.com/YouCantGoThatWay/wandur-sdk) repository and is not
+active yet: nothing is on NuGet.org, so consumers take the SDK as a submodule and
+reference the projects directly, as this repository does.
 
 ## Contributing
 
@@ -183,7 +199,7 @@ The [mapper guide](docs/mapper.md) covers colored room graphs, contiguous grid a
 ## Moving the checkout
 
 All build scripts and project references use relative paths; the containing folder
-can be renamed or moved. Reopen `Wandur.sln` and run `dotnet restore Wandur.sln`
-after moving. The client uses its own application-data folder, independent of
+can be renamed or moved, together with the `external/wandur-sdk` submodule inside it.
+Reopen `Wandur.sln` and run `dotnet restore Wandur.sln` after moving. The client uses its own application-data folder, independent of
 the checkout. Release builds omit debug symbols to avoid embedding developer checkout paths;
 Debug builds retain symbols for development. The macOS bundle identifier is `net.wandur.client`.

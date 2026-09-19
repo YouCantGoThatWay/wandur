@@ -654,7 +654,7 @@
           "Dock.Model.Mvvm": "[12.1.0.6, )",
           "Iciclecreek.Avalonia.Terminal": "[4.0.2, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.12, )",
-          "Wandur.Core": "[0.1.0, )"
+          "Wandur.Core": "[1.0.0, )"
         }
       },
       "wandur.core": {

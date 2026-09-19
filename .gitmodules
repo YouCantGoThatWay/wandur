@@ -1,0 +1,3 @@
+[submodule "external/wandur-sdk"]
+	path = external/wandur-sdk
+	url = https://github.com/YouCantGoThatWay/wandur-sdk.git
