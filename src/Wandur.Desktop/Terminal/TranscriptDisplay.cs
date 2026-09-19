@@ -39,7 +39,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         _surface.BeginInit(); _surface.EndInit(); _surface.InitializeSession();
         _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.BackgroundProperty, new DynamicResourceExtension("TerminalBrush")));
         _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.ForegroundProperty, new DynamicResourceExtension("TerminalTextBrush")));
-        _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.SelectionBrushProperty, new DynamicResourceExtension("WorldSelectionBrush")));
+        _bindings.Add(_surface.Bind(Iciclecreek.Terminal.TerminalView.SelectionBrushProperty, new DynamicResourceExtension("TranscriptSelectionBrush")));
         TerminalPalette.Bind(_surface, _bindings);
         _surface.PropertyChanged += SurfaceChanged;
         _scrollbar = new ScrollBar { Orientation = Orientation.Vertical, SmallChange = 3, MinWidth = 12 };
