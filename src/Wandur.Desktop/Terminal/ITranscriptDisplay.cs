@@ -11,6 +11,10 @@ public interface ITranscriptDisplay : IDisposable
     void ApplySettings(ClientSettings settings);
     void FollowTail();
     bool IsFollowingTail { get; }
+    /// <summary>The buffer row drawn at the top of the viewport; read before a resize and written after it to keep the reader's place.</summary>
+    int ViewportTop { get; set; }
+    /// <summary>The text of that first visible row, which is what a reader watches for when the layout moves under them.</summary>
+    string TopVisibleText { get; }
     event Action? ViewportChanged;
 }
 

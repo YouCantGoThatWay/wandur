@@ -530,14 +530,14 @@ Ausgänge: Norden · Osten
   <data name="ColorScheme" xml:space="preserve">
     <value>Farbschema</value>
   </data>
-  <data name="LiveTailWhileScrolledUp" xml:space="preserve">
-    <value>Live-Ausschnitt beim Zurückblättern</value>
+  <data name="LiveViewWhileScrolledUp" xml:space="preserve">
+    <value>Live-Ansicht beim Zurückblättern</value>
   </data>
-  <data name="LiveTailKeepsTheNewestLinesInView" xml:space="preserve">
-    <value>Ein kleiner Bereich zeigt weiterhin die neuesten Zeilen, während Sie zurücklesen. 0 schaltet ihn aus.</value>
+  <data name="ShareOfTheWindowThatKeepsScrolling" xml:space="preserve">
+    <value>Anteil des Fensters, der weiterläuft; 0 schaltet ihn aus.</value>
   </data>
-  <data name="LiveTailLinesMustBeBetween0And30" xml:space="preserve">
-    <value>Die Zeilenzahl des Live-Ausschnitts muss zwischen 0 und 30 liegen.</value>
+  <data name="LiveViewShareMustBeBetween10And60" xml:space="preserve">
+    <value>Der Anteil der Live-Ansicht muss zwischen 10 und 60 Prozent liegen.</value>
   </data>
   <data name="SessionTextSize" xml:space="preserve">
     <value>Textgröße der Sitzung</value>

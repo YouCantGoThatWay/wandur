@@ -181,9 +181,9 @@ public static class Strings
     public static string MakeYourselfAtHome => Get(nameof(MakeYourselfAtHome));
     public static string AComfortablePlaceForALongAdventure => Get(nameof(AComfortablePlaceForALongAdventure));
     public static string ColorScheme => Get(nameof(ColorScheme));
-    public static string LiveTailWhileScrolledUp => Get(nameof(LiveTailWhileScrolledUp));
-    public static string LiveTailKeepsTheNewestLinesInView => Get(nameof(LiveTailKeepsTheNewestLinesInView));
-    public static string LiveTailLinesMustBeBetween0And30 => Get(nameof(LiveTailLinesMustBeBetween0And30));
+    public static string LiveViewWhileScrolledUp => Get(nameof(LiveViewWhileScrolledUp));
+    public static string ShareOfTheWindowThatKeepsScrolling => Get(nameof(ShareOfTheWindowThatKeepsScrolling));
+    public static string LiveViewShareMustBeBetween10And60 => Get(nameof(LiveViewShareMustBeBetween10And60));
     public static string SessionTextSize => Get(nameof(SessionTextSize));
     public static string TextColorOptionalRRGGBB => Get(nameof(TextColorOptionalRRGGBB));
     public static string BackgroundOptionalRRGGBB => Get(nameof(BackgroundOptionalRRGGBB));
