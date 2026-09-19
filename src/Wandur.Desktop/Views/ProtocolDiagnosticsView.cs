@@ -41,13 +41,8 @@ public sealed class ProtocolDiagnosticsView : UserControl
             if (args.AddedItems.Count > 0 && !ReferenceEquals(list.SelectedItem, model.Entries.LastOrDefault())) model.Follow = false;
             if (model.Follow && list.SelectedItem is not null) list.ScrollIntoView(list.SelectedItem);
         };
-        var detail = new TextBox
-        {
-            Name = "ProtocolMessageDetail", IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap,
-            FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"), FontSize = 12,
-            BorderThickness = new Thickness(0), Padding = new Thickness(14), Background = Brushes.Transparent
-        };
-        detail.Bind(TextBox.TextProperty, new Binding(nameof(model.Detail)));
+        var detail = new DiagnosticsBodyEditor { Name = "ProtocolMessageDetail" };
+        detail.Bind(DiagnosticsBodyEditor.SourceTextProperty, new Binding(nameof(model.Detail)));
         var panes = new Grid { RowDefinitions = new RowDefinitions("*,5,2*"), Children = { list, detail } };
         Grid.SetRow(detail, 2);
         var divider = new GridSplitter { ResizeDirection = GridResizeDirection.Rows, HorizontalAlignment = HorizontalAlignment.Stretch };
