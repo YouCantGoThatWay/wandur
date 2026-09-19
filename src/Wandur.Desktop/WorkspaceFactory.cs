@@ -32,8 +32,11 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
 {
     private DocumentDock? _documents;
     private SessionDocument? _sessionDocument;
-    private ToolDock? _leftTools;
-    private ToolDock? _rightTools;
+    private ProportionalDock? _layout;
+    private ProportionalDock? _right;
+    private ToolDock? _libraryDock;
+    private ToolDock? _mapDock;
+    private ToolDock? _channelsDock;
     public WorkspaceTool? WorldsTool { get; private set; }
     public WorkspaceTool? MapTool { get; private set; }
     public WorkspaceTool? ChannelsTool { get; private set; }
@@ -55,14 +58,15 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
         ChannelsTool = new WorkspaceTool { Id = "channels", Title = L.Channels, CanClose = true, Build = () => new ActiveSessionView(sessions, controller => new ChannelsView(new ChannelsViewModel(controller))) };
         var session = _sessionDocument = new SessionDocument { Id = "session", Title = L.Session, CanClose = false, CanFloat = false, Sessions = sessions, Catalog = catalog, EditAutomation = editAutomation, Selected = () => { SelectedKey = sessions.IsBrowsing ? SearchKey : sessions.Active; Navigation.Refresh(); } };
         var documents = _documents = new DocumentDock { Id = "documents", CanCreateDocument = false, VisibleDockables = CreateList<IDockable>(session), ActiveDockable = session, Proportion = 0.59 };
-        var left = _leftTools = new ToolDock { Id = "left", Alignment = Alignment.Left, Proportion = 0.18, VisibleDockables = CreateList<IDockable>(library), ActiveDockable = library };
-        var map = _rightTools = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.58, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
-        var channels = new ToolDock { Id = "channels-dock", Alignment = Alignment.Right, Proportion = 0.42, VisibleDockables = CreateList<IDockable>(ChannelsTool), ActiveDockable = ChannelsTool };
-        // The map and the channels share the right edge, one above the other, both closable from the View menu; script panels dock as tabs beside the map.
-        var right = new ProportionalDock { Id = "right", Proportion = 0.23, Orientation = Dock.Model.Core.Orientation.Vertical,
+        var left = _libraryDock = new ToolDock { Id = "left", Alignment = Alignment.Left, Proportion = 0.18, VisibleDockables = CreateList<IDockable>(library), ActiveDockable = library };
+        var map = _mapDock = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.58, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
+        var channels = _channelsDock = new ToolDock { Id = "channels-dock", Alignment = Alignment.Right, Proportion = 0.42, VisibleDockables = CreateList<IDockable>(ChannelsTool), ActiveDockable = ChannelsTool };
+        // The map and the channels share the right edge, one above the other, both closable from the View menu. Script panels never
+        // join them as tabs: they get a dock of their own between the two (or below the world library on the left) while any is shown.
+        var right = _right = new ProportionalDock { Id = "right", Proportion = 0.23, Orientation = Dock.Model.Core.Orientation.Vertical, IsCollapsable = false,
             VisibleDockables = CreateList<IDockable>(map, new ProportionalDockSplitter(), channels), ActiveDockable = map };
         sessions.ScriptPanelsChanged += SyncScriptPanels;
-        var layout = new ProportionalDock { Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), right), ActiveDockable = documents };
+        var layout = _layout = new ProportionalDock { Id = "layout", Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), right), ActiveDockable = documents };
         return new RootDock { Id = "root", IsCollapsable = false, VisibleDockables = CreateList<IDockable>(layout), ActiveDockable = layout, DefaultDockable = layout };
     }
 
