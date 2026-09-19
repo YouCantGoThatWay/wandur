@@ -40,9 +40,12 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string? _background;
     [ObservableProperty] private bool _localEcho;
     [ObservableProperty] private bool _allowBlinkingText;
+    [ObservableProperty] private decimal? _scrollTailLines;
     [ObservableProperty] private LanguageChoice _language;
     [ObservableProperty] private string _error = "";
     public double PreviewFontSize => (double)(FontSize ?? 15);
+    /// <summary>An emptied field means the shipped default rather than a validation error the reader cannot see.</summary>
+    private int TailLines => (int)(ScrollTailLines ?? 8);
     public event Action? CloseRequested;
 
     public PreferencesViewModel(IClientSettingsStore store, Action<ClientSettings> preview)
@@ -55,6 +58,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
         _foreground = _original.Foreground; _background = _original.Background; _localEcho = _original.LocalEcho;
         _useWorldThemes = _original.UseWorldThemes;
         _allowBlinkingText = _original.AllowBlinkingText;
+        _scrollTailLines = _original.ScrollTailLines;
         _language = Languages.First(l => l.Code == _original.Language);
         LoadPalette();
         UiLanguage.Changed += RefreshLanguage;
@@ -64,7 +68,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     {
         Theme = Theme, FontSize = PreviewFontSize, Foreground = string.IsNullOrWhiteSpace(Foreground) ? null : Foreground.Trim(),
         Background = string.IsNullOrWhiteSpace(Background) ? null : Background.Trim(), LocalEcho = LocalEcho, Language = Language.Code,
-        AllowBlinkingText = AllowBlinkingText, UseWorldThemes = UseWorldThemes, CustomThemes = _drafts.Select(t => t with { Colors = new(t.Colors), AnsiColors = new(t.AnsiColors) }).ToList()
+        AllowBlinkingText = AllowBlinkingText, UseWorldThemes = UseWorldThemes, ScrollTailLines = TailLines, CustomThemes = _drafts.Select(t => t with { Colors = new(t.Colors), AnsiColors = new(t.AnsiColors) }).ToList()
     };
     private void LoadPalette()
     {
@@ -108,6 +112,7 @@ public sealed partial class PreferencesViewModel : ObservableObject, IDisposable
     partial void OnThemeChanged(string value) { LoadPalette(); Preview(); }
     partial void OnFontSizeChanged(decimal? value) { OnPropertyChanged(nameof(PreviewFontSize)); Preview(); }
     partial void OnAllowBlinkingTextChanged(bool value) => Preview();
+    partial void OnScrollTailLinesChanged(decimal? value) => Preview();
     partial void OnForegroundChanged(string? value) => Preview();
     partial void OnBackgroundChanged(string? value) => Preview();
     [RelayCommand]
