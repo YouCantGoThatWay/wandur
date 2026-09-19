@@ -46,9 +46,19 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   open, on tab change, reverted on close), never the selected row.
 - Dock chrome (commit 3da421b): 4px gaps, squared center panel, side docks
   rounded only on their outer edge.
-- Last green run on main (September 19, after 3da421b): Discovery 25,
-  Core 475, Desktop 296; `artifacts/macos/Wandur.app` rebuilt by
-  `scripts/package-macos.sh`.
+- Session open (commit 6616b74, merged 2cc43b9): tab usable in 60 to 85 ms
+  instead of 1.3 to 1.6 s; cause was login-prompt regex compilation for every
+  saved world on every theme validation. `SessionOpenTrace` measures the path.
+- Directory default is `https://api.wandur.net` (commit b8dc243).
+- App icon (commit 79dd22e): amber gateway mark; master
+  `src/Wandur.Desktop/Assets/icon-1024.png`, `scripts/make-icons.sh` produces
+  the `.ico`, the 256 px window icon and the `.icns` used by the bundle.
+- World themes (commit b0a00e7, merged 2770a20): a catalog merge may add a
+  theme but never remove one; the production directory carried no themes
+  until the site's seeding step ran.
+- Last green run on main (September 19, after 2770a20): Core 475,
+  Desktop 302 (Discovery 25 unchanged); `artifacts/macos/Wandur.app`
+  rebuilt by `scripts/package-macos.sh`. No worktrees; tree clean.
 - Verification commands: `dotnet build Wandur.sln -c Release`, then
   `dotnet test tests/<project>/<project>.csproj -c Release --no-build` for
   each test project. Some Desktop tests use a local directory API on
@@ -56,12 +66,11 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Session open performance branch `perf/session-open` (worktree
-  `../Wundur-perf-worktree`): measure `SessionWorkspace.OpenAsync` phases and
-  move blocking work off the UI thread; the owner reports 2 to 3 seconds to
-  open a world. If the branch exists, review its report in the commit
-  message, merge with `--no-ff`, run the suites, rebuild the bundle, remove
-  the worktree.
+- Nothing in flight. The owner planned to move the three repositories under
+  one `wandur` directory and rename this checkout to `wandur`.
+- Follow-up from the session-open work: with the terrain classifier
+  installed, `RoomsNeedingInference` hashes every room on the UI thread after
+  the tab shows; move it off the UI thread.
 - Agent subsystem redesign: an analysis on September 19 found the single-goal
   loop unusable on a live MUD (stale observations end runs, no repair of
   malformed output, no structured facts). Proposed: deterministic triggers,
