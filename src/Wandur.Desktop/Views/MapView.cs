@@ -173,9 +173,23 @@ public sealed partial class MapView : UserControl
         var zoomSlider = new Slider
         {
             Name = "MapZoomSlider", Minimum = 0.05, Maximum = 4, Width = 100,
-            Height = 20, MinHeight = 0, VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
             TickPlacement = TickPlacement.None
         };
+        // The Fluent theme's default horizontal slider template wants a 20 px thumb inside a much taller
+        // (~50 px) row, which the compact status bar does not have room for; forcing the control down to a
+        // small fixed Height without matching overrides clipped the thumb into a half-circle and left the
+        // track pinned to the control's bottom edge. These per-instance resources (the theme's own keys,
+        // scoped to just this control) size a smaller 14 px thumb and 3 px track and shrink the reserved
+        // space around them to match, so the whole template fits a compact ~22 px row with the thumb and
+        // track centered instead of clipped. SliderPreContentMargin/PostContentMargin are GridLength values
+        // here (row sizes in the template), not Thickness margins.
+        zoomSlider.Resources["SliderHorizontalThumbWidth"] = 14.0;
+        zoomSlider.Resources["SliderHorizontalThumbHeight"] = 14.0;
+        zoomSlider.Resources["SliderTrackThemeHeight"] = 3.0;
+        zoomSlider.Resources["SliderPreContentMargin"] = new GridLength(4);
+        zoomSlider.Resources["SliderPostContentMargin"] = new GridLength(4);
+        zoomSlider.Resources["SliderHorizontalHeight"] = 22.0;
         zoomSlider.Bind(RangeBase.ValueProperty, new Binding(nameof(model.Zoom)) { Mode = BindingMode.TwoWay });
         zoomSlider.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.MapZoom)));
         zoomSlider.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.MapZoom)));

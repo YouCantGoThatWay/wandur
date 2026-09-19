@@ -1,8 +1,10 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Wandur.Core.Mapping;
@@ -15,6 +17,118 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class MapViewTests
 {
+    [AvaloniaFact]
+    public void MapZoomSliderRendersInsideTheStatusBar()
+    {
+        // The real docked scenario the report was filed against: a session window with the map panel visible.
+        var directory = Path.Combine(Path.GetTempPath(), "wandur-map-slider-" + Guid.NewGuid());
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(directory, "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        window.Width = 1200; window.Height = 800;
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            Assert.True(window.IsMapVisible);
+            AssertZoomSliderLayout(window, "docked", null);
+        }
+        finally
+        {
+            window.Close();
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+
+        // A session controller reasserts its own persisted theme on background refreshes, which fights a
+        // theme switch applied straight to a live MainWindow, so the Ember/Paper comparison renders a plain
+        // map view instead, matching how other views verify a theme switch (see ProtocolDiagnosticsViewTests).
+        try
+        {
+            foreach (var (theme, captureName) in new[] { ("Ember", "slider-after-dark.png"), ("Paper", "slider-after-light.png") })
+            {
+                ThemeService.Apply(new ClientSettings { Theme = theme });
+                var view = new MapView(new MapViewModel(new RoomMapTracker()));
+                var themed = new Window { Content = view, Width = 1200, Height = 200 };
+                try
+                {
+                    themed.Show(); Dispatcher.UIThread.RunJobs(); themed.UpdateLayout();
+                    AssertZoomSliderLayout(themed, theme, captureName);
+                }
+                finally { themed.Close(); }
+            }
+        }
+        finally { ThemeService.Apply(new ClientSettings()); }
+    }
+
+    private static void AssertZoomSliderLayout(Window window, string theme, string? captureName)
+    {
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+        Dispatcher.UIThread.RunJobs();
+
+        var mapView = Assert.Single(window.GetVisualDescendants().OfType<MapView>());
+        var statusBar = mapView.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MapStatusBar");
+        var slider = mapView.GetVisualDescendants().OfType<Slider>().Single(s => s.Name == "MapZoomSlider");
+        var thumb = slider.FindDescendantOfType<Thumb>();
+        var track = slider.GetVisualDescendants().OfType<Track>().Single();
+        var zoomBar = mapView.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "MapZoomBar");
+
+        if (captureName is not null && Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } directory)
+        {
+            Directory.CreateDirectory(directory);
+            using var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            frame!.Save(Path.Combine(directory, captureName), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+        }
+
+        Rect FrameOf(Visual visual) => new(visual.TranslatePoint(new Point(0, 0), window) ?? default, visual.Bounds.Size);
+        var statusBarFrame = FrameOf(statusBar);
+        var sliderFrame = FrameOf(slider);
+        Assert.True(statusBarFrame.Contains(sliderFrame),
+            $"[{theme}] slider {sliderFrame} is not fully inside status bar {statusBarFrame}");
+
+        Assert.NotNull(thumb);
+        var thumbFrame = FrameOf(thumb!);
+        Assert.True(thumbFrame.Width > 0 && thumbFrame.Height > 0, $"[{theme}] thumb has no visual bounds");
+        Assert.True(sliderFrame.Contains(thumbFrame),
+            $"[{theme}] thumb {thumbFrame} is not fully inside slider {sliderFrame}");
+
+        var trackFrame = FrameOf(track);
+        var sliderMidY = sliderFrame.Y + sliderFrame.Height / 2;
+        var trackMidY = trackFrame.Y + trackFrame.Height / 2;
+        Assert.True(Math.Abs(sliderMidY - trackMidY) <= 2,
+            $"[{theme}] track is not vertically centered in the slider (slider mid {sliderMidY}, track mid {trackMidY})");
+
+        foreach (var glyph in zoomBar.GetVisualDescendants().OfType<TextBlock>())
+        {
+            var glyphFrame = FrameOf(glyph);
+            var glyphMidY = glyphFrame.Y + glyphFrame.Height / 2;
+            Assert.True(Math.Abs(sliderMidY - glyphMidY) <= 2,
+                $"[{theme}] glyph '{glyph.Text}' is not vertically centered with the slider (slider mid {sliderMidY}, glyph mid {glyphMidY})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void MapStatusBarTrimsTheNegotiationTextInsteadOfOverlappingTheSlider()
+    {
+        var tracker = new RoomMapTracker();
+        var model = new MapViewModel(tracker);
+        var view = new MapView(model);
+        // No Controller is attached, so ProtocolStatus reports "GMCP: Not negotiated / MSDP: Not negotiated",
+        // which is long enough at a 400 px map panel width to exercise the trimming behavior.
+        var window = new Window { Content = view, Width = 400, Height = 500 };
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            var protocols = view.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "MapProtocolStatus");
+            var slider = view.GetVisualDescendants().OfType<Slider>().Single(s => s.Name == "MapZoomSlider");
+            Assert.Equal(TextTrimming.CharacterEllipsis, protocols.TextTrimming);
+            Assert.Equal(TextWrapping.NoWrap, protocols.TextWrapping);
+            Rect FrameOf(Visual visual) => new(visual.TranslatePoint(new Point(0, 0), window) ?? default, visual.Bounds.Size);
+            var protocolsFrame = FrameOf(protocols);
+            var sliderFrame = FrameOf(slider);
+            Assert.True(protocolsFrame.Right <= sliderFrame.Left,
+                $"negotiation text {protocolsFrame} overlaps the zoom slider {sliderFrame}");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void ZoomSliderChangesTheMapScaleAndReflectsProgrammaticZoom()
     {
