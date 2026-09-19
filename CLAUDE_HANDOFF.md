@@ -104,6 +104,17 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   (`mudverse:509`), seven generated panels imported into the local site loop
   on 2026-09-19; not yet on the production API. Test locally with
   `WANDUR_DIRECTORY_URL=http://127.0.0.1:5199` and the site's `scripts/dev.sh watch`.
+  The LOTJ trial showed every panel empty: a world reports each variable once
+  when the REPORT is accepted (during connect and login, before pack scripts
+  run) and then only on change, so the worker's `mud.state` cache never saw
+  them. Fix (branch `fix/msdp-subscribe`): the controller keeps a
+  `ProtocolStateCache` (`src/Wandur.Core/Scripting/`) of the latest MSDP and
+  GMCP values, gated by privacy only, not by login; every script start sends
+  it as one `state` event before `load`, applied inside the engine before the
+  script body runs and without firing callbacks; and `mud.state.get` of an
+  MSDP variable the cache lacks yields a `report` action, which the controller
+  turns into `TelnetSession.ReportMsdpAsync` (REPORT then SEND, same guards as
+  the mapped refresh, mapped names skipped, re-issued after reconnect).
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

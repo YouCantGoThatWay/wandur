@@ -138,6 +138,125 @@ public sealed class ScriptConnectionTests
         if (Directory.Exists(directory)) Directory.Delete(directory, true);
     }
 
+    private static byte[] MsdpFrame(string variable, string value) => [255, 250, 69, 1, .. Encoding.UTF8.GetBytes(variable), 2, .. Encoding.UTF8.GetBytes(value), 255, 240];
+    private static byte[] GmcpFrame(string text) => [255, 250, 201, .. Encoding.UTF8.GetBytes(text), 255, 240];
+
+    [AvaloniaFact]
+    public async Task MsdpReceivedDuringLoginSeedsAScriptThatStartsAfterward()
+    {
+        var vault = new MemoryPasswordVault();
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-msdp-seed-" + Guid.NewGuid(), "settings.json"));
+        var scripts = new MemoryScriptLibraryStore();
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var profile = new ConnectionProfile { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Username = "tester", AutoLogin = true };
+        var key = $"{profile.Host}:{profile.Port}:{profile.UseTls}";
+        scripts.Upsert(key, Assert.Single(scripts.Load(key)) with
+        {
+            Enabled = true,
+            Source = """
+                mud.on(Events.Msdp, event => mud.echo("event:" + event.variable));
+                mud.echo("health:" + mud.state.get("msdp.HEALTH") + " hp:" + mud.state.get("gmcp.Char.Vitals.hp"));
+                """
+        });
+        await using var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, vault, new MemoryRoomMapStore(), new InlineScriptFactory(), scripts);
+        await controller.SaveWorldAsync(profile, "secret", true);
+        profile = Assert.Single(controller.Settings.Profiles);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await controller.StartAsync(profile);
+        using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+        using var reader = new StreamReader(server.GetStream(), Encoding.UTF8, leaveOpen: true);
+        var script = controller.ScriptLibrary.Items[0].Runtime;
+        await server.GetStream().WriteAsync(Encoding.UTF8.GetBytes("Username: "), timeout.Token);
+        Assert.Equal("tester", await reader.ReadLineAsync(timeout.Token));
+        Assert.False(script.IsRunning);
+        // The world answers the REPORT while the login handshake still owns the session.
+        await server.GetStream().WriteAsync(new byte[] { 255, 251, 69, 255, 251, 201 }, timeout.Token);
+        await server.GetStream().WriteAsync(MsdpFrame("HEALTH", "100"), timeout.Token);
+        await server.GetStream().WriteAsync(GmcpFrame("Char.Vitals {\"hp\":42}"), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.ScriptState.TryGetGmcp("Char.Vitals") is not null; });
+        Assert.Equal("\"100\"", controller.ScriptState.TryGetMsdp("HEALTH"));
+        Assert.False(script.IsRunning);
+        // A repeated username prompt ends the handshake; the script starts seeded and never sees an event for old data.
+        await server.GetStream().WriteAsync(Encoding.UTF8.GetBytes("Username: "), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return script.Log.Contains("health:"); });
+        Assert.Contains("health:100 hp:42", script.Log);
+        Assert.DoesNotContain("event:", script.Log);
+        await controller.DisconnectAsync();
+        Assert.True(controller.ScriptState.IsEmpty);
+    }
+
+    [AvaloniaFact]
+    public async Task ReadingAnUnknownMsdpVariableAsksTheWorldToReportItAndARestartIsSeeded()
+    {
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-msdp-report-" + Guid.NewGuid(), "settings.json"));
+        await using var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+            new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore());
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await controller.StartAsync(new ConnectionProfile { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Name = "Report test" });
+        using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+        var stream = server.GetStream();
+        await stream.WriteAsync(new byte[] { 255, 251, 69 }, timeout.Token);
+        await ScriptSessionTests.WaitFor(() => controller.ProtocolEvidence.Msdp == Wandur.Core.Protocol.TelnetOptionState.Enabled);
+        var handshake = new Wandur.Core.Protocol.TelnetParser().Feed(new byte[] { 255, 251, 69 }).Reply;
+        await stream.ReadExactlyAsync(new byte[handshake.Length], timeout.Token);
+        var script = controller.ScriptLibrary.Items[0].Runtime;
+        script.Source = """
+            mud.on(Events.Msdp, event => mud.echo(event.variable + "=" + event.value));
+            mud.echo("level:" + mud.state.get("msdp.LEVELCOMBAT"));
+            """;
+        await script.RunAsync();
+        Assert.True(script.IsRunning, script.Error);
+        Assert.Contains("level:undefined", script.Log);
+        static byte[] Frame(string content) => [255, 250, 69, .. Encoding.UTF8.GetBytes(content), 255, 240];
+        var expected = Frame("\u0001REPORT\u0002LEVELCOMBAT").Concat(Frame("\u0001SEND\u0002LEVELCOMBAT")).ToArray();
+        var actual = new byte[expected.Length];
+        await stream.ReadExactlyAsync(actual, timeout.Token);
+        Assert.Equal(expected, actual);
+        await stream.WriteAsync(MsdpFrame("LEVELCOMBAT", "12"), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return script.Log.Contains("LEVELCOMBAT=12"); });
+        Assert.Equal("\"12\"", controller.ScriptState.TryGetMsdp("LEVELCOMBAT"));
+        // A restart is seeded from the host cache, so the first line already sees the value.
+        script.Stop();
+        await script.RunAsync();
+        Assert.True(script.IsRunning, script.Error);
+        Assert.Contains("level:12", script.Log);
+        await controller.DisconnectAsync();
+    }
+
+    [AvaloniaFact]
+    public async Task MsdpReceivedWhilePrivateNeverEntersTheHostCache()
+    {
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-msdp-private-" + Guid.NewGuid(), "settings.json"));
+        await using var controller = new WorkspaceController(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+            new MemoryPasswordVault(), new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore());
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await controller.StartAsync(new ConnectionProfile { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port, Name = "Private test" });
+        using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+        var stream = server.GetStream();
+        await stream.WriteAsync(new byte[] { 255, 251, 69 }, timeout.Token);
+        controller.SetManualPrivate(true);
+        await stream.WriteAsync(MsdpFrame("SECRETVAR", "hidden"), timeout.Token);
+        // Wait for the receiving thread to stamp the message before privacy ends, as the event tests do.
+        var fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var queued = (System.Collections.ICollection)typeof(WorkspaceController).GetField("_pendingDiagnostics", fields)!.GetValue(controller)!;
+        var gate = typeof(WorkspaceController).GetField("_pendingLock", fields)!.GetValue(controller)!;
+        Assert.True(SpinWait.SpinUntil(() => { lock (gate) return queued.Count > 0; }, TimeSpan.FromSeconds(3)));
+        controller.SetManualPrivate(false);
+        controller.FlushOutput();
+        await stream.WriteAsync(MsdpFrame("HEALTH", "5"), timeout.Token);
+        await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.ScriptState.TryGetMsdp("HEALTH") is not null; });
+        Assert.Null(controller.ScriptState.TryGetMsdp("SECRETVAR"));
+        Assert.DoesNotContain("hidden", controller.ScriptState.SeedJson());
+        var script = controller.ScriptLibrary.Items[0].Runtime;
+        script.Source = "mud.echo('secret:' + mud.state.get('msdp.SECRETVAR') + ' health:' + mud.state.get('msdp.HEALTH'));";
+        await script.RunAsync();
+        Assert.True(script.IsRunning, script.Error);
+        Assert.Contains("secret:undefined health:5", script.Log);
+        await controller.DisconnectAsync();
+    }
+
     [AvaloniaFact]
     public async Task AliasesSendOnceTriggersUseCompletedServerLinesAndPasswordsBypassScripts()
     {

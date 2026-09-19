@@ -91,7 +91,11 @@ mud.state.snapshot();                   // { gmcp: {...}, msdp: {...} }
 
 A path is `gmcp.<Package>.<field>...` or `msdp.<VARIABLE>`. A GMCP package name is split on dots, so `Char.Vitals` is stored under `gmcp.Char.Vitals`. An unknown path returns `undefined`, never `null`. Objects and arrays are returned as copies, so changing what `get` or `snapshot` handed you does not change the cache.
 
-The cache is fed by the same privacy-gated events a script subscribes to, so nothing private can enter it and no extra protocol traffic is generated. It holds at most 512 entries per protocol and 256 KiB per protocol; a value larger than 32 KiB, or an update that would exceed those bounds, is dropped and the previous value is kept.
+The cache is fed by the same privacy-gated events a script subscribes to, so nothing private can enter it. It holds at most 512 entries per protocol and 256 KiB per protocol; a value larger than 32 KiB, or an update that would exceed those bounds, is dropped and the previous value is kept.
+
+The client also keeps this cache on its own side for the whole session, including values that arrive during automatic login, before any script is running. When a script starts, and on every restart, that cache is sent to the worker before the first line of the script runs, so `mud.state.get` answers immediately and the usual pattern of subscribing with `mud.on(Events.Msdp, refresh)` and calling `refresh()` once at load shows values right away. Seeding fires no `Events.Gmcp` or `Events.Msdp` callbacks. A world sends a reported MSDP variable once and then only when it changes, which is why a script that started later would otherwise never see skill levels, money or ship telemetry.
+
+Reading `msdp.<VARIABLE>` for a variable the cache does not hold also asks the world once to report it: the client sends an MSDP `REPORT` followed by `SEND` for that name, exactly as it does for mapped variables, and the answer arrives as an ordinary `Events.Msdp` event. A script may ask for up to 64 distinct variables; a name is 1 to 128 letters, digits or underscores and does not start with a digit. Names the world's mapping already reports are not asked for again, and a reconnect asks again.
 
 ## Script panels
 

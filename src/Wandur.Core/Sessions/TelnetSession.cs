@@ -197,28 +197,54 @@ public sealed class TelnetSession(ConnectionProfile profile) : IMudSession
         if (mapping is not null && (!Wandur.Models.MappingValidation.IsValid(mapping) ||
             !mapping.Endpoint.Matches(new(profile.Host, profile.Port, profile.UseTls)))) return false;
         var epoch = Interlocked.Read(ref _privacyEpoch);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime!.Token);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
         var requests = new List<(byte Option, byte[] Bytes)>();
         if (ProtocolState.Gmcp == TelnetOptionState.Enabled)
             requests.Add((201, TelnetParser.Subnegotiation(201, Encoding.UTF8.GetBytes(ProtocolDiscovery.GmcpSupports))));
         foreach (var option in new byte[] { 69, 201 })
+            if (mapping is not null) AddMsdpRequests(requests, option, MappedMsdpNames(mapping, option == 69 ? "MSDP" : "GMCP"));
+        return await SendRequestsAsync(requests, epoch, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Asks the world to report, and send once, MSDP variables that scripts read but no mapping
+    /// binds. The same REPORT and SEND requests as the mapped refresh, under the same guards.</summary>
+    public async Task<bool> ReportMsdpAsync(IReadOnlyCollection<string> names, CancellationToken cancellationToken = default)
+    {
+        if (!_connected || _localPrivate || RemoteEcho || ProtocolState.Msdp != TelnetOptionState.Enabled) return false;
+        var epoch = Interlocked.Read(ref _privacyEpoch);
+        var requests = new List<(byte Option, byte[] Bytes)>();
+        AddMsdpRequests(requests, 69, names.Where(IsValidMsdpName).Distinct(StringComparer.Ordinal).Take(256));
+        return requests.Count == 0 || await SendRequestsAsync(requests, epoch, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>A name the REPORT request accepts: letters, digits and underscore, not starting with a digit.</summary>
+    public static bool IsValidMsdpName(string name)
+        => name.Length is > 0 and <= 128 && !char.IsAsciiDigit(name[0]) && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+
+    /// <summary>The MSDP variables a mapping already asks the world to report, so a script request can skip them.</summary>
+    public static IReadOnlyCollection<string> MappedMsdpNames(Wandur.Models.WorldMapping? mapping)
+        => mapping is null ? [] : MappedMsdpNames(mapping, "MSDP").ToArray();
+
+    private static IEnumerable<string> MappedMsdpNames(Wandur.Models.WorldMapping mapping, string protocol)
+        => mapping.Bindings.Where(b => b.Source.Protocol == protocol && b.Source.Package == "MSDP")
+            .Select(b => b.Source.Path.Split('/').ElementAtOrDefault(1) ?? "")
+            .Where(IsValidMsdpName)
+            .Distinct(StringComparer.Ordinal).Take(256);
+
+    private static void AddMsdpRequests(List<(byte Option, byte[] Bytes)> requests, byte option, IEnumerable<string> names)
+    {
+        foreach (var batch in names.Chunk(32))
+        foreach (var command in new[] { "REPORT", "SEND" })
         {
-            if (mapping is null) continue;
-            var protocol = option == 69 ? "MSDP" : "GMCP";
-            var names = mapping.Bindings.Where(b => b.Source.Protocol == protocol && b.Source.Package == "MSDP")
-                .Select(b => b.Source.Path.Split('/').ElementAtOrDefault(1) ?? "")
-                .Where(name => name.Length is > 0 and <= 128 && !char.IsAsciiDigit(name[0]) &&
-                    name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
-                .Distinct(StringComparer.Ordinal).Take(256);
-            foreach (var batch in names.Chunk(32))
-            foreach (var command in new[] { "REPORT", "SEND" })
-            {
-                var payload = option == 69 ? "\u0001" + command + string.Concat(batch.Select(name => "\u0002" + name)) :
-                    "MSDP " + JsonSerializer.Serialize(new Dictionary<string, string[]> { [command] = batch });
-                requests.Add((option, TelnetParser.Subnegotiation(option, Encoding.UTF8.GetBytes(payload))));
-            }
+            var payload = option == 69 ? "\u0001" + command + string.Concat(batch.Select(name => "\u0002" + name)) :
+                "MSDP " + JsonSerializer.Serialize(new Dictionary<string, string[]> { [command] = batch });
+            requests.Add((option, TelnetParser.Subnegotiation(option, Encoding.UTF8.GetBytes(payload))));
         }
+    }
+
+    private async Task<bool> SendRequestsAsync(List<(byte Option, byte[] Bytes)> requests, long epoch, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime!.Token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
         await _sendLock.WaitAsync(timeout.Token).ConfigureAwait(false);
         try
         {
