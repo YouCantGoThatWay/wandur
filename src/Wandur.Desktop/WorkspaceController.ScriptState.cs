@@ -27,11 +27,46 @@ public sealed partial class WorkspaceController
     private bool ContainsSecret(byte[] payload) => _diagnosticSecrets.Length > 0 && ContainsSecret(System.Text.Encoding.UTF8.GetString(payload));
     private bool ContainsSecret(string text) => _diagnosticSecrets.Any(secret => text.Contains(secret, StringComparison.Ordinal));
 
+    // Names the cache took while scripts could not have the event (the login handshake owns the session), replayed
+    // as ordinary events once public play resumes. Names only: the replay reads the cache at that moment, so a
+    // value a live event has since superseded is never delivered again in its older form. Kept in wire order, and
+    // bounded by the cache since only a name it accepted is added.
+    private readonly OrderedDictionary<string, bool> _replayMsdp = new(StringComparer.Ordinal);
+    private readonly OrderedDictionary<string, bool> _replayGmcp = new(StringComparer.Ordinal);
+    private const int ReplayBatch = 32;
+
     private void ResetScriptState(string worldKey)
     {
-        ScriptState.Clear();
+        ClearScriptState();
         _scriptReportsSent.Clear();
         if (_scriptReportWorldKey != worldKey) { _scriptReportRequests.Clear(); _scriptReportWorldKey = worldKey; }
+    }
+
+    private void ClearScriptState()
+    {
+        ScriptState.Clear();
+        _replayMsdp.Clear(); _replayGmcp.Clear();
+    }
+
+    /// <summary>Delivers cached values that scripts never got as events, one event per variable or package, while
+    /// play is public. At most 32 per call, from the output timer, so a replay of a full cache (512 entries) never
+    /// overflows a script's queue of 128 next to live traffic. A script that starts during a replay is seeded from
+    /// the same cache and may also get some of these events; its handlers redraw from the state, so a duplicate
+    /// is harmless and no deduplication is attempted.</summary>
+    private void ReplayCachedState()
+    {
+        if (IsPrivate || _login is not null || (_replayMsdp.Count == 0 && _replayGmcp.Count == 0)) return;
+        var budget = ReplayBatch;
+        while (budget-- > 0 && _replayMsdp.Count > 0)
+        {
+            var variable = _replayMsdp.GetAt(0).Key; _replayMsdp.RemoveAt(0);
+            if (ScriptState.TryGetMsdp(variable) is { } json) ScriptLibrary.Publish(MsdpScriptEvents.Event(variable, json));
+        }
+        while (budget-- > 0 && _replayGmcp.Count > 0)
+        {
+            var package = _replayGmcp.GetAt(0).Key; _replayGmcp.RemoveAt(0);
+            if (ScriptState.TryGetGmcp(package) is { } json) ScriptLibrary.Publish(new("gmcp", json == "null" ? package : package + " " + json));
+        }
     }
 
     private void RequestMsdpReport(string name)

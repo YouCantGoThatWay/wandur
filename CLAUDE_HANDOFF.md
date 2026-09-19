@@ -124,7 +124,21 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   turns MSDP tables into readable text. The engine refuses any widget other than
   gauge or label on a bars panel, and `docs/scripting-reference.json` carries a
   `text` section for the color syntax that the reference test checks against the
-  parser.
+  parser. Branch `fix/panel-focus-check` (after the LOTJ "levels are all empty"
+  report): a value sent in the packet that ends a private interval (echo back
+  on after the password) is stamped private and lost, and a reported variable
+  is never sent again unless it changes, so when public play resumes the
+  controller asks again for every script-requested variable (as the mapped
+  refresh did) and replays values cached during the login handshake to running
+  scripts as ordinary `Events.Msdp` and `Events.Gmcp` events, 32 per output
+  tick, while `SessionWorkspace.OpenAsync` refreshes the catalog first when a
+  listed world's snapshot is older than 60 seconds (`RefreshBeforeOpenAsync`,
+  5 second bound, cached copy on failure). The opponent focus report could not
+  be reproduced (the generated script runs verbatim in
+  `ScriptPanelColorFocusBarsTests` beside another panel, alone, and with the
+  payload arriving during login); what remains is in the script itself:
+  `previous` keeps the last name so a same-named next opponent is not a new
+  target, and a tab closed by hand retires the panel until the script restarts.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

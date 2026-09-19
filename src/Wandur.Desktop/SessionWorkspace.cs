@@ -137,6 +137,10 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         using (SessionOpenTrace.Measure("tab + controller")) tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
         ApplyAppearance();
         var themeCacheFailed = false;
+        // A listed world takes the directory's current scripts, theme and mapping, not a copy up to five minutes old.
+        if (profile is not null && _catalog is not null)
+            using (SessionOpenTrace.Measure("catalog refresh")) await _catalog.RefreshBeforeOpenAsync(profile.Host, profile.Port, profile.UseTls);
+        if (_disposed) return;
         Wandur.Core.Discovery.WorldListing? entry = null;
         using (SessionOpenTrace.Measure("catalog theme lookup"))
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)

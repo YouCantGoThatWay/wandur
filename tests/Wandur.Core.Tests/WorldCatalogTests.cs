@@ -327,5 +327,44 @@ public sealed class WorldCatalogTests : IDisposable
         Assert.Equal(fetched, catalog.FetchedAt);
     }
 
+    [Fact]
+    public async Task OpeningAListedWorldRefreshesASnapshotOlderThanAMinuteAndLeavesAnUnlistedOneAlone()
+    {
+        var clock = new CatalogClock();
+        var snapshot = Snapshot(DateTimeOffset.UtcNow);
+        using var handler = new Handler(_ => new(HttpStatusCode.OK) { Content = new StringContent(snapshot) });
+        using var http = new HttpClient(handler);
+        using var catalog = new WorldCatalog(CachePath, http: http, timeProvider: clock);
+        // Nothing is listed yet, so an open does not wait for the directory.
+        await catalog.RefreshBeforeOpenAsync("mud.example.org", 4000, false);
+        Assert.Equal(0, handler.Calls);
+        await catalog.LoadAsync();
+        Assert.Equal(1, handler.Calls);
+        Assert.Equal(TimeSpan.Zero, catalog.SnapshotAge);
+        clock.Seconds = 59;
+        await catalog.RefreshBeforeOpenAsync("mud.example.org", 4000, false);
+        Assert.Equal(1, handler.Calls);
+        // Older than a minute, well inside the five minute cadence: an open refreshes, and the cadence restarts from it.
+        clock.Seconds = 90;
+        snapshot = snapshot.Replace("A quiet world", "Changed while open");
+        await catalog.RefreshBeforeOpenAsync("mud.example.org", 4000, false);
+        Assert.Equal(2, handler.Calls);
+        Assert.Equal("Changed while open", catalog.Worlds[0].Summary);
+        Assert.Equal(TimeSpan.Zero, catalog.SnapshotAge);
+        clock.Seconds = 200;
+        await catalog.LoadAsync();
+        Assert.Equal(2, handler.Calls);
+        // A world the snapshot does not list never waits, however old the snapshot is.
+        await catalog.RefreshBeforeOpenAsync("private.example.org", 4000, false);
+        Assert.Equal(2, handler.Calls);
+        // A snapshot from disk is of unknown age, so the first open after launch refreshes; a failure keeps it.
+        using var failing = new HttpClient(new Handler(_ => new(HttpStatusCode.ServiceUnavailable)));
+        using var reopened = new WorldCatalog(CachePath, http: failing, timeProvider: clock);
+        Assert.Null(reopened.SnapshotAge);
+        await reopened.RefreshBeforeOpenAsync("mud.example.org", 4000, false);
+        Assert.Equal("Changed while open", reopened.Worlds[0].Summary);
+        Assert.NotNull(reopened.Warning);
+    }
+
     public void Dispose() { if (Directory.Exists(_dir)) Directory.Delete(_dir, true); }
 }

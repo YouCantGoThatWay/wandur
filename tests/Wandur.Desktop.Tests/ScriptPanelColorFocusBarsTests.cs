@@ -236,4 +236,131 @@ public sealed class ScriptPanelColorFocusBarsTests
         }
         finally { window.Close(); }
     }
+
+    /// <summary>The generated opponent script of the Legends of the Jedi pack, verbatim.</summary>
+    private const string OpponentScript = """
+        const p = mud.panel("opponent", { title: "Combat opponent", dock: "right" });
+        p.label("name", { text: "No opponent reported" });
+        p.gauge("health", { label: "Health", value: 0, max: 1, warn: 0.3 });
+        p.hide();
+        let previous = "";
+        function refresh() {
+          const name = mud.state.get("msdp.OPPONENTNAME");
+          const hasName = typeof name === "string" ? name.trim() !== "" : name !== undefined && name !== null;
+          const current = hasName ? mud.format(name) : "";
+          if (!hasName) { if (previous !== "") { previous = ""; p.hide(); } return; }
+          const hp = mud.state.get("msdp.OPPONENTHEALTH");
+          const max = mud.state.get("msdp.OPPONENTHEALTHMAX");
+          const n = typeof hp === "number" ? hp : Number(hp) || 0;
+          const m = typeof max === "number" ? max : Number(max) || 1;
+          const key = current + ":" + n + ":" + m;
+          if (previous !== key) {
+            const newTarget = previous === "" || previous.split(":")[0] !== current;
+            previous = key;
+            p.label("name", { text: current });
+            p.gauge("health", { label: "Health", value: n, max: m > 0 ? m : 1, warn: 0.3 });
+            p.show({ focus: newTarget });
+          }
+        }
+        mud.on(Events.Msdp, refresh);
+        refresh();
+        """;
+
+    private static byte[] Msdp(params (string Variable, string Value)[] variables)
+        => [255, 250, 69, .. variables.SelectMany(pair => (byte[])[1, .. Encoding.UTF8.GetBytes(pair.Variable), 2, .. Encoding.UTF8.GetBytes(pair.Value)]), 255, 240];
+
+    /// <summary>The owner's report: the opponent panel, hidden since load and never yet docked, did not come to the front
+    /// when a fight started. Checked with another script panel holding the panels dock and with no dock yet, and with the
+    /// payload arriving while the login handshake owns the session, which the replay of the host cache then covers.</summary>
+    [AvaloniaTheory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task ANewOpponentShowsTheHiddenOpponentPanelAndBringsItsTabToTheFront(bool otherPanel, bool duringLogin)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-panel-opponent-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var store = new SettingsStore(Path.Combine(path, "settings.json"));
+        var profile = new ConnectionProfile { Name = "Opponent world", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port };
+        store.Save(new ClientSettings { Theme = "Ember", Profiles = [profile] });
+        var window = new MainWindow(new TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore()) { Width = 1200, Height = 800 };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            await window.Sessions.OpenAsync(profile);
+            using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+            var stream = server.GetStream();
+            var library = window.Controller.ScriptLibrary;
+            // Another pack panel may already hold the panels dock, next to the map and the channels.
+            var ship = library.Items[0];
+            if (otherPanel)
+            {
+                ship.Runtime.Source = """mud.panel("ship", { title: "Ship", dock: "right" }).label("hull", { text: "Hull 100" });""";
+                await ship.Runtime.RunAsync();
+                Assert.True(ship.Runtime.IsRunning, ship.Runtime.Error);
+            }
+            var opponent = library.Add();
+            opponent.Runtime.Source = OpponentScript;
+            await opponent.Runtime.RunAsync();
+            Assert.True(opponent.Runtime.IsRunning, opponent.Runtime.Error);
+            Dispatcher.UIThread.RunJobs();
+            var workspace = window.Workspace;
+            Assert.NotNull(workspace.MapTool); Assert.NotNull(workspace.ChannelsTool);
+            var panel = Assert.Single(library.Panels.Panels, candidate => candidate.Id == "opponent");
+            Assert.False(panel.IsVisible);
+            if (otherPanel)
+            {
+                var shipTool = Assert.Single(workspace.ScriptPanelTools, tool => tool.Panel.Id == "ship");
+                Assert.Same(shipTool, Assert.IsType<ToolDock>(workspace.RightPanelsDock).ActiveDockable);
+            }
+            else Assert.Null(workspace.RightPanelsDock);
+            Assert.False(workspace.IsScriptPanelVisible(panel));
+
+            // The fight starts: the world reports the opponent's name and health in one MSDP payload.
+            await stream.WriteAsync(new byte[] { 255, 251, 69 }, timeout.Token);
+            await ScriptSessionTests.WaitFor(() => window.Controller.ProtocolEvidence.Msdp == TelnetOptionState.Enabled);
+            if (duringLogin)
+            {
+                // The handshake owns the session: the payload is cached and held back until manual input ends it.
+                var fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var attempt = typeof(WorkspaceController).GetNestedType("LoginAttempt", System.Reflection.BindingFlags.NonPublic)!;
+                typeof(WorkspaceController).GetField("_login", fields)!.SetValue(window.Controller, Activator.CreateInstance(attempt, profile, "secret"));
+                window.Controller.SetManualPrivate(false);
+                Assert.True(opponent.Runtime.IsPaused);
+            }
+            await stream.WriteAsync(Msdp(("OPPONENTNAME", "&228A Vicious Womprat&D"), ("OPPONENTHEALTH", "100"), ("OPPONENTHEALTHMAX", "100")), timeout.Token);
+            if (duringLogin)
+            {
+                await ScriptSessionTests.WaitFor(() => { window.Controller.FlushOutput(); return window.Controller.ScriptState.TryGetMsdp("OPPONENTHEALTHMAX") is not null; });
+                Assert.False(panel.IsVisible);
+                Assert.True(await window.Controller.SendAsync("look"));
+            }
+            await ScriptSessionTests.WaitFor(() => { window.Controller.FlushOutput(); return panel.IsVisible && workspace.IsScriptPanelVisible(panel); });
+            var dock = Assert.IsType<ToolDock>(workspace.RightPanelsDock);
+            Assert.Equal("panels-dock", dock.Id);
+            var tool = Assert.Single(workspace.ScriptPanelTools, candidate => ReferenceEquals(candidate.Panel, panel));
+            Assert.Same(dock, tool.Owner);
+            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return ReferenceEquals(dock.ActiveDockable, tool); });
+            Assert.False(panel.FocusRequested);
+            Assert.Equal("Combat opponent", tool.Title);
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+
+            // The active tab renders the colored name without its codes, and the gauge is full.
+            var view = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>(), candidate => ReferenceEquals(candidate.Panel, panel));
+            var name = Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), block => block.Name == "ScriptWidget_name");
+            var runs = Runs(name);
+            Assert.Equal("A Vicious Womprat", string.Concat(runs.Select(run => run.Text)));
+            Assert.True(runs[0].IsSet(TextElement.ForegroundProperty), "the xterm 228 code colors the name");
+            var gauge = Assert.Single(view.GetVisualDescendants().OfType<ResourceBar>());
+            Assert.Equal(100, Assert.Single(gauge.GetVisualDescendants().OfType<ProgressBar>()).Value);
+        }
+        finally
+        {
+            await window.Sessions.DisposeAsync(); window.Close();
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
 }

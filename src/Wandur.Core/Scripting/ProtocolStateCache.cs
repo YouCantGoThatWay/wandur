@@ -72,10 +72,13 @@ public sealed class ProtocolStateCache
 
     /// <summary>Records one GMCP message of the form "Package.Name {json}". A message with only a package
     /// name is stored as null, exactly as the worker records it. Malformed messages are ignored.</summary>
-    public bool RecordGmcp(string message)
+    public bool RecordGmcp(string message) => RecordGmcp(message, out _);
+
+    /// <summary>As <see cref="RecordGmcp(string)"/>, also naming the package the message was stored under.</summary>
+    public bool RecordGmcp(string message, out string package)
     {
         var separator = message.AsSpan().IndexOfAny(" \t\r\n");
-        var package = separator < 0 ? message : message[..separator];
+        package = separator < 0 ? message : message[..separator];
         if (package.Length == 0 || package.Length > 512 || !Package.IsMatch(package)) return false;
         var body = separator < 0 ? "" : message[(separator + 1)..].Trim();
         string json;

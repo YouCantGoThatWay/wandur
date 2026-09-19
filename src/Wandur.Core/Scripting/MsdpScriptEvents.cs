@@ -38,6 +38,9 @@ public static class MsdpScriptEvents
         return values;
     }
 
+    /// <summary>One script event for a variable whose value is already serialized, as the host cache keeps it.</summary>
+    public static ScriptEvent Event(string variable, string json) => new("msdp", Message(variable, json));
+
     private static string Message(string variable, string value)
     {
         var buffer = new ArrayBufferWriter<byte>();
