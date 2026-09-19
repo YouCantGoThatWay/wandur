@@ -13,10 +13,11 @@
         { "name": "trigger", "kind": "function", "signature": "mud.trigger(pattern, callback)", "description": "Matches a complete server line. Every matching trigger runs. The callback receives a regex match array." },
         { "name": "on", "kind": "function", "signature": "mud.on(event, callback)", "description": "Subscribes to Events.Line, Events.Gmcp, Events.Msdp or Events.Key." },
         { "name": "every", "kind": "function", "signature": "mud.every(seconds, callback)", "description": "Repeats a synchronous callback. Missed intervals are not replayed in a burst." },
-        { "name": "panel", "kind": "function", "signature": "mud.panel(id, options)", "description": "Creates or reuses a docked panel and returns its widget builder. Options are { title, dock } where dock is left or right.", "options": [
-            { "name": "title", "type": "string", "required": false, "description": "The dock tool title. Defaults to the panel id, and is kept when a later call omits it." },
-            { "name": "dock", "type": "string", "required": false, "values": ["left", "right"], "default": "right", "description": "Which side of the workspace the tool docks to." }
+        { "name": "panel", "kind": "function", "signature": "mud.panel(id, options)", "description": "Creates or reuses a docked panel and returns its widget builder. Options are { title, dock } where dock is left, right or bars.", "options": [
+            { "name": "title", "type": "string", "required": false, "description": "The dock tool title. Color codes are stripped from it. Defaults to the panel id, and is kept when a later call omits it." },
+            { "name": "dock", "type": "string", "required": false, "values": ["left", "right", "bars"], "default": "right", "description": "Which side of the workspace the tool docks to. bars puts the panel's gauges in the vitals strip under the transcript instead of a docked tool; see panel.bars." }
         ] },
+        { "name": "format", "kind": "function", "signature": "mud.format(value)", "description": "Display text for any value: undefined and null give \"\", a string passes through unchanged (color codes included), numbers and booleans give their text, an array gives its items formatted and joined with \", \", and an object gives \"key: value\" pairs joined with \", \". Nested objects and arrays are formatted recursively to a depth of 4 and the result is cut at 4096 characters. Use it for MSDP tables such as ROOMEXITS, which would otherwise print as [object Object]." },
         { "name": "state", "kind": "namespace", "description": "The latest protocol values this session has received, cached in the worker and seeded from the client when the script starts.", "members": [
             { "name": "get", "kind": "function", "signature": "mud.state.get(path)", "description": "The value at gmcp.<Package>.<field>... or msdp.<VARIABLE>, or undefined when unknown. Objects are returned as copies. Reading an unknown msdp.<VARIABLE> also asks the world once to report it; the value then arrives as an Events.Msdp event." },
             { "name": "snapshot", "kind": "function", "signature": "mud.state.snapshot()", "description": "A copy of the whole cache as { gmcp, msdp }." }
@@ -68,8 +69,10 @@
   "panel": {
     "methods": [
       { "name": "remove", "signature": "panel.remove(widgetId)", "description": "Removes one widget and its callback." },
-      { "name": "show", "signature": "panel.show()", "description": "Shows the docked tool again after hide." },
+      { "name": "show", "signature": "panel.show(options)", "description": "Shows the docked tool again after hide. Options are optional.", "options": [
+          { "name": "focus", "type": "boolean", "required": false, "default": false, "description": "true also brings the tool's tab to the front, exactly as panel.focus() after show()." } ] },
       { "name": "hide", "signature": "panel.hide()", "description": "Hides the docked tool without discarding the panel." },
+      { "name": "focus", "signature": "panel.focus()", "rateLimitSeconds": 1, "description": "Brings the panel's tab to the front of its dock, showing the panel first if it is hidden. The client accepts one focus per panel per second and drops the rest, so a script that refreshes on every MSDP event cannot steal focus continuously. A no-op for a bars panel." },
       { "name": "close", "signature": "panel.close()", "description": "Closes the tool and forgets the panel and its callbacks." }
     ],
     "widgets": [
@@ -107,13 +110,19 @@
           { "name": "children", "type": "string[]", "required": false, "default": [], "maximum": 64, "description": "Widget ids to render inside the section, in order. A widget belongs to the first group that claims it." } ], "callbacks": [] }
     ],
     "actions": [
-      { "action": "create", "json": "{\"panel\":\"<id>\",\"action\":\"create\",\"title\":\"<title>\",\"dock\":\"left|right\"}" },
+      { "action": "create", "json": "{\"panel\":\"<id>\",\"action\":\"create\",\"title\":\"<title>\",\"dock\":\"left|right|bars\"}" },
       { "action": "widget", "json": "{\"panel\":\"<id>\",\"action\":\"widget\",\"widget\":\"<id>\",\"kind\":\"<kind>\",\"props\":{}}" },
       { "action": "remove", "json": "{\"panel\":\"<id>\",\"action\":\"remove\",\"widget\":\"<id>\"}" },
       { "action": "show", "json": "{\"panel\":\"<id>\",\"action\":\"show\"}" },
       { "action": "hide", "json": "{\"panel\":\"<id>\",\"action\":\"hide\"}" },
+      { "action": "focus", "json": "{\"panel\":\"<id>\",\"action\":\"focus\"}" },
       { "action": "close", "json": "{\"panel\":\"<id>\",\"action\":\"close\"}" }
     ],
+    "bars": {
+      "description": "A panel declared with dock \"bars\" has no docked tool. Its gauges are shown as cards in the vitals strip under the transcript, after the mapped vitals such as Health and Movement, in declaration order, looking exactly like them. Several bars panels append one after another. Only gauge and label are accepted; a label is ignored in the strip, and any other widget kind is a script error that stops the script. hide() removes the panel's bars, show() restores them, close() removes them for good and focus() does nothing. The strip stays hidden while it has nothing to show.",
+      "widgets": ["gauge", "label"],
+      "error": "A bars panel accepts only gauge and label widgets."
+    },
     "callbackEvent": {
       "json": "{\"panel\":\"<id>\",\"widget\":\"<id>\",\"event\":\"click|change|submit|select\",\"value\":null}",
       "description": "The client sends this back to the worker, which runs the registered handler under the same limits as a trigger."
@@ -126,8 +135,35 @@
       "A panel is data; the client renders it with native controls and the current theme's brushes.",
       "Declaring a widget that already exists updates its properties in place instead of rebuilding the panel.",
       "Panels belong to one session and disappear when their script stops or the session closes.",
-      "Every limit violation is reported as a script error; it never crashes the client."
+      "Every limit violation is reported as a script error; it never crashes the client.",
+      "Every text a widget shows may carry the color codes described under text: label, text, list items, table cells, gauge, button and toggle labels and group captions render them; the panel title strips them."
     ]
+  },
+  "text": {
+    "description": "MSDP strings often still carry the SMAUG and SWR style color codes the world uses in its own output. The client renders them in every text-bearing widget with the same palette the transcript uses, so a color in a panel matches the same code in the transcript. Scripts do not need to strip or translate them.",
+    "foreground": "&",
+    "background": "^",
+    "letters": [
+      { "code": "&x", "palette": 0, "name": "black" }, { "code": "&r", "palette": 1, "name": "dark red" },
+      { "code": "&g", "palette": 2, "name": "dark green" }, { "code": "&O", "palette": 3, "name": "orange" },
+      { "code": "&b", "palette": 4, "name": "dark blue" }, { "code": "&p", "palette": 5, "name": "purple" },
+      { "code": "&c", "palette": 6, "name": "dark cyan" }, { "code": "&w", "palette": 7, "name": "grey" },
+      { "code": "&z", "palette": 8, "name": "dark grey" }, { "code": "&R", "palette": 9, "name": "red" },
+      { "code": "&G", "palette": 10, "name": "green" }, { "code": "&Y", "palette": 11, "name": "yellow" },
+      { "code": "&B", "palette": 12, "name": "blue" }, { "code": "&P", "palette": 13, "name": "pink" },
+      { "code": "&C", "palette": 14, "name": "cyan" }, { "code": "&W", "palette": 15, "name": "white" }
+    ],
+    "reset": ["&D", "&d"],
+    "xterm": { "pattern": "&NNN or ^NNN with exactly three digits 000 to 255", "example": "&228", "description": "An xterm 256 color index, the Legends of the Jedi extension. Indexes below 16 follow the theme's palette; the rest are the fixed xterm cube and grey ramp." },
+    "literals": { "&&": "&", "^^": "^" },
+    "rules": [
+      "The same letters after ^ set the background; ^ has no reset letter, use &D.",
+      "& or ^ followed by anything else is ordinary text, so \"50% && rising\" shows as \"50% & rising\" and \"&q\" stays \"&q\".",
+      "Real ANSI escape sequences (ESC [ ... m) are applied when they are simple SGR colors and dropped otherwise.",
+      "Every string starts from the default colors, so a code never leaks from one widget into another.",
+      "Dock tab titles are plain text: color codes in a panel title are removed."
+    ],
+    "example": "&228A Vicious Womprat&D"
   },
   "packScripts": {
     "description": "Scripts a world directory supplies with a listing. They are added to the world's library on open, marked as a pack, shown read-only and enabled by default.",
@@ -167,6 +203,9 @@
     "panelsPerScript": 8,
     "widgetsPerPanel": 64,
     "panelActionsPerEvent": 32,
+    "panelFocusPerSecond": 1,
+    "formatCharacters": 4096,
+    "formatDepth": 4,
     "panelActionCharacters": 65536,
     "panelCharactersPerEvent": 262144,
     "propertyStringCharacters": 4096,

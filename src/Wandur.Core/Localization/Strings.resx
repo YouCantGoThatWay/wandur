@@ -1822,4 +1822,5 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ScriptCompletePanel" xml:space="preserve"><value>Create or reuse a docked panel built from widget declarations.</value></data>
   <data name="ScriptCompleteVariable" xml:space="preserve"><value>The MSDP variable name, for example SHIPHULL.</value></data>
   <data name="ScriptCompleteValue" xml:space="preserve"><value>The decoded MSDP value: a string, a list or a table.</value></data>
+  <data name="ScriptCompleteFormat" xml:space="preserve"><value>Display text for any value: null gives an empty string, arrays join with commas and objects become key: value pairs.</value></data>
 </root>

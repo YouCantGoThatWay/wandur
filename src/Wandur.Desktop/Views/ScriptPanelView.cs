@@ -6,9 +6,12 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Controls.Templates;
 using Avalonia.Media;
 using Wandur.Core.Scripting;
+using Wandur.Core.Terminal;
 using Wandur.Desktop.Services;
+using Wandur.Desktop.Terminal;
 using L = Wandur.Core.Localization.Strings;
 
 namespace Wandur.Desktop.Views;
@@ -27,6 +30,7 @@ public sealed class ScriptPanelView : UserControl
     private readonly StackPanel _body = new() { Spacing = 6, Margin = new Thickness(8, 6) };
     private readonly TextBlock _empty = Ui.TextKey(nameof(L.ScriptPanelEmpty), 12, "muted");
     private readonly Dictionary<string, Widget> _widgets = new(StringComparer.Ordinal);
+    private readonly List<IDisposable> _bindings = [];
     private bool _syncing;
 
     public ScriptPanelView(ScriptPanel panel)
@@ -34,7 +38,9 @@ public sealed class ScriptPanelView : UserControl
         _panel = panel;
         Name = "ScriptPanel_" + Safe(panel.Id);
         // Panel content is game data, so it reads like the transcript: every widget inherits the terminal's monospace face.
-        FontFamily = new FontFamily(Terminal.TerminalPalette.Monospace);
+        FontFamily = new FontFamily(TerminalPalette.Monospace);
+        // Color codes in widget text resolve to the same themed palette brushes the transcript uses.
+        TerminalPalette.Bind(this, _bindings);
         _empty.Margin = new Thickness(12);
         _empty.TextWrapping = TextWrapping.Wrap;
         var host = new Grid { Children = { _body, _empty } };
@@ -50,13 +56,21 @@ public sealed class ScriptPanelView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         _panel.Changed += Sync;
+        ThemeService.Applied += Recolor;
         Sync();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _panel.Changed -= Sync;
+        ThemeService.Applied -= Recolor;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>A theme switch may hand out new palette brushes; styled runs are rebuilt from their text.</summary>
+    private void Recolor()
+    {
+        foreach (var declared in _panel.Widgets) Update(declared);
     }
 
     private static string Safe(string id) => new(id.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
@@ -125,24 +139,29 @@ public sealed class ScriptPanelView : UserControl
                 return new("gauge", bar, properties => bar.Update(properties.Label ?? declared.Id,
                     ScriptPanelAction.Measure(properties.Number, properties.Maximum),
                     properties.Maximum > 0 ? properties.Number / properties.Maximum * 100 : 0,
-                    Warned(properties) ? ResourceBar.ColorFor("health") : null));
+                    Warned(properties) ? ResourceBar.ColorFor("health") : null, this));
             }
             case "label":
             {
                 var text = Ui.Text("", 13);
                 text.Name = name; text.TextWrapping = TextWrapping.Wrap;
-                return new("label", text, properties => text.Text = properties.Text ?? "");
+                return new("label", text, properties => MudText.Apply(text, properties.Text ?? "", this));
             }
             case "text":
             {
                 var text = Ui.Text("", 12, "muted");
                 text.Name = name; text.TextWrapping = TextWrapping.Wrap;
-                return new("text", text, properties => text.Text = properties.Text ?? "");
+                return new("text", text, properties => MudText.Apply(text, properties.Text ?? "", this));
             }
             case "list":
             {
                 var items = new ObservableCollection<string>();
-                var list = new ListBox { Name = name, ItemsSource = items, MaxHeight = 220 };
+                var list = new ListBox { Name = name, ItemsSource = items, MaxHeight = 220, ItemTemplate = new FuncDataTemplate<string>((item, _) =>
+                {
+                    var block = new TextBlock { TextWrapping = TextWrapping.Wrap };
+                    MudText.Apply(block, item ?? "", this);
+                    return block;
+                }) };
                 list.SelectionChanged += (_, _) =>
                 {
                     if (_syncing || list.SelectedItem is not string selected) return;
@@ -152,8 +171,8 @@ public sealed class ScriptPanelView : UserControl
                 var host = new StackPanel { Spacing = 4, Children = { caption, list } };
                 return new("list", host, properties =>
                 {
-                    caption.Text = properties.Title ?? "";
-                    caption.IsVisible = caption.Text.Length > 0;
+                    MudText.Apply(caption, properties.Title ?? "", this);
+                    caption.IsVisible = properties.Title is { Length: > 0 };
                     if (items.SequenceEqual(properties.Items, StringComparer.Ordinal)) return;
                     var selected = list.SelectedItem as string;
                     items.Clear();
@@ -168,8 +187,8 @@ public sealed class ScriptPanelView : UserControl
                 var host = new StackPanel { Spacing = 4, Children = { caption, grid } };
                 return new("table", host, properties =>
                 {
-                    caption.Text = properties.Title ?? "";
-                    caption.IsVisible = caption.Text.Length > 0;
+                    MudText.Apply(caption, properties.Title ?? "", this);
+                    caption.IsVisible = properties.Title is { Length: > 0 };
                     Fill(grid, properties);
                 });
             }
@@ -177,7 +196,7 @@ public sealed class ScriptPanelView : UserControl
             {
                 var button = new Button { Name = name, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
                 button.Click += (_, _) => _panel.Invoke(declared.Id, "click");
-                return new("button", button, properties => button.Content = properties.Label ?? declared.Id);
+                return new("button", button, properties => button.Content = MudText.Content(properties.Label ?? declared.Id, this));
             }
             case "toggle":
             {
@@ -185,7 +204,7 @@ public sealed class ScriptPanelView : UserControl
                 toggle.IsCheckedChanged += (_, _) => { if (!_syncing) _panel.Invoke(declared.Id, "change", flag: toggle.IsChecked == true); };
                 return new("toggle", toggle, properties =>
                 {
-                    toggle.Content = properties.Label ?? declared.Id;
+                    toggle.Content = MudText.Content(properties.Label ?? declared.Id, this);
                     toggle.IsChecked = properties.On;
                 });
             }
@@ -215,8 +234,8 @@ public sealed class ScriptPanelView : UserControl
                 frame.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
                 return new Widget("group", frame, properties =>
                 {
-                    caption.Text = properties.Title ?? "";
-                    caption.IsVisible = caption.Text.Length > 0;
+                    MudText.Apply(caption, properties.Title ?? "", this);
+                    caption.IsVisible = properties.Title is { Length: > 0 };
                 }) { Children = children };
             }
             default:
@@ -231,7 +250,7 @@ public sealed class ScriptPanelView : UserControl
     private static bool Warned(ScriptWidgetProperties properties)
         => properties.Warn is { } warn && properties.Maximum > 0 && properties.Number / properties.Maximum <= warn;
 
-    private static void Fill(Grid grid, ScriptWidgetProperties properties)
+    private void Fill(Grid grid, ScriptWidgetProperties properties)
     {
         var columns = Math.Max(properties.Columns.Count, properties.Rows.Count == 0 ? 0 : properties.Rows.Max(row => row.Count));
         grid.Children.Clear();
@@ -253,11 +272,12 @@ public sealed class ScriptPanelView : UserControl
                 Cell(grid, properties.Rows[row][column], row + offset, column, false);
     }
 
-    private static void Cell(Grid grid, string text, int row, int column, bool heading)
+    private void Cell(Grid grid, string text, int row, int column, bool heading)
     {
-        var block = Ui.Text(text, heading ? 11 : 12, heading ? "muted" : null);
+        var block = Ui.Text("", heading ? 11 : 12, heading ? "muted" : null);
         block.TextTrimming = TextTrimming.CharacterEllipsis;
-        AutomationProperties.SetName(block, text);
+        MudText.Apply(block, text, this);
+        AutomationProperties.SetName(block, MudColorCodes.Strip(text));
         Grid.SetRow(block, row);
         Grid.SetColumn(block, column);
         grid.Children.Add(block);

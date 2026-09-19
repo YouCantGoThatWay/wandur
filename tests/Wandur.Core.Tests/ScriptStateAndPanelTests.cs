@@ -343,6 +343,90 @@ public sealed class ScriptStateAndPanelTests
         Assert.Empty(MsdpScriptEvents.Decode([]));
     }
 
+    [Fact]
+    public void FocusAndShowWithFocusEmitTheFocusActionAndTheParserAcceptsIt()
+    {
+        var actions = Declared("""
+            const p = mud.panel("combat", { title: "Combat" });
+            p.focus();
+            p.show({ focus: true });
+            p.show();
+            p.show({});
+            p.hide().focus();
+            """);
+        Assert.Equal(
+        [
+            """{"panel":"combat","action":"create","title":"Combat","dock":"right"}""",
+            """{"panel":"combat","action":"focus"}""",
+            """{"panel":"combat","action":"show"}""",
+            """{"panel":"combat","action":"focus"}""",
+            """{"panel":"combat","action":"show"}""",
+            """{"panel":"combat","action":"show"}""",
+            """{"panel":"combat","action":"hide"}""",
+            """{"panel":"combat","action":"focus"}"""
+        ], actions.Select(a => a.Text));
+        foreach (var action in actions) Assert.Equal("combat", ScriptPanelAction.Parse(action.Text).Panel);
+        Assert.Contains("Show options must be an object.", new JavaScriptEngine().Load("mud.panel('p').show(true);").Error);
+    }
+
+    [Fact]
+    public void ABarsPanelDeclaresGaugesAndLabelsOnlyAndItsCreateActionCarriesTheBarsDock()
+    {
+        var actions = Declared("""
+            const bars = mud.panel("vitals", { title: "Vitals", dock: "bars" });
+            bars.gauge("force", { label: "&CForce&D", value: 40, max: 80, warn: 0.25 });
+            bars.label("note", { text: "ignored in the strip" });
+            """);
+        Assert.Equal("""{"panel":"vitals","action":"create","title":"Vitals","dock":"bars"}""", actions[0].Text);
+        Assert.Equal(ScriptPanelAction.DockBars, ScriptPanelAction.Parse(actions[0].Text).Dock);
+        Assert.Equal(3, actions.Count);
+        foreach (var source in new[]
+        {
+            "mud.panel('v', { dock: 'bars' }).button('b', { label: 'x' });",
+            "mud.panel('v', { dock: 'bars' }).text('t', { text: 'x' });",
+            "mud.panel('v', { dock: 'bars' }).list('l', { items: [] });",
+            // A panel that already holds a button cannot move into the strip.
+            "mud.panel('v').button('b', { label: 'x' }); mud.panel('v', { dock: 'bars' });"
+        })
+        {
+            var engine = new JavaScriptEngine();
+            var result = engine.Load(source);
+            Assert.Equal("A bars panel accepts only gauge and label widgets.", result.Error);
+            Assert.Empty(result.Actions);
+            Assert.False(engine.IsRunning);
+        }
+        Assert.Contains("A panel docks to left, right or bars.", new JavaScriptEngine().Load("mud.panel('p', { dock: 'top' });").Error);
+        Assert.Throws<FormatException>(() => ScriptPanelAction.Parse("""{"panel":"v","action":"create","title":"V","dock":"top"}"""));
+    }
+
+    [Fact]
+    public void FormatTurnsAnyValueIntoDisplayText()
+    {
+        var engine = Loaded("""
+            mud.alias(/^probe$/, () => {
+                const out = [];
+                out.push(mud.format(undefined));
+                out.push(mud.format(null));
+                out.push(mud.format("&RRed&D"));
+                out.push(mud.format(12.5));
+                out.push(mud.format(true));
+                out.push(mud.format(["a", 2, null]));
+                out.push(mud.format({ n: "North", s: "South" }));
+                out.push(mud.format({ EXITS: { n: "1", e: "2" }, ITEMS: ["sword", "shield"] }));
+                out.push(mud.format({ a: { b: { c: { d: { e: 1 } } } } }));
+                out.push(mud.format(() => 1));
+                out.push(String(mud.format("x".repeat(5000)).length));
+                out.push(String(mud.format(new Array(3000).fill("ab")).length));
+                mud.echo(JSON.stringify(out));
+            });
+            """);
+        var echo = Assert.Single(engine.Dispatch(new("command", "probe")).Actions);
+        Assert.Equal(
+            """["","","&RRed&D","12.5","true","a, 2, ","n: North, s: South","EXITS: n: 1, e: 2, ITEMS: sword, shield","a: b: c: d: ...","","4096","4096"]""",
+            echo.Text);
+        Assert.True(engine.IsRunning);
+    }
+
     [Theory]
     [InlineData("""{"panel":"ship","action":"widget","widget":"a","kind":"nope","props":{}}""")]
     [InlineData("""{"panel":"ship","action":"nope"}""")]

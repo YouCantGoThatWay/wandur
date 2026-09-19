@@ -188,12 +188,5 @@ public sealed class AnsiTerminal
         }
     }
 
-    private static string IndexedColor(int n)
-    {
-        if (n < 16) return AnsiPalette.Defaults[n];
-        if (n >= 232) { var c = 8 + (n - 232) * 10; return $"#{c:X2}{c:X2}{c:X2}"; }
-        n -= 16;
-        static int Channel(int v) => v == 0 ? 0 : 55 + v * 40;
-        return $"#{Channel(n / 36):X2}{Channel(n / 6 % 6):X2}{Channel(n % 6):X2}";
-    }
+    private static string IndexedColor(int n) => AnsiPalette.Indexed(n);
 }

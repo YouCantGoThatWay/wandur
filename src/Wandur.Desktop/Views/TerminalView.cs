@@ -38,6 +38,8 @@ public sealed class TerminalView : UserControl
     public TerminalView(WorkspaceController controller, Action<int>? editConfiguration = null)
     {
         _controller = controller;
+        // Gauges of script panels declared with dock "bars" join the vitals strip under the transcript.
+        _resources.Panels = controller.ScriptLibrary.Panels;
         _latest = Ui.ButtonKey(nameof(L.LatestOutput), () => controller.Display.FollowTail());
         _latest.HorizontalAlignment = HorizontalAlignment.Right;
         _latest.VerticalAlignment = VerticalAlignment.Bottom;

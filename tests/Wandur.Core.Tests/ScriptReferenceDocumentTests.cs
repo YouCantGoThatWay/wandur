@@ -147,6 +147,43 @@ public sealed class ScriptReferenceDocumentTests
 
     [Fact]
     public void ReferenceDocumentKeepsItsTopLevelShape()
-        => Assert.Equal(["description", "events", "globals", "limits", "packScripts", "panel", "state", "title", "version"],
+        => Assert.Equal(["description", "events", "globals", "limits", "packScripts", "panel", "state", "text", "title", "version"],
             Reference().EnumerateObject().Select(member => member.Name).Order());
+
+    [Fact]
+    public void DockValuesFocusAndTheColorCodeSectionAreDocumentedAsImplemented()
+    {
+        var reference = Reference();
+        var dock = Members(reference, "mud").Single(member => member.GetProperty("name").GetString() == "panel")
+            .GetProperty("options").EnumerateArray().Single(option => option.GetProperty("name").GetString() == "dock");
+        Assert.Equal(ScriptPanelAction.Docks.Order(), dock.GetProperty("values").EnumerateArray().Select(value => value.GetString()!).Order());
+        Assert.Equal(ScriptPanelAction.DockRight, dock.GetProperty("default").GetString());
+
+        var panel = reference.GetProperty("panel");
+        var focus = panel.GetProperty("methods").EnumerateArray().Single(method => method.GetProperty("name").GetString() == "focus");
+        Assert.Equal((int)ScriptPanelAction.FocusInterval.TotalSeconds, focus.GetProperty("rateLimitSeconds").GetInt32());
+        var show = panel.GetProperty("methods").EnumerateArray().Single(method => method.GetProperty("name").GetString() == "show");
+        Assert.Equal("panel.show(options)", show.GetProperty("signature").GetString());
+        Assert.Equal("focus", Assert.Single(show.GetProperty("options").EnumerateArray()).GetProperty("name").GetString());
+        var bars = panel.GetProperty("bars");
+        Assert.Equal(ScriptPanelAction.BarsWidgetKinds.Order(), bars.GetProperty("widgets").EnumerateArray().Select(kind => kind.GetString()!).Order());
+        Assert.Equal(1, reference.GetProperty("limits").GetProperty("panelFocusPerSecond").GetInt32());
+
+        // The color code section lists exactly the letters the parser knows, on the palette entries it uses.
+        var text = reference.GetProperty("text");
+        var letters = text.GetProperty("letters").EnumerateArray()
+            .ToDictionary(entry => entry.GetProperty("code").GetString()![1], entry => entry.GetProperty("palette").GetInt32());
+        Assert.Equal(16, letters.Count);
+        foreach (var (letter, index) in letters)
+        {
+            var run = Assert.Single(Wandur.Core.Terminal.MudColorCodes.Parse("&" + letter + "x"));
+            Assert.Equal(index, run.Style.ForegroundIndex);
+        }
+        foreach (var letter in "xrgObpcwzRGYBPCW") Assert.Contains(letter, letters.Keys);
+        Assert.Equal("&", text.GetProperty("foreground").GetString());
+        Assert.Equal("^", text.GetProperty("background").GetString());
+        Assert.Equal(["&D", "&d"], text.GetProperty("reset").EnumerateArray().Select(value => value.GetString()!));
+        Assert.Equal("A Vicious Womprat", Wandur.Core.Terminal.MudColorCodes.Strip(text.GetProperty("example").GetString()!));
+        Assert.Equal(4096, reference.GetProperty("limits").GetProperty("formatCharacters").GetInt32());
+    }
 }

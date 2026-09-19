@@ -859,4 +859,5 @@ public static class Strings
     public static string ScriptCompletePanel => Get(nameof(ScriptCompletePanel));
     public static string ScriptCompleteVariable => Get(nameof(ScriptCompleteVariable));
     public static string ScriptCompleteValue => Get(nameof(ScriptCompleteValue));
+    public static string ScriptCompleteFormat => Get(nameof(ScriptCompleteFormat));
 }
