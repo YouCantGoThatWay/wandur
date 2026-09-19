@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:loc="using:Wandur.Desktop"
              xmlns:dock="clr-namespace:Dock.Avalonia.Themes.Fluent;assembly=Dock.Avalonia.Themes.Fluent"
              xmlns:dc="using:Dock.Avalonia.Controls"
+             xmlns:conv="using:Wandur.Desktop.Converters"
+             xmlns:dm="using:Dock.Model.Controls"
              x:Class="Wandur.Desktop.App" Name="Wandur" RequestedThemeVariant="Dark">
   <NativeMenu.Menu>
     <NativeMenu>
@@ -142,19 +144,29 @@
     <Style Selector="ListBox.world-list ListBoxItem:focus-visible">
       <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
     </Style>
-    <Style Selector="dc|ToolControl /template/ Border#PART_Border">
+    <!-- A docked panel is rounded on its outer edge only, so the side docks meet the centre flush. -->
+    <Style Selector="dc|ToolControl /template/ Border#PART_Border" x:DataType="dm:IToolDock">
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-      <Setter Property="CornerRadius" Value="0,0,10,10" />
+      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=ContentCorner, FallbackValue='0,0,10,10'}" />
       <Setter Property="ClipToBounds" Value="True" />
-      <Setter Property="Margin" Value="8,0,8,12" />
+      <Setter Property="Margin" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=ContentMargin, FallbackValue='4,0,4,4'}" />
     </Style>
-    <Style Selector="dc|ToolChromeControl /template/ Border#PART_Border">
+    <Style Selector="dc|ToolChromeControl /template/ Border#PART_Border" x:DataType="dm:IToolDock">
       <Setter Property="BorderThickness" Value="0,0,0,1" />
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
+      <Setter Property="Margin" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=HeaderMargin, FallbackValue='4,4,4,0'}" />
+      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=HeaderCorner, FallbackValue='10,10,0,0'}" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <!-- A floated panel has no neighbour to meet, so it keeps the symmetric chrome it always had. -->
+    <Style Selector="dc|ToolChromeControl:floating /template/ Border#PART_Border">
       <Setter Property="Margin" Value="8,12,8,0" />
       <Setter Property="CornerRadius" Value="10,10,0,0" />
-      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl:floating dc|ToolControl /template/ Border#PART_Border">
+      <Setter Property="Margin" Value="8,0,8,12" />
+      <Setter Property="CornerRadius" Value="0,0,10,10" />
     </Style>
     <Style Selector="dc|ToolChromeControl /template/ Grid#PART_Grip, dc|ToolChromeControl:active /template/ Grid#PART_Grip">
       <Setter Property="Background" Value="{DynamicResource DockHeaderBrush}" />
@@ -189,12 +201,13 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>
+    <!-- The centre document is squared off and butts straight against the splitters on either side. -->
     <Style Selector="dc|DocumentControl /template/ Border#PART_Border">
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="CornerRadius" Value="0" />
       <Setter Property="ClipToBounds" Value="True" />
-      <Setter Property="Margin" Value="0,12,0,12" />
+      <Setter Property="Margin" Value="0,4,0,4" />
     </Style>
     <Style Selector="Button.app-button.toolbar-button">
       <Setter Property="MinHeight" Value="30" />
