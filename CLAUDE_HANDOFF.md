@@ -58,8 +58,15 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 - World themes (commit b0a00e7, merged 2770a20): a catalog merge may add a
   theme but never remove one; the production directory carried no themes
   until the site's seeding step ran.
-- Last green run on main (September 19, after the repository split): Core 475,
-  Desktop 302; `artifacts/macos/Wandur.app` rebuilt by
+- September 19, later: protocol diagnostics bodies render in the JSON
+  highlighted AvaloniaEdit editor (8e0d03f); the map toolbar lost the center
+  and zoom buttons in favor of the auto-center toggle and a zoom slider on the
+  status bar, with compact slider resources so it renders (8a3b89a, 5905d0d);
+  a live view while scrolled up: the transcript splits with a draggable
+  divider and the lower part keeps scrolling, share stored as
+  `ScrollTailShare` (7c716c2, c616c06).
+- Last green run on main (September 19, after 061c31a): Core 475,
+  Desktop 315; `artifacts/macos/Wandur.app` rebuilt by
   `scripts/package-macos.sh`. The discovery suite (25) now runs in
   `wandur-discovery`. No worktrees; tree clean.
 - Verification commands: `dotnet build Wandur.sln -c Release`, then
