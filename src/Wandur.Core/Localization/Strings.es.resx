@@ -1795,4 +1795,15 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="VitalsHull" xml:space="preserve"><value>Casco</value></data>
   <data name="VitalsFuel" xml:space="preserve"><value>Combustible</value></data>
   <data name="VitalsExperience" xml:space="preserve"><value>Experiencia</value></data>
+  <data name="Channels" xml:space="preserve"><value>Canales</value></data>
+  <data name="ChannelsPanel" xml:space="preserve"><value>Panel de canales</value></data>
+  <data name="ChannelsAll" xml:space="preserve"><value>Todos</value></data>
+  <data name="ChannelsMirrorNote" xml:space="preserve"><value>Los mensajes de canal aparecen aquí y permanecen en la transcripción.</value></data>
+  <data name="ChannelsSend" xml:space="preserve"><value>Enviar</value></data>
+  <data name="ChannelsReplyPlaceholder" xml:space="preserve"><value>Di algo en {0}</value></data>
+  <data name="ChannelsReplyAllHint" xml:space="preserve"><value>Elige un canal para responder.</value></data>
+  <data name="ChannelsReplyUnknown" xml:space="preserve"><value>Wandur aún no conoce el comando de este canal.</value></data>
+  <data name="ShowChannelsPanel" xml:space="preserve"><value>Mostrar el panel de canales</value></data>
+  <data name="ShowChannelsPanelHint" xml:space="preserve"><value>Las líneas de canal reconocidas se reflejan junto a la transcripción y permanecen en ella.</value></data>
+  <data name="ChannelRulesInvalid" xml:space="preserve"><value>Las reglas de canal necesitan un nombre y un patrón que Wandur pueda leer.</value></data>
 </root>

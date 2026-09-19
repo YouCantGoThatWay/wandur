@@ -1795,4 +1795,15 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="VitalsHull" xml:space="preserve"><value>Hülle</value></data>
   <data name="VitalsFuel" xml:space="preserve"><value>Treibstoff</value></data>
   <data name="VitalsExperience" xml:space="preserve"><value>Erfahrung</value></data>
+  <data name="Channels" xml:space="preserve"><value>Kanäle</value></data>
+  <data name="ChannelsPanel" xml:space="preserve"><value>Kanalfenster</value></data>
+  <data name="ChannelsAll" xml:space="preserve"><value>Alle</value></data>
+  <data name="ChannelsMirrorNote" xml:space="preserve"><value>Kanalnachrichten erscheinen hier und bleiben im Protokoll.</value></data>
+  <data name="ChannelsSend" xml:space="preserve"><value>Senden</value></data>
+  <data name="ChannelsReplyPlaceholder" xml:space="preserve"><value>Schreibe etwas auf {0}</value></data>
+  <data name="ChannelsReplyAllHint" xml:space="preserve"><value>Wähle einen Kanal, um zu antworten.</value></data>
+  <data name="ChannelsReplyUnknown" xml:space="preserve"><value>Wandur kennt den Befehl für diesen Kanal noch nicht.</value></data>
+  <data name="ShowChannelsPanel" xml:space="preserve"><value>Kanalfenster anzeigen</value></data>
+  <data name="ShowChannelsPanelHint" xml:space="preserve"><value>Erkannte Kanalzeilen erscheinen zusätzlich neben dem Protokoll und bleiben darin.</value></data>
+  <data name="ChannelRulesInvalid" xml:space="preserve"><value>Kanalregeln brauchen einen Namen und ein Muster, das Wandur lesen kann.</value></data>
 </root>

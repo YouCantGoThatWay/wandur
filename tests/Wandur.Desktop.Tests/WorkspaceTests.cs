@@ -728,7 +728,7 @@ public sealed class WorkspaceTests
             await window.Controller.StartAsync();
             var closeButtons = window.GetVisualDescendants().OfType<Button>()
                 .Where(b => b.Name == "PART_CloseButton" && b.IsEffectivelyVisible).ToArray();
-            Assert.Equal(2, closeButtons.Length);
+            Assert.Equal(3, closeButtons.Length);
             for (var i = 0; i < closeButtons.Length; i++)
             {
                 // Closing a nested tool dock can recreate the remaining panel headers.
@@ -739,12 +739,13 @@ public sealed class WorkspaceTests
                 Dispatcher.UIThread.RunJobs();
             }
             Dispatcher.UIThread.RunJobs();
-            Assert.DoesNotContain(window.GetVisualDescendants(), c => c is WorldLibraryView or MapView);
+            Assert.DoesNotContain(window.GetVisualDescendants(), c => c is WorldLibraryView or MapView or ChannelsView);
             Assert.True(window.Controller.IsConnected);
             MenuCommand(window, "View", "Restore Panels").Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Single(window.GetVisualDescendants().OfType<WorldLibraryView>());
             Assert.Single(window.GetVisualDescendants().OfType<MapView>());
+            Assert.Single(window.GetVisualDescendants().OfType<ChannelsView>());
             Assert.True(await window.Controller.SendAsync("north"));
             Assert.Contains("The Old Market", window.Controller.Terminal.PlainText);
         }

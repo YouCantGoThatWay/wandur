@@ -62,12 +62,14 @@ internal sealed class DesktopMenus
         var view = Group(nameof(L.View),
             Action(nameof(L.Workspace), () => { window.TogglePanel(); return Task.CompletedTask; }),
             Action(nameof(L.MapPanel), () => { window.ToggleMap(); return Task.CompletedTask; }),
+            Action(nameof(L.ChannelsPanel), () => { window.ToggleChannels(); return Task.CompletedTask; }),
             Action(nameof(L.RestorePanels), () => { window.ResetLayout(); return Task.CompletedTask; }), null,
             Action(nameof(L.ShowToolbar), () => { window.ToolbarVisible = !window.ToolbarVisible; return Task.CompletedTask; }),
             Action(nameof(L.FocusCommandInput), () => { window.FocusCommandInput(); return Task.CompletedTask; }, Key.L));
         Check(view, 0, () => window.IsPanelVisible());
         Check(view, 1, () => window.IsMapVisible);
-        Check(view, 4, () => window.ToolbarVisible);
+        Check(view, 2, () => window.IsChannelsVisible);
+        Check(view, 5, () => window.ToolbarVisible);
 
         Connect = Action(nameof(L.ConnectToSelectedWorld), window.ConnectSelectedAsync, Key.Return, enabled: () => window.SelectedProfile is not null);
         Disconnect = Action(nameof(L.Disconnect2), () => window.Controller.DisconnectAsync(), Key.D, enabled: () => window.Controller.IsConnected || window.Controller.IsConnecting);

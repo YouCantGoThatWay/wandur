@@ -34,6 +34,7 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
     private SessionDocument? _sessionDocument;
     public WorkspaceTool? WorldsTool { get; private set; }
     public WorkspaceTool? MapTool { get; private set; }
+    public WorkspaceTool? ChannelsTool { get; private set; }
 
     public static void RegisterTemplates(DataTemplates templates)
     {
@@ -49,11 +50,16 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
         UpdateDocumentTabs();
         var library = WorldsTool = new WorkspaceTool { Id = "worlds", Title = L.Workspace, CanClose = true, Build = () => new WorkspaceNavigationView(Navigation, new WorldLibraryView(sessions, editWorld, browseWorlds, editProfile)) };
         MapTool = new WorkspaceTool { Id = "map", Title = L.Map, CanClose = true, Build = () => new ActiveSessionView(sessions, controller => new MapView(controller, source => OpenMapEditor(controller, source))) };
+        ChannelsTool = new WorkspaceTool { Id = "channels", Title = L.Channels, CanClose = true, Build = () => new ActiveSessionView(sessions, controller => new ChannelsView(new ChannelsViewModel(controller))) };
         var session = _sessionDocument = new SessionDocument { Id = "session", Title = L.Session, CanClose = false, CanFloat = false, Sessions = sessions, Catalog = catalog, EditAutomation = editAutomation, Selected = () => { SelectedKey = sessions.IsBrowsing ? SearchKey : sessions.Active; Navigation.Refresh(); } };
         var documents = _documents = new DocumentDock { Id = "documents", CanCreateDocument = false, VisibleDockables = CreateList<IDockable>(session), ActiveDockable = session, Proportion = 0.59 };
         var left = new ToolDock { Id = "left", Alignment = Alignment.Left, Proportion = 0.18, VisibleDockables = CreateList<IDockable>(library), ActiveDockable = library };
-        var map = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.23, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
-        var layout = new ProportionalDock { Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), map), ActiveDockable = documents };
+        var map = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.58, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
+        var channels = new ToolDock { Id = "channels-dock", Alignment = Alignment.Right, Proportion = 0.42, VisibleDockables = CreateList<IDockable>(ChannelsTool), ActiveDockable = ChannelsTool };
+        // The map and the channels share the right edge, one above the other, both closable from the View menu.
+        var right = new ProportionalDock { Id = "right", Proportion = 0.23, Orientation = Dock.Model.Core.Orientation.Vertical,
+            VisibleDockables = CreateList<IDockable>(map, new ProportionalDockSplitter(), channels), ActiveDockable = map };
+        var layout = new ProportionalDock { Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), right), ActiveDockable = documents };
         return new RootDock { Id = "root", IsCollapsable = false, VisibleDockables = CreateList<IDockable>(layout), ActiveDockable = layout, DefaultDockable = layout };
     }
 

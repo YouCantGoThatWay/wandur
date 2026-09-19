@@ -76,7 +76,17 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Nothing in flight. The repositories live under one workspace, `~/wandur`
+- Channels (branch `feature/channel-window`): channel lines are recognized by
+  per-codebase rule sets and by GMCP `Comm.Channel.Text`, and mirrored into a
+  docked Channels panel with a reply box. The transcript is untouched; the
+  agent's chat filter now comes from the same classifier. Rules live in
+  `src/Wandur.Core/Channels` with family defaults in the embedded
+  `families.json`, and a world profile can carry `Codebase` and `ChannelRules`
+  of its own, which is the shape a channel pack will deliver. Not yet done:
+  an editor for per-world rules, and collapsing channel lines inside the
+  transcript, which the owner put on hold. See the Channels section of
+  `docs/client-architecture.md`.
+- Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with
   a top-level `CLAUDE.md` pointing at the handoffs. `wandur-sdk` and
