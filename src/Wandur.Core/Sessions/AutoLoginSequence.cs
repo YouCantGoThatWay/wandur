@@ -26,11 +26,20 @@ public sealed class AutoLoginSequence
         _started = started ?? DateTimeOffset.UtcNow;
     }
 
+    // Building a non-backtracking matcher costs milliseconds, and profile validation compiles every
+    // saved world's two prompts. Patterns are bounded and overwhelmingly the two defaults, so the
+    // accepted ones are kept; a rejected pattern is never cached and still throws on every call.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> Compiled = new(StringComparer.Ordinal);
+    private const int CompiledLimit = 256;
+
     public static Regex Compile(string pattern)
     {
         if (string.IsNullOrWhiteSpace(pattern) || pattern.Length > 512) throw new ArgumentException(L.LoginPromptPatternsMustBe1512Characters);
+        if (Compiled.TryGetValue(pattern, out var cached)) return cached;
         var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromMilliseconds(50));
         if (regex.IsMatch("")) throw new ArgumentException(L.LoginPromptPatternsMustNotMatchEmptyText);
+        // An editor can produce many one-off patterns, so the cache never grows without bound.
+        if (Compiled.Count < CompiledLimit) Compiled[pattern] = regex;
         return regex;
     }
 

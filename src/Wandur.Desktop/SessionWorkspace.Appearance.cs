@@ -29,6 +29,8 @@ public sealed partial class SessionWorkspace
     public void ApplyAppearance()
     {
         if (_disposed) return;
+        SessionOpenTrace.Count("theme apply");
+        using var trace = SessionOpenTrace.Measure("theme apply");
         var settings = _previewSettings ?? Active.Controller.Settings;
         var theme = settings.UseWorldThemes ? Active.Controller.WorldTheme : null;
         var oldImages = PrepareThemeImages(theme);

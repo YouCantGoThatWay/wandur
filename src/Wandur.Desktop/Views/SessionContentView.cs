@@ -24,6 +24,7 @@ public sealed class SessionContentView : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _sessions.Changed -= Refresh; base.OnDetachedFromVisualTree(e); }
     private void Refresh()
     {
+        SessionOpenTrace.Count("session content refresh");
         foreach (var removed in _views.Keys.Where(t => !_sessions.Tabs.Contains(t)).ToArray()) _views.Remove(removed);
         if ((_sessions.IsBrowsing || !_sessions.Active.Controller.HasSession) && _catalog is not null)
         {
@@ -34,7 +35,8 @@ public sealed class SessionContentView : UserControl
         if (!_views.TryGetValue(_sessions.Active, out var view))
         {
             var controller = _sessions.Active.Controller;
-            view = new TerminalView(controller, _editAutomation is null || _sessions.Active.Profile is null ? null : section => _editAutomation(controller, section));
+            using (SessionOpenTrace.Measure("terminal view"))
+                view = new TerminalView(controller, _editAutomation is null || _sessions.Active.Profile is null ? null : section => _editAutomation(controller, section));
             _views.Add(_sessions.Active, view);
         }
         _content.Content = view;

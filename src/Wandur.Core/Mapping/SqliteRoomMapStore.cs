@@ -10,8 +10,28 @@ namespace Wandur.Core.Mapping;
 /// <summary>Normalized durable graph rows, with lazy, transactional legacy-file migration.</summary>
 public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMapDirectory) : IRoomMapStore
 {
-    public MapSnapshot? Load(string host, int port) => Access(host, port, null);
     public void Save(string host, int port, MapSnapshot snapshot) => Access(host, port, snapshot);
+
+    public MapSnapshot? Load(string host, int port)
+    {
+        try
+        {
+            // A settled world with nothing left to migrate is read under a shared transaction. A load
+            // runs off the UI thread, and a write transaction here would block the foreground saves and
+            // script-library reads that share this database for as long as the graph takes to read.
+            var endpoint = host.Trim().ToLowerInvariant() + ":" + port;
+            var (settled, map) = database.Read(connection =>
+            {
+                var world = ClientDatabase.FindWorld(connection, endpoint);
+                if (world is null || PendingLegacyImports(connection, null, world, endpoint).Count > 0) return (false, null);
+                return (true, ReadMap(connection, null, world));
+            });
+            if (settled) return map;
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or UnauthorizedAccessException or NotSupportedException)
+        { throw new IOException(L.MapStorageFailed, ex); }
+        return Access(host, port, null);
+    }
 
     private MapSnapshot? Access(string host, int port, MapSnapshot? incoming)
     {
@@ -34,12 +54,13 @@ public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMap
         { throw new IOException(L.MapStorageFailed, ex); }
     }
 
-    private void ImportLegacy(SqliteConnection connection, SqliteTransaction transaction, string world, string originalEndpoint)
+    private List<(string Path, string Key)> PendingLegacyImports(SqliteConnection connection, SqliteTransaction? transaction, string world, string originalEndpoint)
     {
         var aliases = new List<string> { originalEndpoint };
         using (var command = Command(connection, transaction, "SELECT endpoint_key FROM endpoints WHERE world_id=$world UNION SELECT source_key FROM legacy_endpoints WHERE world_id=$world", world))
         using (var reader = command.ExecuteReader()) while (reader.Read()) aliases.Add(reader.GetString(0));
         foreach (var endpoint in aliases.Where(a => a.StartsWith('[')).ToArray()) aliases.Add(endpoint.Replace("[", "").Replace("]", ""));
+        var pending = new List<(string Path, string Key)>();
         foreach (var candidate in aliases.Distinct(StringComparer.Ordinal))
         {
             var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(candidate)));
@@ -50,6 +71,15 @@ public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMap
             using var imported = Command(connection, transaction, "SELECT 1 FROM imports WHERE key=$key");
             imported.Parameters.AddWithValue("$key", key);
             if (imported.ExecuteScalar() is not null) continue;
+            pending.Add((path, key));
+        }
+        return pending;
+    }
+
+    private void ImportLegacy(SqliteConnection connection, SqliteTransaction transaction, string world, string originalEndpoint)
+    {
+        foreach (var (path, key) in PendingLegacyImports(connection, transaction, world, originalEndpoint))
+        {
             if (new FileInfo(path).Length > MapFileFormat.MaximumBytes) throw new FormatException("A legacy map exceeds the import size limit.");
             var legacy = MapFileFormat.Deserialize(File.ReadAllText(path));
             var current = ReadMap(connection, transaction, world);
@@ -59,7 +89,7 @@ public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMap
         }
     }
 
-    private static MapSnapshot? ReadMap(SqliteConnection connection, SqliteTransaction transaction, string world)
+    private static MapSnapshot? ReadMap(SqliteConnection connection, SqliteTransaction? transaction, string world)
     {
         using var metadata = Command(connection, transaction, "SELECT payload FROM map_snapshots WHERE world_id=$world", world);
         if (metadata.ExecuteScalar() is not string json) return null;
@@ -81,11 +111,11 @@ public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMap
             RoomAliases = aliases, DeletedRooms = roomDeletes, DeletedLinks = linkDeletes,
             CurrentRoomId = null, CandidateRoomIds = [], State = MapTrackingState.Unknown
         };
-        MapFileFormat.Serialize(map); // Validate persisted payloads before exposing them to graph consumers.
+        MapFileFormat.Validate(map); // Check persisted payloads before exposing them to graph consumers.
         return map;
     }
 
-    private static IReadOnlyList<T> ReadRows<T>(SqliteConnection connection, SqliteTransaction transaction, string world, string table)
+    private static IReadOnlyList<T> ReadRows<T>(SqliteConnection connection, SqliteTransaction? transaction, string world, string table)
     {
         using var command = Command(connection, transaction, "SELECT payload FROM " + table + " WHERE world_id=$world ORDER BY rowid", world);
         using var reader = command.ExecuteReader();
@@ -140,7 +170,7 @@ public sealed class SqliteRoomMapStore(ClientDatabase database, string legacyMap
         metadata.ExecuteNonQuery();
     }
 
-    private static SqliteCommand Command(SqliteConnection connection, SqliteTransaction transaction, string sql, string? world = null)
+    private static SqliteCommand Command(SqliteConnection connection, SqliteTransaction? transaction, string sql, string? world = null)
     {
         var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql;
         if (world is not null) command.Parameters.AddWithValue("$world", world);

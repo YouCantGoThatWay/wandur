@@ -199,6 +199,7 @@ public sealed class TerminalView : UserControl
 
     private void Refresh()
     {
+        SessionOpenTrace.Count("terminal view refresh");
         // A sensitive draft must disappear before the password mask can be removed.
         if (_wasPrivate && !_controller.IsPrivate) _input.Text = "";
         _wasPrivate = _controller.IsPrivate;

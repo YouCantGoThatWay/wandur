@@ -89,6 +89,8 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     private void OnChanged(SessionTab tab)
     {
         if (_disposed || tab.IsClosing) return;
+        SessionOpenTrace.Count("changed fan-out");
+        using var trace = SessionOpenTrace.Measure("changed fan-out");
         if (!tab.HadSession && tab.Controller.HasSession && tab == Active)
         {
             IsBrowsing = false;
@@ -128,9 +130,11 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     {
         if (_disposed) return;
         // Reuse only a blank tab. Disconnected transcripts remain available until closed.
-        var tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
+        SessionTab tab;
+        using (SessionOpenTrace.Measure("tab + controller")) tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
         ApplyAppearance();
         var themeCacheFailed = false;
+        using (SessionOpenTrace.Measure("catalog theme lookup"))
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)
         {
             // A missing/corrupt optional catalog map must not evict the last valid endpoint-bound copy.
@@ -150,7 +154,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         }
         tab.Profile = profile;
         IsBrowsing = false;
-        SelectionChanged?.Invoke();
+        using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
         await tab.Controller.StartAsync(profile);
         if (themeCacheFailed && tab.Controller.Notice is null) tab.Controller.ShowNotice(L.WorldThemeCouldNotBeSaved);
     }
