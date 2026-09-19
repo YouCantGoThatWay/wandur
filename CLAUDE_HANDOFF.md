@@ -76,16 +76,30 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Channels (branch `feature/channel-window`): channel lines are recognized by
-  per-codebase rule sets and by GMCP `Comm.Channel.Text`, and mirrored into a
-  docked Channels panel with a reply box. The transcript is untouched; the
-  agent's chat filter now comes from the same classifier. Rules live in
-  `src/Wandur.Core/Channels` with family defaults in the embedded
+- Channels (merged from `feature/channel-window`): channel lines are
+  recognized by per-codebase rule sets and by GMCP `Comm.Channel.Text`, and
+  mirrored into a docked Channels panel with a reply box. The transcript is
+  untouched; the agent's chat filter now comes from the same classifier. Rules
+  live in `src/Wandur.Core/Channels` with family defaults in the embedded
   `families.json`, and a world profile can carry `Codebase` and `ChannelRules`
   of its own, which is the shape a channel pack will deliver. Not yet done:
   an editor for per-world rules, and collapsing channel lines inside the
   transcript, which the owner put on hold. See the Channels section of
   `docs/client-architecture.md`.
+- Script panels and packs (merged from `feature/script-panels`): scripts get
+  `Events.Msdp`, `mud.state.get(path)` and `snapshot()`, and `mud.panel(id,
+  {title, dock})` with gauge, label, text, list, table, button, toggle, input,
+  separator and group widgets rendered as docked tools (`Services/ScriptPanels.cs`,
+  `Views/ScriptPanelView.cs`, `WorkspaceFactory.ScriptPanels.cs`). A directory
+  listing may carry a `scripts` array; `WorldScriptLibrary.ApplyPack` installs
+  and upgrades those by version, marks them as a pack, and runs them with a
+  send policy (`mud.send` refused outside aliases and buttons until the user
+  turns the toggle on). `docs/scripting-reference.json` is the machine-readable
+  surface the discovery worker's `generate-scripts` command feeds to the model;
+  `docs/scripting.md` is the human guide. First trial: Legends of the Jedi
+  (`mudverse:509`), seven generated panels imported into the local site loop
+  on 2026-09-19; not yet on the production API. Test locally with
+  `WANDUR_DIRECTORY_URL=http://127.0.0.1:5199` and the site's `scripts/dev.sh watch`.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with
