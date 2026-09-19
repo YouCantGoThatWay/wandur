@@ -40,8 +40,15 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   Scripts, Macros and Agent; Look and Commands buttons beside the command box
   replaced the Controls panel; map auto-center toolbar toggle; ten theme
   presets (six new, three light) with a contrast-checked ANSI palette test.
-- Last green run on main (September 19): Discovery 25, Core 465, Desktop 291;
-  `artifacts/macos/Wandur.app` rebuilt by `scripts/package-macos.sh`.
+- Theme fixes (September 19, commit 5d208a1): ANSI palette chosen by the
+  lightness of the terminal background in use, batched brush mutation makes a
+  theme switch 3 to 8 ms, world themes follow the open session (applied on
+  open, on tab change, reverted on close), never the selected row.
+- Dock chrome (commit 3da421b): 4px gaps, squared center panel, side docks
+  rounded only on their outer edge.
+- Last green run on main (September 19, after 3da421b): Discovery 25,
+  Core 475, Desktop 296; `artifacts/macos/Wandur.app` rebuilt by
+  `scripts/package-macos.sh`.
 - Verification commands: `dotnet build Wandur.sln -c Release`, then
   `dotnet test tests/<project>/<project>.csproj -c Release --no-build` for
   each test project. Some Desktop tests use a local directory API on
@@ -49,13 +56,18 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
 
 ## In flight or next
 
-- Theme fixes (readable transcript after a live theme switch, world themes
-  applied on session open rather than on selection, fast batched theme swap).
-  Check `git log` for a commit starting with `Themes:` dated September 19; if
-  absent, that work was not finished.
-- Dock chrome branch `ui/dock-chrome` (4px gaps, squared center panel, side
-  docks rounded only on the outer edge). If the branch still exists, merge it
-  into main with `--no-ff`, run the Desktop suite, rebuild the bundle.
+- Session open performance branch `perf/session-open` (worktree
+  `../Wundur-perf-worktree`): measure `SessionWorkspace.OpenAsync` phases and
+  move blocking work off the UI thread; the owner reports 2 to 3 seconds to
+  open a world. If the branch exists, review its report in the commit
+  message, merge with `--no-ff`, run the suites, rebuild the bundle, remove
+  the worktree.
+- Agent subsystem redesign: an analysis on September 19 found the single-goal
+  loop unusable on a live MUD (stale observations end runs, no repair of
+  malformed output, no structured facts). Proposed: deterministic triggers,
+  a priority router, declarative playbooks with a typed scratchpad, and
+  schema-constrained decoding, sized for a local 12B model. Not yet written
+  as a spec; ask the owner before starting.
 - App icon: the owner is choosing between candidates (a crystal gateway
   illustration and a crystal W mark). The winner goes to
   `src/Wandur.Desktop/Assets/icon-1024.png`; generate `.icns` and `.ico` at
