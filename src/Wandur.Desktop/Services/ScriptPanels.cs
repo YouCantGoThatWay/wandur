@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Wandur.Core.Scripting;
+using Wandur.Core.Terminal;
 
 namespace Wandur.Desktop.Services;
 
@@ -30,8 +31,13 @@ public sealed class ScriptPanel(Guid scriptId, string id, string title, string d
     public string Title { get; private set; } = title;
     public string Dock { get; private set; } = dock;
     public bool IsVisible { get; private set; } = true;
+    /// <summary>True while a focus request waits for the workspace to bring the panel's tab to the front.</summary>
+    public bool FocusRequested { get; private set; }
+    private long? _focusedAt;
     public IReadOnlyList<ScriptPanelWidget> Widgets => _widgets;
-    /// <summary>Raised when the title, dock side, visibility or the set of widgets changed.</summary>
+    /// <summary>The panel lives in the vitals strip under the transcript rather than a docked tool.</summary>
+    public bool IsBars => Dock == ScriptPanelAction.DockBars;
+    /// <summary>Raised when the title, dock side, visibility, focus request or the set of widgets changed.</summary>
     public event Action? Changed;
     internal event Action<ScriptPanel, string>? Invoked;
 
@@ -74,7 +80,26 @@ public sealed class ScriptPanel(Guid scriptId, string id, string title, string d
                 IsVisible = visible;
                 Changed?.Invoke();
                 break;
+            case "focus":
+                // Nothing to bring to the front in the strip. Elsewhere one request per second is kept, so a
+                // script refreshing on every MSDP event cannot hold the user's tab hostage.
+                if (IsBars) return;
+                var now = Environment.TickCount64;
+                if (_focusedAt is { } last && now - last < ScriptPanelAction.FocusInterval.TotalMilliseconds) return;
+                _focusedAt = now;
+                IsVisible = true;
+                FocusRequested = true;
+                Changed?.Invoke();
+                break;
         }
+    }
+
+    /// <summary>Consumes the pending focus request, if any. The workspace calls it once it has activated the tab.</summary>
+    public bool TakeFocusRequest()
+    {
+        if (!FocusRequested) return false;
+        FocusRequested = false;
+        return true;
     }
 }
 
@@ -112,7 +137,8 @@ public sealed class ScriptPanelHost
         else panel.Apply(action);
     }
 
-    private static string Title(ScriptPanelAction action) => action.Title.Length > 0 ? action.Title : action.Panel;
+    // Dock tabs are plain text, so a title such as "&228A Vicious Womprat&D" loses its codes here.
+    private static string Title(ScriptPanelAction action) => action.Title.Length > 0 ? MudColorCodes.Strip(action.Title) : action.Panel;
 
     /// <summary>Retires one panel, for example because the user closed its docked tool.</summary>
     public void Close(ScriptPanel panel)

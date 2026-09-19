@@ -160,6 +160,17 @@ public sealed class JavaScriptEngine
                 if (value.length > limit) throw new RangeError(name + ' exceeds ' + limit + ' items.');
                 return value.map(entry => plain(entry, name));
             }
+            // Display text for any value: MSDP tables arrive as objects, which would otherwise print as [object Object].
+            function format(value, depth) {
+                if (value === undefined || value === null) return '';
+                if (typeof value === 'string') return value;
+                if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+                if (typeof value !== 'object') return '';
+                if (depth > 4) return '...';
+                if (Array.isArray(value)) return value.map(item => format(item, depth + 1)).join(', ');
+                return Object.keys(value).map(key => key + ': ' + format(value[key], depth + 1)).join(', ');
+            }
+            function barsAccepts(kind) { return kind === 'gauge' || kind === 'label'; }
             function hook(panel, widget, event, callback) {
                 if (callback === undefined || callback === null) return;
                 const key = panel + '\u0000' + widget + '\u0000' + event;
@@ -171,6 +182,7 @@ public sealed class JavaScriptEngine
                 if (properties === undefined || properties === null) properties = {};
                 if (typeof properties !== 'object') throw new TypeError('Widget properties must be an object.');
                 if (!record.widgets.has(id) && record.widgets.size >= 64) throw new RangeError('Maximum 64 widgets per panel.');
+                if (record.dock === 'bars' && !barsAccepts(kind)) throw new TypeError('A bars panel accepts only gauge and label widgets.');
                 const out = {};
                 if (kind === 'gauge') {
                     if (properties.label !== undefined) out.label = plain(properties.label, 'label');
@@ -205,7 +217,7 @@ public sealed class JavaScriptEngine
                     if (properties.title !== undefined) out.title = plain(properties.title, 'title');
                     out.children = entries(properties.children === undefined ? [] : properties.children, 'children', 64);
                 }
-                record.widgets.add(id);
+                record.widgets.set(id, kind);
                 panelAction({ panel: record.id, action: 'widget', widget: id, kind, props: out });
                 return record.api;
             }
@@ -216,8 +228,11 @@ public sealed class JavaScriptEngine
                 const existing = panels.get(id);
                 const title = options.title === undefined ? (existing === undefined ? id : existing.title) : plain(options.title, 'title');
                 const dock = options.dock === undefined ? (existing === undefined ? 'right' : existing.dock) : options.dock;
-                if (dock !== 'left' && dock !== 'right') throw new TypeError('A panel docks to left or right.');
+                if (dock !== 'left' && dock !== 'right' && dock !== 'bars') throw new TypeError('A panel docks to left, right or bars.');
                 if (existing !== undefined) {
+                    if (dock === 'bars' && existing.dock !== dock)
+                        for (const kind of existing.widgets.values())
+                            if (!barsAccepts(kind)) throw new TypeError('A bars panel accepts only gauge and label widgets.');
                     if (existing.title !== title || existing.dock !== dock) {
                         existing.title = title; existing.dock = dock;
                         panelAction({ panel: id, action: 'create', title, dock });
@@ -225,7 +240,7 @@ public sealed class JavaScriptEngine
                     return existing.api;
                 }
                 if (panels.size >= 8) throw new RangeError('Maximum 8 panels per script.');
-                const record = { id, title, dock, widgets: new Set(), api: null };
+                const record = { id, title, dock, widgets: new Map(), api: null };
                 panels.set(id, record);
                 panelAction({ panel: id, action: 'create', title, dock });
                 const kinds = ['gauge', 'label', 'text', 'list', 'table', 'button', 'toggle', 'input', 'separator', 'group'];
@@ -239,8 +254,15 @@ public sealed class JavaScriptEngine
                     panelAction({ panel: id, action: 'remove', widget: widgetId });
                     return record.api;
                 };
-                api.show = () => { panelAction({ panel: id, action: 'show' }); return record.api; };
+                api.show = options => {
+                    if (options !== undefined && options !== null && typeof options !== 'object') throw new TypeError('Show options must be an object.');
+                    panelAction({ panel: id, action: 'show' });
+                    if (options !== undefined && options !== null && options.focus === true) panelAction({ panel: id, action: 'focus' });
+                    return record.api;
+                };
                 api.hide = () => { panelAction({ panel: id, action: 'hide' }); return record.api; };
+                // Brings the tool's tab to the front; the client accepts one focus per panel per second.
+                api.focus = () => { panelAction({ panel: id, action: 'focus' }); return record.api; };
                 api.close = () => {
                     panels.delete(id);
                     for (const key of Array.from(handlers.keys())) if (key.indexOf(id + '\u0000') === 0) handlers.delete(key);
@@ -322,6 +344,7 @@ public sealed class JavaScriptEngine
                     timers.push({ interval: seconds * 1000, due: clock + seconds * 1000, callback });
                 },
                 panel: (id, options) => panel(id, options),
+                format: value => { const text = format(value, 1); return text.length > 4096 ? text.slice(0, 4096) : text; },
                 state: Object.freeze({
                     get: path => {
                         if (typeof path !== 'string') throw new TypeError('A state path must be a string.');

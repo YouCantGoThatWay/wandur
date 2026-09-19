@@ -45,8 +45,9 @@ public sealed partial class WorkspaceFactory
         _syncingPanels = true;
         try
         {
+            // A bars panel has no tool: the vitals strip under the transcript renders its gauges.
             var live = sessions.Tabs
-                .SelectMany(tab => tab.Controller.ScriptLibrary.Panels.Panels.Select(panel => (tab.Controller, Panel: panel))).ToArray();
+                .SelectMany(tab => tab.Controller.ScriptLibrary.Panels.Panels.Where(panel => !panel.IsBars).Select(panel => (tab.Controller, Panel: panel))).ToArray();
             foreach (var tool in _panelTools.ToArray())
             {
                 if (live.Any(item => ReferenceEquals(item.Panel, tool.Panel))) continue;
@@ -60,6 +61,13 @@ public sealed partial class WorkspaceFactory
             var ordered = live.Select(item => _panelTools.First(tool => ReferenceEquals(tool.Panel, item.Panel))).ToArray();
             Arrange(ScriptPanelAction.DockRight, ordered);
             Arrange(ScriptPanelAction.DockLeft, ordered);
+            // A focus request the panel accepted (one per second) brings its tab to the front of its dock.
+            foreach (var tool in ordered)
+                if (tool.Panel.TakeFocusRequest() && !tool.IsClosed && tool.Owner is IDock owner)
+                {
+                    SetActiveDockable(tool);
+                    SetFocusedDockable(owner, tool);
+                }
         }
         finally { _syncingPanels = false; }
     }

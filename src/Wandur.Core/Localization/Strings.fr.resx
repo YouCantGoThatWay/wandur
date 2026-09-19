@@ -1822,4 +1822,5 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   <data name="ScriptCompletePanel" xml:space="preserve"><value>Crée ou réutilise un panneau ancré construit à partir de déclarations d'éléments.</value></data>
   <data name="ScriptCompleteVariable" xml:space="preserve"><value>Le nom de la variable MSDP, par exemple SHIPHULL.</value></data>
   <data name="ScriptCompleteValue" xml:space="preserve"><value>La valeur MSDP décodée : une chaîne, une liste ou une table.</value></data>
+  <data name="ScriptCompleteFormat" xml:space="preserve"><value>Texte d'affichage pour toute valeur : null donne une chaîne vide, les tableaux sont joints par des virgules et les objets deviennent des paires clé : valeur.</value></data>
 </root>

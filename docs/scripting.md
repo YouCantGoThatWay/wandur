@@ -114,7 +114,7 @@ mud.on(Events.Msdp, event => {
 });
 ```
 
-`mud.panel(id, options)` creates the panel the first time and returns the same builder afterwards. `options.title` is the tool title and defaults to the panel id; a later call that omits it keeps the title already set. `options.dock` is `"left"` or `"right"` and defaults to `"right"`.
+`mud.panel(id, options)` creates the panel the first time and returns the same builder afterwards. `options.title` is the tool title and defaults to the panel id; a later call that omits it keeps the title already set. `options.dock` is `"left"`, `"right"` or `"bars"` and defaults to `"right"`; `"bars"` is described below.
 
 Every widget call is `panel.<kind>(id, properties)`. Calling it again with the same id updates that widget's properties in place; the panel is not rebuilt and unrelated widgets keep their state.
 
@@ -132,6 +132,42 @@ Every widget call is `panel.<kind>(id, properties)`. Calling it again with the s
 | `group` | `title`, `children` (widget ids) | none | A bordered section holding the named widgets, in the order given. |
 
 A widget id named by more than one group belongs to the first group that claims it. `panel.remove(id)` removes a widget and its callback. `panel.show()` and `panel.hide()` show and hide the docked tool; `panel.close()` closes it and forgets the panel. Closing the tool by hand has the same effect as `close()`, and the script may declare the panel again.
+
+### Colors in panels
+
+MSDP hands a script the world's raw strings, and on SMAUG and SWR worlds those still carry the world's own color codes: an opponent name arrives as `&228A Vicious Womprat&D`. Every text a widget shows renders those codes, so the script passes the string through as it is. `label`, `text`, list items, table cells, gauge labels, button and toggle labels and group captions are all colored; the panel title is a plain dock tab, so codes are removed from it.
+
+`&` sets the foreground and `^` the background, each followed by one SMAUG letter or by exactly three digits `000` to `255` naming an xterm 256 color (the Legends of the Jedi extension). The letters map onto the same sixteen palette entries the transcript uses, so a color in a panel matches the same code in the transcript and follows the theme:
+
+| Code | Color | Code | Color |
+| --- | --- | --- | --- |
+| `&x` | black | `&z` | dark grey |
+| `&r` | dark red | `&R` | red |
+| `&g` | dark green | `&G` | green |
+| `&O` | orange | `&Y` | yellow |
+| `&b` | dark blue | `&B` | blue |
+| `&p` | purple | `&P` | pink |
+| `&c` | dark cyan | `&C` | cyan |
+| `&w` | grey | `&W` | white |
+
+`&D` (or `&d`) restores the default colors. `&&` is a literal ampersand and `^^` a literal caret; `&` or `^` followed by anything else is ordinary text, so `50% && rising` shows as `50% & rising`. Real ANSI escape sequences are applied when they are simple color sequences and dropped otherwise, since some worlds send those through MSDP too. Every string starts from the default colors, so a code never leaks from one widget into the next.
+
+`mud.format(value)` turns any value into display text for a widget: `undefined` and `null` give an empty string, a string passes through unchanged with its codes, numbers and booleans give their text, an array gives its items joined with `", "`, and an object gives `key: value` pairs joined with `", "`. Nested objects and arrays are formatted the same way to a depth of 4 and the result is cut at 4096 characters. Use it for MSDP tables such as `ROOMEXITS`, which would otherwise print as `[object Object]`.
+
+### Focusing a panel
+
+`panel.focus()` brings the panel's tab to the front of its dock, showing the panel first if it was hidden. `panel.show({ focus: true })` does the same after `show()`. The client accepts one focus per panel per second and drops the rest, so a script that refreshes its panel on every MSDP event cannot keep stealing the tab the user is reading; call it from the event that matters, such as the start of a fight, not from the refresh. `focus()` does nothing for a `bars` panel.
+
+### Bars
+
+`mud.panel(id, { dock: "bars" })` puts the panel's gauges in the vitals strip under the transcript, after the mapped vitals such as Health and Movement, as the same cards. There is no docked tool. Only `gauge` and `label` are accepted on a bars panel: a label is ignored in the strip, and any other widget kind is a script error (`A bars panel accepts only gauge and label widgets.`) that stops the script. `hide()` removes the panel's bars, `show()` restores them, `close()` removes them for good. Several bars panels append one after another in declaration order, and the strip stays hidden while there is nothing to show.
+
+```js
+const vitals = mud.panel("vitals", { dock: "bars" });
+mud.on(Events.Msdp, event => {
+    if (event.variable === "FORCE") vitals.gauge("force", { label: "&CForce&D", value: Number(event.value), max: 100, warn: 0.2 });
+});
+```
 
 Callbacks run in the worker under the same rules as a trigger: they are synchronous, they may call `mud.send` and `mud.echo`, and the usual send policy, rate limits and privacy pause apply. Panels belong to one session and disappear when their script stops, when the script is disabled or when the session closes.
 
@@ -182,7 +218,7 @@ One isolated worker runs each script. Disabling, deleting or disconnecting stops
 
 Run scripts you have reviewed. Worker isolation and execution limits reduce accidents; this is not a hardened operating-system sandbox for hostile code. Jint allocation limits apply per execution rather than to the total retained heap.
 
-Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 send and echo actions per event, 32 panel instructions per event, 8 panels and 64 widgets per panel, 128 queued events per script, and a shared maximum of 20 sends per second and 200 per minute. `docs/scripting-reference.json` carries the same API and limits in machine-readable form, and a test keeps it in step with the engine. An unresponsive worker is killed after two seconds. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
+Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 send and echo actions per event, 32 panel instructions per event, 8 panels and 64 widgets per panel, one accepted panel focus per second, 128 queued events per script, and a shared maximum of 20 sends per second and 200 per minute. `docs/scripting-reference.json` carries the same API and limits in machine-readable form, and a test keeps it in step with the engine. An unresponsive worker is killed after two seconds. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
 
 ## Implementation
 

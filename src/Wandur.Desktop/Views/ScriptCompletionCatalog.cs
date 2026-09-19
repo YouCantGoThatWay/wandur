@@ -36,6 +36,7 @@ internal static class ScriptCompletionCatalog
             new("trigger", "trigger(pattern, callback)", L.ScriptCompleteTrigger),
             new("every", "every(seconds, callback)", L.ScriptCompleteEvery),
             new("panel", "panel(id, options)", L.ScriptCompletePanel),
+            new("format", "format(value)", L.ScriptCompleteFormat),
             new("state", "state", L.ScriptCompleteState)
         ];
         else if (receiver == "Events") choices =

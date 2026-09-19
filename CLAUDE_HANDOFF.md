@@ -115,6 +115,16 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   MSDP variable the cache lacks yields a `report` action, which the controller
   turns into `TelnetSession.ReportMsdpAsync` (REPORT then SEND, same guards as
   the mapped refresh, mapped names skipped, re-issued after reconnect).
+  After the LOTJ play test (branch `feature/panel-color`): widget text renders
+  SMAUG/SWR color codes (`&R`, `&228`, `^b`, `&&`) and simple ANSI SGR through
+  `Core/Terminal/MudColorCodes` and the transcript's palette brushes, titles are
+  stripped, `panel.focus()` / `show({ focus: true })` activate the tab at most
+  once per second per panel, `dock: "bars"` puts a panel's gauges in the vitals
+  strip under the transcript (`ResourceBarsView.Panels`), and `mud.format(value)`
+  turns MSDP tables into readable text. The engine refuses any widget other than
+  gauge or label on a bars panel, and `docs/scripting-reference.json` carries a
+  `text` section for the color syntax that the reference test checks against the
+  parser.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

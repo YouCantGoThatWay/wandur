@@ -35,6 +35,13 @@ public sealed record ScriptPanelAction(string Panel, string Action)
 
     public const string DockLeft = "left";
     public const string DockRight = "right";
+    /// <summary>The panel's gauges join the vitals strip under the transcript instead of a docked tool.</summary>
+    public const string DockBars = "bars";
+    public static IReadOnlyList<string> Docks { get; } = [DockLeft, DockRight, DockBars];
+    /// <summary>The widget kinds a bars panel may declare; the worker refuses the others with a script error.</summary>
+    public static IReadOnlyList<string> BarsWidgetKinds { get; } = ["gauge", "label"];
+    /// <summary>A panel takes one focus request per this interval; later ones are dropped so a script cannot steal focus continuously.</summary>
+    public static readonly TimeSpan FocusInterval = TimeSpan.FromSeconds(1);
     public const int MaximumStringCharacters = 4096;
     public const int MaximumCollectionItems = 500;
     public const int MaximumColumns = 32;
@@ -43,7 +50,7 @@ public sealed record ScriptPanelAction(string Panel, string Action)
     public const int MaximumPanels = 8;
     public const int MaximumActionsPerEvent = 32;
 
-    public static IReadOnlyList<string> Actions { get; } = ["create", "widget", "remove", "show", "hide", "close"];
+    public static IReadOnlyList<string> Actions { get; } = ["create", "widget", "remove", "show", "hide", "focus", "close"];
     public static IReadOnlyList<string> EventNames { get; } = ["click", "change", "submit", "select"];
 
     private static readonly Regex Identifier = new(@"^[A-Za-z0-9][A-Za-z0-9_.\-]{0,63}$",
@@ -67,7 +74,7 @@ public sealed record ScriptPanelAction(string Panel, string Action)
             if (action == "create")
             {
                 var dock = Text(root, "dock", 16);
-                if (dock is not (DockLeft or DockRight)) throw new FormatException("A panel docks to left or right.");
+                if (!Docks.Contains(dock, StringComparer.Ordinal)) throw new FormatException("A panel docks to left, right or bars.");
                 result = result with { Title = Text(root, "title", MaximumStringCharacters), Dock = dock };
             }
             else if (action is "widget" or "remove")
