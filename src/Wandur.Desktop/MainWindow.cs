@@ -244,6 +244,7 @@ public sealed class MainWindow : Window
 
     private void Refresh()
     {
+        SessionOpenTrace.Count("window refresh");
         Workspace.PruneEditorDocuments();
         if (!ReferenceEquals(_profiles, Controller.Settings.Profiles))
         {

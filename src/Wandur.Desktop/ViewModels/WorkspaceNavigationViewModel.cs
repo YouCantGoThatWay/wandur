@@ -74,6 +74,7 @@ public sealed partial class WorkspaceNavigationViewModel(SessionWorkspace sessio
 
     public void Refresh()
     {
+        SessionOpenTrace.Count("navigation refresh");
         if (_refreshing) return;
         _refreshing = true;
         try

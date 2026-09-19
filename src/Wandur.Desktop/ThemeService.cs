@@ -72,13 +72,17 @@ public static class ThemeService
     public static void Apply(ClientSettings settings, WorldTheme? worldTheme, IReadOnlyDictionary<string, Bitmap>? images = null)
     {
         var app = Application.Current!;
-        settings.Validate();
+        SessionOpenTrace.Count("theme apply calls");
         worldTheme = settings.UseWorldThemes && worldTheme is { IsValid: true } ? worldTheme : null;
         var personal = worldTheme is null ? settings.CustomThemes.FirstOrDefault(t => t.Id == settings.Theme) : null;
         if (personal is not null) { worldTheme = personal.ToWorldTheme(); images = null; }
         var ansiTheme = settings.CustomThemes.FirstOrDefault(t => t.Id == settings.Theme);
         var appearance = (app, settings.Theme, settings.Foreground, settings.Background, worldTheme, personal, ansiTheme, images);
+        // Repainting an appearance already on screen changes nothing, and a session open raises this
+        // a dozen times or more, so the identical case leaves without validating or writing a brush.
         if (_lastAppearance == appearance) return;
+        SessionOpenTrace.Count("theme repaints");
+        settings.Validate();
         if (_resources is null || !ReferenceEquals(_resources.App, app))
         { _resources = new(app); _lastFluentPalette = null; _gripColor = null; }
         var resources = _resources;

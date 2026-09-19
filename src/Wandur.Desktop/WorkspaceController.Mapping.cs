@@ -38,8 +38,13 @@ public sealed partial class WorkspaceController
     private (string Id, int ObservationCount, DateTimeOffset ReceivedAt)? _tentativeTextRoom;
     private bool _mapDirty;
     private DateTimeOffset _mapSavedAt;
+    private readonly List<RoomObservation> _deferredRooms = [];
     public RoomMapTracker Map { get; private set; } = new();
     public MapProtocolEvidence ProtocolEvidence { get; private set; } = new();
+    /// <summary>False between the start of a session and the arrival of that world's stored map.</summary>
+    public bool MapLoaded { get; private set; } = true;
+    /// <summary>Completes once this session's stored map has been read and applied.</summary>
+    public Task MapReady { get; private set; } = Task.CompletedTask;
 
     private void StartMapping(ConnectionProfile? profile, IMudSession session)
     {
@@ -52,13 +57,17 @@ public sealed partial class WorkspaceController
             _pendingRoomKnowledge.Clear();
         }
         _mapProfile = profile;
-        Map = new(profile is null ? null : _maps.Load(profile.Host, profile.Port));
+        _deferredRooms.Clear();
+        Map = Track(new());
         _roomText.Reset();
         _pendingMapDirection = null;
         _hasStructuredRooms = false;
         _tentativeTextRoom = null;
         _mapDirty = false;
-        Map.Changed += () => { _mapDirty = true; if (_mapWalk is { } walk) CanContinueMapWalk(walk); };
+        // Reading a world's graph out of SQLite costs tens of milliseconds on a large map, and the new
+        // tab must not wait for it. Rooms observed before it lands are held back and replayed onto it.
+        MapLoaded = profile is null;
+        MapReady = profile is null ? Task.CompletedTask : LoadMapAsync(profile, session);
         CancelInference();
         ScheduleInference();
         if (session is TelnetSession telnet)
@@ -114,8 +123,33 @@ public sealed partial class WorkspaceController
         }
     }
 
+    private RoomMapTracker Track(RoomMapTracker map)
+    {
+        map.Changed += () => { _mapDirty = true; if (_mapWalk is { } walk) CanContinueMapWalk(walk); };
+        return map;
+    }
+
+    private async Task LoadMapAsync(ConnectionProfile profile, IMudSession session)
+    {
+        MapSnapshot? snapshot = null;
+        var failed = false;
+        using (SessionOpenTrace.Measure("map read (background)"))
+            try { snapshot = await Task.Run(() => _maps.Load(profile.Host, profile.Port)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { failed = true; }
+        if (_disposed || !ReferenceEquals(_session, session)) return;
+        if (snapshot is not null) Map = Track(new(snapshot));
+        MapLoaded = true;
+        var deferred = _deferredRooms.ToArray();
+        _deferredRooms.Clear();
+        foreach (var room in deferred) ObserveRoom(room);
+        ScheduleInference();
+        if (failed) ShowNotice(L.MapCacheFailed); else Changed?.Invoke();
+    }
+
     private void ObserveRoom(RoomObservation room)
     {
+        // Nothing can be placed on a graph that has not arrived; these are replayed when it does.
+        if (!MapLoaded) { if (_deferredRooms.Count < 512) _deferredRooms.Add(room); return; }
         var direction = DateTimeOffset.UtcNow - _mapCommandAt < TimeSpan.FromSeconds(10) ? _pendingMapDirection : null;
         var originServerId = Map.Snapshot.Rooms.FirstOrDefault(r => r.Id == Map.Snapshot.CurrentRoomId)?.ServerId;
         // GMCP/MSDP can repeat the origin while a move is in flight. Such an update
@@ -195,7 +229,8 @@ public sealed partial class WorkspaceController
     private void SaveMap(bool force = false)
     {
         SaveProtocolKnowledge(force);
-        if (!_mapDirty || _mapProfile is null || (!force && DateTimeOffset.UtcNow - _mapSavedAt < TimeSpan.FromSeconds(2))) return;
+        // Saving before the stored graph arrives would write an empty map over it.
+        if (!MapLoaded || !_mapDirty || _mapProfile is null || (!force && DateTimeOffset.UtcNow - _mapSavedAt < TimeSpan.FromSeconds(2))) return;
         _mapSavedAt = DateTimeOffset.UtcNow;
         try
         {

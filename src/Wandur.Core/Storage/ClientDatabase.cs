@@ -55,6 +55,15 @@ public sealed class ClientDatabase(string path)
         catch (SqliteException ex) { throw new IOException(L.DatabaseWriteFailed, ex); }
     }
 
+    /// <summary>The world an endpoint already belongs to, or null. Reads only: it creates nothing.</summary>
+    public static string? FindWorld(SqliteConnection connection, string endpointKey)
+    {
+        using var lookup = connection.CreateCommand();
+        lookup.CommandText = "SELECT world_id FROM endpoints WHERE endpoint_key=$endpoint";
+        lookup.Parameters.AddWithValue("$endpoint", CanonicalEndpointKey(endpointKey));
+        return lookup.ExecuteScalar() as string;
+    }
+
     public string ResolveWorld(SqliteConnection connection, SqliteTransaction transaction, string endpointKey, string? preferredWorldId = null)
     {
         var sourceKey = endpointKey.Trim().ToLowerInvariant();

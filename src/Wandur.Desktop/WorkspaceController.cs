@@ -37,7 +37,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     public WorkspaceController(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
     {
         _store = store; _knowledge = knowledge; Classification = classification;
-        Display = displays.Create(Terminal);
+        using (SessionOpenTrace.Measure("display create")) Display = displays.Create(Terminal);
         Passwords = passwords;
         _maps = maps;
         ScriptLibrary = new WorldScriptLibrary(scriptRuntimes, scriptLibraryStore,
@@ -47,7 +47,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             text => { Terminal.AppendLocalText(L.ScriptOutputPrefix + text + "\n"); TerminalVersion++; Changed?.Invoke(); });
         ScriptLibrary.Changed += () => Changed?.Invoke();
         InitializeAgent(agents);
-        var loaded = store.Load();
+        SettingsLoadResult loaded;
+        using (SessionOpenTrace.Measure("settings load")) loaded = store.Load();
         Settings = loaded.Settings;
         Display.ApplySettings(Settings);
         ThemeService.Apply(Settings);
@@ -126,7 +127,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         try
         {
             if (_disposed) return;
-            await DisconnectCoreAsync();
+            using (SessionOpenTrace.Measure("disconnect previous")) await DisconnectCoreAsync();
             IMudSession session = profile is null ? new DemoSession() : new TelnetSession(profile);
             _session = session;
             HasSession = true;
@@ -135,16 +136,21 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             WorldTheme = profile?.Theme is { IsValid: true } theme ? theme : null;
             _connectionCancellation = new();
             var token = _connectionCancellation.Token;
-            StartMapping(profile, session);
             IsConnecting = true;
             WorldName = profile?.Name ?? "The Lantern & the Rain";
             Endpoint = profile is null ? L.OFFLINEDEMOASmallWorldOnYourOwnMachine : $"{profile.Host}:{profile.Port}  /  {profile.Encoding.ToUpperInvariant()}";
-            ScriptLibrary.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}", WorldName);
-            Agent?.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}");
             Status = L.Connecting; Notice = null; CommandsSent = 0;
             _serverPrivate = _promptPrivate = _manualPrivate = false;
-            History = new(); ClearTranscript(); _promptTerminal.Clear();
-            Diagnostics.ClearCommand.Execute(null);
+            // Clearing the transcript announces the session, which is what puts the tab on screen with
+            // its connecting status. Everything this world needs from storage is read after that, so a
+            // slow map, script library or agent profile cannot hold the new tab back.
+            using (SessionOpenTrace.Measure("transcript reset")) { History = new(); ClearTranscript(); _promptTerminal.Clear(); }
+            using (SessionOpenTrace.Measure("mapping start")) StartMapping(profile, session);
+            using (SessionOpenTrace.Measure("script library"))
+                ScriptLibrary.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}", WorldName);
+            using (SessionOpenTrace.Measure("agent profile"))
+                Agent?.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}");
+            using (SessionOpenTrace.Measure("diagnostics reset")) Diagnostics.ClearCommand.Execute(null);
             _passwordPrompt = AutoLoginSequence.Compile(profile?.PasswordPrompt ?? AutoLoginSequence.DefaultPasswordPrompt);
             var wirePrivate = false;
             void ReceiveText(string text, bool containsPrivateText)
@@ -194,9 +200,10 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             Changed?.Invoke();
             try
             {
-                var loginNotice = await PrepareLoginAsync(profile, token);
+                string? loginNotice;
+                using (SessionOpenTrace.Measure("login preparation")) loginNotice = await PrepareLoginAsync(profile, token);
                 RefreshScriptState();
-                await session.ConnectAsync(token);
+                using (SessionOpenTrace.Measure("connect")) await session.ConnectAsync(token);
                 if (ReferenceEquals(_session, session) && loginNotice is not null) Notice = loginNotice;
             }
             catch (OperationCanceledException) { if (ReferenceEquals(_session, session)) Status = token.IsCancellationRequested ? L.ConnectionCanceled : L.ConnectionTimedOut; }

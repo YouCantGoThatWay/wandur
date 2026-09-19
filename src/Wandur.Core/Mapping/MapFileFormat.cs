@@ -62,7 +62,7 @@ public static class MapFileFormat
         value is null ? optional : value.Length <= maximum && (!required || !string.IsNullOrWhiteSpace(value)) &&
         !value.Any(c => char.IsControl(c) && !(multiline && c is '\r' or '\n' or '\t'));
 
-    private static void Validate(MapSnapshot map)
+    internal static void Validate(MapSnapshot map)
     {
         if (map.Rooms is not { Count: <= 10000 } || map.Links is not { Count: <= 60000 } || map.AreaSettings is not { Count: <= 10000 } ||
             map.RoomAliases is not { Count: <= 100000 } || map.DeletedRooms is not { Count: <= 100000 } || map.DeletedLinks is not { Count: <= 100000 } ||
