@@ -24,6 +24,11 @@ rsync -a --delete "$publish_dir/" "$app_bundle/Contents/MacOS/"
 # Remove symbols left by an earlier build of this bundle; Release omits them.
 rm -f "$app_bundle/Contents/MacOS/Wandur.pdb" "$app_bundle/Contents/MacOS/Wandur.Core.pdb"
 
+# Bundle icon, generated from the 1024 px master by scripts/make-icons.sh.
+bash "$project_root/scripts/make-icons.sh" >/dev/null
+mkdir -p "$app_bundle/Contents/Resources"
+cp "$project_root/artifacts/icons/Wandur.icns" "$app_bundle/Contents/Resources/Wandur.icns"
+
 cat > "$app_bundle/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -33,6 +38,7 @@ cat > "$app_bundle/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key><string>net.wandur.client</string>
   <key>CFBundleExecutable</key><string>Wandur</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>Wandur</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>NSHighResolutionCapable</key><true/>

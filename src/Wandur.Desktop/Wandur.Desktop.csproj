@@ -3,7 +3,11 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>Wandur</AssemblyName>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets/Wandur.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/icon-256.png" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wandur.Core/Wandur.Core.csproj" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

@@ -54,6 +54,7 @@ public sealed class MainWindow : Window
         Catalog = catalog ?? new WorldCatalog(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(store.FilePath))!, "directory.json"));
         Sessions = new(displays, store, passwords, maps, scriptRuntimes, scriptLibraryStore, knowledge, Catalog, agents, classification);
         Title = "Wandur";
+        Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(new Uri("avares://Wandur/Assets/icon-256.png")));
         Width = 1380; Height = 900; MinWidth = 1040; MinHeight = 680;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         if (OperatingSystem.IsMacOS())
