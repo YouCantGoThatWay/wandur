@@ -15,7 +15,9 @@ public sealed class SessionScripts(
     Func<bool> canRun,
     Func<bool> isPrivate,
     Func<string, Task<bool>> send,
-    Action<string> echo) : IAsyncDisposable
+    Action<string> echo,
+    Action<ScriptPanelAction>? panels = null,
+    Func<bool>? restrictedSend = null) : IAsyncDisposable
 {
     private sealed record Work(ScriptEvent Input, long PrivacyEpoch, TaskCompletionSource<bool>? Completion = null);
     private readonly ScriptLineBuffer _lines = new();
@@ -85,7 +87,8 @@ public sealed class SessionScripts(
             runtime = runtimeFactory.Create();
             _runtime = runtime;
             var source = Source;
-            var result = await Task.Run(() => runtime.LoadAsync(source, token), token);
+            var restricted = restrictedSend?.Invoke() == true;
+            var result = await Task.Run(() => runtime.LoadAsync(source, token, restricted), token);
             if (generation != _generation) return;
             if (result.Error is not null) { Fail(result.Error); return; }
             IsBusy = false; IsRunning = true;
@@ -240,14 +243,26 @@ public sealed class SessionScripts(
                 AppendLog(action.Text);
                 echo(action.Text);
             }
+            else if (action.Kind == "panel")
+            {
+                ScriptPanelAction panel;
+                // The worker is isolated; its instructions are re-validated before anything is rendered.
+                try { panel = ScriptPanelAction.Parse(action.Text); }
+                catch (FormatException error) { Fail(L.Format(L.ScriptPanelRejected, error.Message)); return false; }
+                panels?.Invoke(panel);
+            }
         }
         return true;
     }
 
     private void Fail(string error)
     {
+        // The worker cannot know the user's language; its send-policy refusal is named here instead.
+        if (error.Contains(PackSendPolicy, StringComparison.Ordinal)) error = L.ScriptPackSendRefused;
         Stop(); Error = L.Format(L.ScriptFailed, error); AppendLog(Error);
     }
+
+    internal const string PackSendPolicy = "Pack send policy";
 
     private void AppendLog(string text)
     {

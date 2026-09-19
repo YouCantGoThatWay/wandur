@@ -36,6 +36,15 @@ public sealed record WorldListing
     public string GeneratedArtworkPath { get; init; } = "";
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public WorldTheme? Theme { get; init; }
+    // Optional generated script pack. A listing without it changes nothing about a world's library.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public WorldScriptListing[]? Scripts { get; init; }
+
+    /// <summary>The supplied scripts this client is willing to attach, in listing order.</summary>
+    [JsonIgnore] public IReadOnlyList<WorldScriptListing> SupportedScripts =>
+        Scripts is null ? [] : Scripts.Where(script => script is { IsValid: true })
+            .GroupBy(script => script.Id, StringComparer.Ordinal).Select(group => group.First())
+            .Take(Wandur.Core.Scripting.WorldScriptLibraryStore.MaximumScripts).ToArray();
 
     [JsonIgnore] public string Address => WebOnly ? L.BrowserBasedWorld : string.IsNullOrEmpty(Host) ? L.ConnectionNotListed :
         (Port ?? TlsPort) is { } port ? $"{(Host.Contains(':') ? $"[{Host}]" : Host)}:{port}" : Host;
@@ -83,6 +92,24 @@ public sealed record WorldListing
         profile.Validate();
         return profile;
     }
+}
+
+/// <summary>One script a directory supplies for a world. Source is never executed by the directory client.</summary>
+public sealed record WorldScriptListing
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    public string Description { get; init; } = "";
+    public string Source { get; init; } = "";
+    public string Provenance { get; init; } = "";
+    public int Version { get; init; }
+
+    [JsonIgnore] public bool IsValid =>
+        Id.Length is > 0 and <= 120 && !Id.Any(char.IsControl) &&
+        Name.Trim().Length is > 0 and <= 120 && !Name.Any(char.IsControl) &&
+        Description.Length <= 1024 && !Description.Any(c => char.IsControl(c) && c is not ('\n' or '\t')) &&
+        Source.Length > 0 && Encoding.UTF8.GetByteCount(Source) <= Wandur.Core.Scripting.WorldScriptStore.MaximumBytes &&
+        Wandur.Core.Scripting.ScriptPackInfo.IsSupported(Provenance) && Version >= 0;
 }
 
 /// <summary>Community measurements belong to the listing's source, not a global ranking.</summary>

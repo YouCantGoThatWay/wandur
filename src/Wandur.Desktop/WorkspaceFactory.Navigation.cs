@@ -78,6 +78,7 @@ public sealed partial class WorkspaceFactory
     public void DetachNavigation()
     {
         sessions.SelectionChanged -= SessionSelected;
+        sessions.ScriptPanelsChanged -= SyncScriptPanels;
         _navigation?.Detach();
     }
 }

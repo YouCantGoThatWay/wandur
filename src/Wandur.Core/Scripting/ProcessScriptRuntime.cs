@@ -20,8 +20,8 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
 
     public bool IsRunning { get { lock (_sync) return !_stopped && _process is not null; } }
 
-    public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default)
-        => RequestAsync(new ScriptEvent("load", source), cancellationToken);
+    public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false)
+        => RequestAsync(new ScriptEvent("load", source) { RestrictedSend = restrictedSend }, cancellationToken);
 
     public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default)
         => RequestAsync(input, cancellationToken);
@@ -94,18 +94,29 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
 
     private static void ValidateResult(ScriptResult result)
     {
-        if (result.Actions is null || result.Actions.Count > 32 || result.Error?.Length > 2048)
+        if (result.Actions is null || result.Actions.Count > JavaScriptEngine.MaximumActions || result.Error?.Length > 2048)
             throw new InvalidDataException("Invalid worker response.");
         var length = 0;
+        var panelLength = 0;
+        var panels = 0;
         foreach (var action in result.Actions)
         {
-            if (action is null || action.Text is null || action.Text.Length > 8192 || action.Kind is not ("send" or "echo"))
+            if (action is null || action.Text is null || action.Kind is not ("send" or "echo" or "panel"))
                 throw new InvalidDataException("Invalid worker action.");
+            if (action.Kind == "panel")
+            {
+                if (++panels > ScriptPanelAction.MaximumActionsPerEvent || action.Text.Length > JavaScriptEngine.MaximumPanelActionCharacters)
+                    throw new InvalidDataException("Invalid panel action.");
+                panelLength += action.Text.Length;
+                continue;
+            }
+            if (action.Text.Length > 8192) throw new InvalidDataException("Invalid worker action.");
             if (action.Kind == "send" && (action.Text.Length is 0 or > 4096 || action.Text.Any(c => char.IsControl(c) || c is '\u2028' or '\u2029')))
                 throw new InvalidDataException("Invalid worker command.");
             length += action.Text.Length;
         }
-        if (length > 32768) throw new InvalidDataException("Worker output exceeds size limit.");
+        if (length > 32768 || panelLength > JavaScriptEngine.MaximumPanelCharacters)
+            throw new InvalidDataException("Worker output exceeds size limit.");
     }
 
     private static async Task DrainErrorsAsync(StreamReader reader, CancellationToken token)

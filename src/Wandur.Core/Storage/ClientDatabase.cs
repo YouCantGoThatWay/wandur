@@ -126,13 +126,13 @@ public sealed class ClientDatabase(string path)
     {
         using var version = connection.CreateCommand(); version.CommandText = "PRAGMA user_version";
         var schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 3) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 4) throw new IOException(L.DatabaseVersionUnsupported);
         using var journal = connection.CreateCommand(); journal.CommandText = "PRAGMA journal_mode=WAL"; journal.ExecuteScalar();
         using var transaction = connection.BeginTransaction(deferred: false);
         // A second database instance may have migrated while this connection waited for the write lock.
         version.Transaction = transaction;
         schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 3) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 4) throw new IOException(L.DatabaseVersionUnsupported);
         using var schema = connection.CreateCommand(); schema.Transaction = transaction;
         schema.CommandText = """
             CREATE TABLE IF NOT EXISTS worlds(id TEXT PRIMARY KEY NOT NULL);
@@ -166,7 +166,12 @@ public sealed class ClientDatabase(string path)
             schema.CommandText = "ALTER TABLE scripts ADD COLUMN macro_json TEXT; PRAGMA user_version=2;";
             schema.ExecuteNonQuery();
         }
-        schema.CommandText = "PRAGMA user_version=3";
+        if (schemaVersion < 4)
+        {
+            schema.CommandText = "ALTER TABLE scripts ADD COLUMN pack_json TEXT; PRAGMA user_version=4;";
+            schema.ExecuteNonQuery();
+        }
+        schema.CommandText = "PRAGMA user_version=4";
         schema.ExecuteNonQuery();
         transaction.Commit();
     }

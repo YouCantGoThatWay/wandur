@@ -832,4 +832,20 @@ public static class Strings
     public static string VitalsHull => Get(nameof(VitalsHull));
     public static string VitalsFuel => Get(nameof(VitalsFuel));
     public static string VitalsExperience => Get(nameof(VitalsExperience));
+    public static string ScriptPackInvalid => Get(nameof(ScriptPackInvalid));
+    public static string ScriptPackMarker => Get(nameof(ScriptPackMarker));
+    public static string ScriptPackGenerated => Get(nameof(ScriptPackGenerated));
+    public static string ScriptPackReviewed => Get(nameof(ScriptPackReviewed));
+    public static string ScriptPackReadOnly => Get(nameof(ScriptPackReadOnly));
+    public static string ScriptPackAllowSend => Get(nameof(ScriptPackAllowSend));
+    public static string ScriptPackSendRefused => Get(nameof(ScriptPackSendRefused));
+    public static string ScriptDuplicate => Get(nameof(ScriptDuplicate));
+    public static string ScriptDuplicateName => Get(nameof(ScriptDuplicateName));
+    public static string ScriptPanelRejected => Get(nameof(ScriptPanelRejected));
+    public static string ScriptPanelEmpty => Get(nameof(ScriptPanelEmpty));
+    public static string ScriptCompleteMsdp => Get(nameof(ScriptCompleteMsdp));
+    public static string ScriptCompleteState => Get(nameof(ScriptCompleteState));
+    public static string ScriptCompletePanel => Get(nameof(ScriptCompletePanel));
+    public static string ScriptCompleteVariable => Get(nameof(ScriptCompleteVariable));
+    public static string ScriptCompleteValue => Get(nameof(ScriptCompleteValue));
 }

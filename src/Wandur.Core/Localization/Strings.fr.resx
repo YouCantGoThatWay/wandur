@@ -1795,4 +1795,20 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   <data name="VitalsHull" xml:space="preserve"><value>Coque</value></data>
   <data name="VitalsFuel" xml:space="preserve"><value>Carburant</value></data>
   <data name="VitalsExperience" xml:space="preserve"><value>Expérience</value></data>
+  <data name="ScriptPackInvalid" xml:space="preserve"><value>Ce script fourni n'est pas valide et a été ignoré.</value></data>
+  <data name="ScriptPackMarker" xml:space="preserve"><value>Pack</value></data>
+  <data name="ScriptPackGenerated" xml:space="preserve"><value>Généré</value></data>
+  <data name="ScriptPackReviewed" xml:space="preserve"><value>Relu</value></data>
+  <data name="ScriptPackReadOnly" xml:space="preserve"><value>Fourni par l'annuaire des mondes. Dupliquez-le pour créer votre propre version.</value></data>
+  <data name="ScriptPackAllowSend" xml:space="preserve"><value>Autoriser ce script à envoyer des commandes</value></data>
+  <data name="ScriptPackSendRefused" xml:space="preserve"><value>Ce script fourni ne peut envoyer des commandes que depuis un alias ou un bouton de panneau. Activez « Autoriser ce script à envoyer des commandes » pour lever cette limite.</value></data>
+  <data name="ScriptDuplicate" xml:space="preserve"><value>Dupliquer</value></data>
+  <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (copie)</value></data>
+  <data name="ScriptPanelRejected" xml:space="preserve"><value>Une instruction de panneau a été rejetée : {0}</value></data>
+  <data name="ScriptPanelEmpty" xml:space="preserve"><value>Ce panneau ne contient encore aucun élément.</value></data>
+  <data name="ScriptCompleteMsdp" xml:space="preserve"><value>Mises à jour des variables MSDP. Charge : variable: string; value: JSON. Nécessite un serveur compatible.</value></data>
+  <data name="ScriptCompleteState" xml:space="preserve"><value>Les dernières valeurs reçues. state.get(path) lit gmcp.Char.Vitals.hp ou msdp.SHIPHULL.</value></data>
+  <data name="ScriptCompletePanel" xml:space="preserve"><value>Crée ou réutilise un panneau ancré construit à partir de déclarations d'éléments.</value></data>
+  <data name="ScriptCompleteVariable" xml:space="preserve"><value>Le nom de la variable MSDP, par exemple SHIPHULL.</value></data>
+  <data name="ScriptCompleteValue" xml:space="preserve"><value>La valeur MSDP décodée : une chaîne, une liste ou une table.</value></data>
 </root>

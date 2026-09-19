@@ -48,6 +48,8 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     public SessionTab Active { get; private set; }
     public event Action? Changed;
     public event Action? SelectionChanged;
+    /// <summary>Raised when any session's scripts added, changed or removed a docked panel.</summary>
+    public event Action? ScriptPanelsChanged;
     public bool IsBrowsing { get; private set; } = true;
     private ViewModels.WorldBrowserViewModel? _browser;
     internal ViewModels.WorldBrowserViewModel Browser(Wandur.Core.Discovery.WorldCatalog catalog)
@@ -78,6 +80,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         var controller = new WorkspaceController(_displays, _store, _passwords, _maps, _scriptRuntimes, _scriptLibraryStore, _knowledge, _agents, _classification);
         var tab = new SessionTab(controller);
         controller.Changed += () => OnChanged(tab);
+        controller.ScriptLibrary.Panels.Changed += () => { if (!_disposed) ScriptPanelsChanged?.Invoke(); };
         controller.SettingsSaved += settings =>
         {
             foreach (var other in Tabs.Where(t => t != tab)) other.Controller.ApplySettings(settings);
@@ -134,9 +137,11 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         using (SessionOpenTrace.Measure("tab + controller")) tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
         ApplyAppearance();
         var themeCacheFailed = false;
+        Wandur.Core.Discovery.WorldListing? entry = null;
         using (SessionOpenTrace.Measure("catalog theme lookup"))
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)
         {
+            entry = listing;
             // A missing/corrupt optional catalog map must not evict the last valid endpoint-bound copy,
             // and neither must a listing that carries no theme: a directory that has stopped supplying
             // one says nothing about this world's appearance, and the saved theme is what opens offline.
@@ -157,7 +162,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         tab.Profile = profile;
         IsBrowsing = false;
         using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
-        await tab.Controller.StartAsync(profile);
+        await tab.Controller.StartAsync(profile, entry?.SupportedScripts);
         if (themeCacheFailed && tab.Controller.Notice is null) tab.Controller.ShowNotice(L.WorldThemeCouldNotBeSaved);
     }
 

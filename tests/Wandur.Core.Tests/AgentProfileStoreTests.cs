@@ -90,9 +90,12 @@ public sealed class AgentProfileStoreTests : IDisposable
         {
             using var command = connection.CreateCommand();
             command.CommandText = "PRAGMA user_version";
-            Assert.Equal(3L, command.ExecuteScalar());
+            Assert.Equal(4L, command.ExecuteScalar());
             command.CommandText = "SELECT macro_json FROM scripts WHERE id='script'";
             Assert.Equal("{\"steps\":[]}", command.ExecuteScalar());
+            // Version four adds the supplied-script column without touching existing rows.
+            command.CommandText = "SELECT pack_json FROM scripts WHERE id='script'";
+            Assert.Equal(DBNull.Value, command.ExecuteScalar());
             return true;
         });
     }

@@ -1795,4 +1795,20 @@ Pare após receber uma lista do inventário.</value></data>
   <data name="VitalsHull" xml:space="preserve"><value>Casco</value></data>
   <data name="VitalsFuel" xml:space="preserve"><value>Combustível</value></data>
   <data name="VitalsExperience" xml:space="preserve"><value>Experiência</value></data>
+  <data name="ScriptPackInvalid" xml:space="preserve"><value>Esse script fornecido não é válido e foi ignorado.</value></data>
+  <data name="ScriptPackMarker" xml:space="preserve"><value>Pacote</value></data>
+  <data name="ScriptPackGenerated" xml:space="preserve"><value>Gerado</value></data>
+  <data name="ScriptPackReviewed" xml:space="preserve"><value>Revisado</value></data>
+  <data name="ScriptPackReadOnly" xml:space="preserve"><value>Fornecido pelo diretório de mundos. Duplique-o para criar sua própria versão.</value></data>
+  <data name="ScriptPackAllowSend" xml:space="preserve"><value>Permitir que este script envie comandos</value></data>
+  <data name="ScriptPackSendRefused" xml:space="preserve"><value>Este script fornecido só pode enviar comandos a partir de um alias ou de um botão de painel. Ative “Permitir que este script envie comandos” para remover esse limite.</value></data>
+  <data name="ScriptDuplicate" xml:space="preserve"><value>Duplicar</value></data>
+  <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (cópia)</value></data>
+  <data name="ScriptPanelRejected" xml:space="preserve"><value>Uma instrução de painel foi rejeitada: {0}</value></data>
+  <data name="ScriptPanelEmpty" xml:space="preserve"><value>Este painel ainda não tem elementos.</value></data>
+  <data name="ScriptCompleteMsdp" xml:space="preserve"><value>Atualizações de variáveis MSDP. Dados: variable: string; value: JSON. Requer suporte do servidor.</value></data>
+  <data name="ScriptCompleteState" xml:space="preserve"><value>Os últimos valores recebidos. state.get(path) lê gmcp.Char.Vitals.hp ou msdp.SHIPHULL.</value></data>
+  <data name="ScriptCompletePanel" xml:space="preserve"><value>Cria ou reutiliza um painel encaixado construído a partir de declarações de elementos.</value></data>
+  <data name="ScriptCompleteVariable" xml:space="preserve"><value>O nome da variável MSDP, por exemplo SHIPHULL.</value></data>
+  <data name="ScriptCompleteValue" xml:space="preserve"><value>O valor MSDP decodificado: uma cadeia, uma lista ou uma tabela.</value></data>
 </root>

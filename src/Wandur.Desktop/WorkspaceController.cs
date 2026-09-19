@@ -116,7 +116,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         if (Settings.ClassifyRoomsLocally) ScheduleInference(); else CancelInference();
     }
 
-    public async Task StartAsync(ConnectionProfile? profile = null)
+    public async Task StartAsync(ConnectionProfile? profile = null, IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>? packScripts = null)
     {
         if (_disposed) return;
         if (_startPending || IsConnecting || IsConnected) { ShowNotice(L.DisconnectFromTheCurrentWorldBeforeStartingAnotherSession); return; }
@@ -147,7 +147,10 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             using (SessionOpenTrace.Measure("transcript reset")) { History = new(); ClearTranscript(); _promptTerminal.Clear(); }
             using (SessionOpenTrace.Measure("mapping start")) StartMapping(profile, session);
             using (SessionOpenTrace.Measure("script library"))
+            {
                 ScriptLibrary.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}", WorldName);
+                ScriptLibrary.ApplyPack(packScripts ?? []);
+            }
             using (SessionOpenTrace.Measure("agent profile"))
                 Agent?.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}");
             using (SessionOpenTrace.Measure("diagnostics reset")) Diagnostics.ClearCommand.Execute(null);
@@ -277,6 +280,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             Diagnostics.AppendContent(item.Message.ReceivedAt, item.Message.Option, item.Message.Content);
             if (payload is not null) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
             FeedAgentProtocol(item.Message.Option, payload);
+            // Raw MSDP reaches scripts the same way GMCP does, one event per variable, never while private.
+            if (payload is not null && item.Message.Option == 69)
+                foreach (var variable in MsdpScriptEvents.Decode(payload)) ScriptLibrary.Publish(variable);
         }
         foreach (var chunk in scriptChunks)
         {

@@ -24,6 +24,8 @@ public sealed class ScriptLibraryView : UserControl
         var add = Action(nameof(L.ScriptNew), "NewWorldScript", model.NewCommand, "M 8,2 V 14 M 2,8 H 14");
         var delete = Action(nameof(L.ScriptDelete), "DeleteWorldScript", model.RequestDeleteCommand, "M 2,4 H 14 M 6,4 V 2 H 10 V 4 M 4,4 L 5,14 H 11 L 12,4 M 7,7 V 11 M 9,7 V 11");
         delete.Bind(IsEnabledProperty, new Binding(nameof(model.HasSelected)));
+        var duplicate = Action(nameof(L.ScriptDuplicate), "DuplicateWorldScript", model.DuplicateCommand, "M 5,2 H 13 V 11 M 3,5 H 11 V 14 H 3 Z");
+        duplicate.Bind(IsEnabledProperty, new Binding(nameof(model.HasSelected)));
         var save = Action(nameof(L.ScriptSave), "SaveWorldScript", model.SaveCommand, "M 2,2 H 11 L 14,5 V 14 H 2 Z M 5,2 V 6 H 10 V 2 M 5,14 V 9 H 11 V 14");
         save.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.ScriptLibrarySaveHint)));
         save.IsVisible = !saveWithDialog;
@@ -45,8 +47,12 @@ public sealed class ScriptLibraryView : UserControl
             Ui.TextKey(nameof(L.ScriptCompletionHint), 12, "muted"),
             new ScrollViewer { MaxHeight = 320, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, Content = examples }
         } } };
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Children = { add, delete, save } };
-        var utilities = new StackPanel { Orientation = Orientation.Horizontal, Children = { enabled, outputToggle, help } };
+        var allowSend = new CheckBox { Name = "AllowPackScriptSend", FontSize = 11, Margin = new Thickness(8, 0), VerticalAlignment = VerticalAlignment.Center };
+        allowSend.Bind(ContentControl.ContentProperty, LocalizedText.Binding(nameof(L.ScriptPackAllowSend)));
+        allowSend.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.AllowSend)) { Mode = BindingMode.TwoWay });
+        allowSend.Bind(IsVisibleProperty, new Binding(nameof(model.IsPack)));
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Children = { add, duplicate, delete, save } };
+        var utilities = new StackPanel { Orientation = Orientation.Horizontal, Children = { allowSend, enabled, outputToggle, help } };
         var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 8, Children = { actions, nameBox, utilities } };
         Grid.SetColumn(nameBox, 1); Grid.SetColumn(utilities, 2);
         var toolbar = Ui.Toolbar(bar, "ScriptEditorToolbar");
@@ -60,11 +66,17 @@ public sealed class ScriptLibraryView : UserControl
             var name = Ui.Text("", 12); name.TextTrimming = TextTrimming.CharacterEllipsis; name.TextWrapping = TextWrapping.NoWrap;
             name.Bind(TextBlock.TextProperty, new Binding(nameof(item.Name)));
             var status = Ui.Text("", 10, "muted"); status.Bind(TextBlock.TextProperty, new Binding(nameof(item.Status)));
-            return new StackPanel { Spacing = 3, Margin = new Thickness(3, 4), Children = { name, status } };
+            var pack = Ui.Text("", 10, "muted"); pack.Name = "WorldScriptPackMarker";
+            pack.Bind(TextBlock.TextProperty, new Binding(nameof(item.PackLabel)));
+            pack.Bind(IsVisibleProperty, new Binding(nameof(item.IsPack)));
+            return new StackPanel { Spacing = 3, Margin = new Thickness(3, 4), Children = { name, status, pack } };
         });
         var source = new ScriptCodeEditor { Name = "WorldScriptSource" };
         source.Bind(ScriptCodeEditor.SourceTextProperty, new Binding(nameof(model.Source)) { Mode = BindingMode.TwoWay });
         source.Bind(IsVisibleProperty, new Binding(nameof(model.HasSelected)));
+        // A supplied script is shown, never edited in place; the user duplicates it to make changes.
+        source.Bind(AvaloniaEdit.TextEditor.IsReadOnlyProperty, new Binding(nameof(model.IsReadOnly)));
+        nameBox.Bind(TextBox.IsReadOnlyProperty, new Binding(nameof(model.IsReadOnly)));
         var empty = Ui.TextKey(nameof(L.ScriptLibraryEmpty), 14, "muted"); empty.Margin = new Thickness(20);
         empty.Bind(IsVisibleProperty, new Binding(nameof(model.IsEmpty)));
         var editorHost = new Grid { Children = { source, empty } };
@@ -84,7 +96,16 @@ public sealed class ScriptLibraryView : UserControl
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { confirmDelete, cancelDelete } }
         } };
         confirm.Bind(IsVisibleProperty, new Binding(nameof(model.ConfirmDelete)));
-        var notices = new StackPanel { Children = { errorScroll, confirm } };
+        var packLabel = Ui.Text("", 11, "muted"); packLabel.Name = "PackScriptProvenance";
+        packLabel.Bind(TextBlock.TextProperty, new Binding(nameof(model.PackLabel)));
+        var packNotice = Ui.TextKey(nameof(L.ScriptPackReadOnly), 11, "muted");
+        packNotice.TextWrapping = TextWrapping.Wrap;
+        var packDescription = Ui.Text("", 11, "muted"); packDescription.TextWrapping = TextWrapping.Wrap;
+        packDescription.Bind(TextBlock.TextProperty, new Binding(nameof(model.PackDescription)));
+        packDescription.Bind(IsVisibleProperty, new Binding(nameof(model.HasPackDescription)));
+        var pack = new StackPanel { Name = "PackScriptNotice", Spacing = 3, Margin = new Thickness(10, 4), Children = { packLabel, packNotice, packDescription } };
+        pack.Bind(IsVisibleProperty, new Binding(nameof(model.IsPack)));
+        var notices = new StackPanel { Children = { pack, errorScroll, confirm } };
 
         var output = new TextBox { Name = "WorldScriptOutput", IsReadOnly = true, AcceptsReturn = true, FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono"), FontSize = 12, TextWrapping = TextWrapping.Wrap, Height = 130, Margin = new Thickness(4) };
         output.Bind(TextBox.TextProperty, new Binding(nameof(model.Log)));

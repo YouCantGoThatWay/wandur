@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "title": "Wandur world scripting API",
+  "description": "Machine-readable summary of the JavaScript API a Wandur world script may use. Scripts run in an isolated worker with no host, filesystem, network or package APIs. Everything a script can reach is listed here.",
+  "globals": [
+    {
+      "name": "mud",
+      "description": "The frozen session object. Every capability a script has is a member of it.",
+      "members": [
+        { "name": "send", "kind": "function", "signature": "mud.send(command)", "description": "Sends one command to the world. Bypasses aliases and manual history. Rejects control characters." },
+        { "name": "echo", "kind": "function", "signature": "mud.echo(text)", "description": "Writes local text to the transcript and this script's output. Never re-enters line events." },
+        { "name": "alias", "kind": "function", "signature": "mud.alias(pattern, callback)", "description": "Matches a typed command. The first matching alias consumes it. The callback receives a regex match array." },
+        { "name": "trigger", "kind": "function", "signature": "mud.trigger(pattern, callback)", "description": "Matches a complete server line. Every matching trigger runs. The callback receives a regex match array." },
+        { "name": "on", "kind": "function", "signature": "mud.on(event, callback)", "description": "Subscribes to Events.Line, Events.Gmcp, Events.Msdp or Events.Key." },
+        { "name": "every", "kind": "function", "signature": "mud.every(seconds, callback)", "description": "Repeats a synchronous callback. Missed intervals are not replayed in a burst." },
+        { "name": "panel", "kind": "function", "signature": "mud.panel(id, options)", "description": "Creates or reuses a docked panel and returns its widget builder. Options are { title, dock } where dock is left or right.", "options": [
+            { "name": "title", "type": "string", "required": false, "description": "The dock tool title. Defaults to the panel id, and is kept when a later call omits it." },
+            { "name": "dock", "type": "string", "required": false, "values": ["left", "right"], "default": "right", "description": "Which side of the workspace the tool docks to." }
+        ] },
+        { "name": "state", "kind": "namespace", "description": "The latest protocol values this session has received, cached in the worker.", "members": [
+            { "name": "get", "kind": "function", "signature": "mud.state.get(path)", "description": "The value at gmcp.<Package>.<field>... or msdp.<VARIABLE>, or undefined when unknown. Objects are returned as copies." },
+            { "name": "snapshot", "kind": "function", "signature": "mud.state.snapshot()", "description": "A copy of the whole cache as { gmcp, msdp }." }
+        ] }
+      ]
+    },
+    {
+      "name": "Events",
+      "description": "Frozen event constants. The object cannot be replaced or extended.",
+      "members": [
+        { "name": "Line", "kind": "constant", "value": "line" },
+        { "name": "Gmcp", "kind": "constant", "value": "gmcp" },
+        { "name": "Msdp", "kind": "constant", "value": "msdp" },
+        { "name": "Key", "kind": "constant", "value": "key" }
+      ]
+    }
+  ],
+  "events": [
+    { "constant": "Line", "value": "line", "payload": [ { "name": "text", "type": "string", "description": "One completed server line with ANSI styling removed." } ] },
+    { "constant": "Gmcp", "value": "gmcp", "payload": [
+        { "name": "package", "type": "string", "description": "The GMCP package name, for example Char.Vitals." },
+        { "name": "data", "type": "json|null", "description": "Parsed JSON from the server, or null when the message carries only a package name." } ] },
+    { "constant": "Msdp", "value": "msdp", "payload": [
+        { "name": "variable", "type": "string", "description": "The MSDP variable name, for example SHIPHULL." },
+        { "name": "value", "type": "json", "description": "The decoded value: a string, an array or a table. Numbers sent as text stay strings." } ] },
+    { "constant": "Key", "value": "key", "payload": [ { "name": "text", "type": "string", "description": "The function key name. Used internally by generated shortcut macros." } ] }
+  ],
+  "state": {
+    "paths": [
+      { "pattern": "gmcp.<Package>.<field>...", "example": "gmcp.Char.Vitals.hp", "description": "A GMCP package name is split on dots, so Char.Vitals is nested under Char." },
+      { "pattern": "msdp.<VARIABLE>", "example": "msdp.SHIPHULL", "description": "One entry per MSDP variable, using the variable name exactly as received." }
+    ],
+    "notes": [
+      "The cache is fed by the same privacy-gated events a script receives, so nothing private ever enters it.",
+      "An unknown path returns undefined, never null.",
+      "Values are copies: changing what get or snapshot returned does not change the cache."
+    ]
+  },
+  "panel": {
+    "methods": [
+      { "name": "remove", "signature": "panel.remove(widgetId)", "description": "Removes one widget and its callback." },
+      { "name": "show", "signature": "panel.show()", "description": "Shows the docked tool again after hide." },
+      { "name": "hide", "signature": "panel.hide()", "description": "Hides the docked tool without discarding the panel." },
+      { "name": "close", "signature": "panel.close()", "description": "Closes the tool and forgets the panel and its callbacks." }
+    ],
+    "widgets": [
+      { "kind": "gauge", "signature": "panel.gauge(id, props)", "control": "resource bar", "properties": [
+          { "name": "label", "type": "string", "required": false, "description": "Caption. Defaults to the widget id." },
+          { "name": "value", "type": "number", "required": false, "default": 0, "description": "Current amount." },
+          { "name": "max", "type": "number", "required": false, "default": 100, "description": "Full amount." },
+          { "name": "warn", "type": "number", "required": false, "description": "Fraction of max at or below which the bar turns to the warning color." } ], "callbacks": [] },
+      { "kind": "label", "signature": "panel.label(id, props)", "control": "text block", "properties": [
+          { "name": "text", "type": "string", "required": false, "default": "", "description": "One line of text; it wraps when it is long." } ], "callbacks": [] },
+      { "kind": "text", "signature": "panel.text(id, props)", "control": "read-only wrapped text block", "properties": [
+          { "name": "text", "type": "string", "required": false, "default": "", "description": "Multi-line read-only text." } ], "callbacks": [] },
+      { "kind": "list", "signature": "panel.list(id, props)", "control": "list box", "properties": [
+          { "name": "title", "type": "string", "required": false, "description": "Caption above the list." },
+          { "name": "items", "type": "string[]", "required": false, "default": [], "maximum": 500, "description": "Rows, in order." } ],
+        "callbacks": [ { "name": "onSelect", "event": "select", "argument": "the selected item as a string" } ] },
+      { "kind": "table", "signature": "panel.table(id, props)", "control": "grid of text blocks", "properties": [
+          { "name": "title", "type": "string", "required": false, "description": "Caption above the table." },
+          { "name": "columns", "type": "string[]", "required": false, "default": [], "maximum": 32, "description": "Heading cells." },
+          { "name": "rows", "type": "string[][]", "required": false, "default": [], "maximum": 500, "description": "Rows of cells. Numbers and booleans are converted to strings." } ], "callbacks": [] },
+      { "kind": "button", "signature": "panel.button(id, props)", "control": "button", "properties": [
+          { "name": "label", "type": "string", "required": false, "description": "Button text. Defaults to the widget id." } ],
+        "callbacks": [ { "name": "onClick", "event": "click", "argument": "null" } ] },
+      { "kind": "toggle", "signature": "panel.toggle(id, props)", "control": "check box", "properties": [
+          { "name": "label", "type": "string", "required": false, "description": "Caption. Defaults to the widget id." },
+          { "name": "value", "type": "boolean", "required": false, "default": false, "description": "Whether the toggle starts on." } ],
+        "callbacks": [ { "name": "onChange", "event": "change", "argument": "the new state as a boolean" } ] },
+      { "kind": "input", "signature": "panel.input(id, props)", "control": "text box", "properties": [
+          { "name": "placeholder", "type": "string", "required": false, "description": "Hint shown while the box is empty." },
+          { "name": "value", "type": "string", "required": false, "description": "Text to place in the box." } ],
+        "callbacks": [ { "name": "onSubmit", "event": "submit", "argument": "the typed text as a string; the box is cleared" } ] },
+      { "kind": "separator", "signature": "panel.separator(id)", "control": "separator", "properties": [], "callbacks": [] },
+      { "kind": "group", "signature": "panel.group(id, props)", "control": "bordered section", "properties": [
+          { "name": "title", "type": "string", "required": false, "description": "Section heading." },
+          { "name": "children", "type": "string[]", "required": false, "default": [], "maximum": 64, "description": "Widget ids to render inside the section, in order. A widget belongs to the first group that claims it." } ], "callbacks": [] }
+    ],
+    "actions": [
+      { "action": "create", "json": "{\"panel\":\"<id>\",\"action\":\"create\",\"title\":\"<title>\",\"dock\":\"left|right\"}" },
+      { "action": "widget", "json": "{\"panel\":\"<id>\",\"action\":\"widget\",\"widget\":\"<id>\",\"kind\":\"<kind>\",\"props\":{}}" },
+      { "action": "remove", "json": "{\"panel\":\"<id>\",\"action\":\"remove\",\"widget\":\"<id>\"}" },
+      { "action": "show", "json": "{\"panel\":\"<id>\",\"action\":\"show\"}" },
+      { "action": "hide", "json": "{\"panel\":\"<id>\",\"action\":\"hide\"}" },
+      { "action": "close", "json": "{\"panel\":\"<id>\",\"action\":\"close\"}" }
+    ],
+    "callbackEvent": {
+      "json": "{\"panel\":\"<id>\",\"widget\":\"<id>\",\"event\":\"click|change|submit|select\",\"value\":null}",
+      "description": "The client sends this back to the worker, which runs the registered handler under the same limits as a trigger."
+    },
+    "identifiers": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+      "description": "Panel and widget ids are 1 to 64 characters of letters, digits, dot, dash or underscore."
+    },
+    "notes": [
+      "A panel is data; the client renders it with native controls and the current theme's brushes.",
+      "Declaring a widget that already exists updates its properties in place instead of rebuilding the panel.",
+      "Panels belong to one session and disappear when their script stops or the session closes.",
+      "Every limit violation is reported as a script error; it never crashes the client."
+    ]
+  },
+  "packScripts": {
+    "description": "Scripts a world directory supplies with a listing. They are added to the world's library on open, marked as a pack, shown read-only and enabled by default.",
+    "listingFields": [
+      { "name": "id", "type": "string", "description": "Stable identifier within the world. A library entry is keyed by it." },
+      { "name": "name", "type": "string", "description": "The name shown in the Scripts page." },
+      { "name": "description", "type": "string", "description": "What the script does, shown beside the source." },
+      { "name": "source", "type": "string", "description": "The JavaScript source." },
+      { "name": "provenance", "type": "string", "values": ["generated", "reviewed"], "description": "How the script was produced. Any other value is ignored." },
+      { "name": "version", "type": "integer", "description": "Bumping it replaces the source on the next open." }
+    ],
+    "sendPolicy": {
+      "default": "restricted",
+      "allowedFrom": ["alias", "panel button click"],
+      "refusedFrom": ["trigger", "timer", "line event", "gmcp event", "msdp event", "key event", "panel toggle, input and list callbacks", "top-level code"],
+      "description": "A refused mud.send throws a script error naming the policy and stops that script. The user lifts the restriction per script with the Scripts page toggle \"Allow this script to send commands\"."
+    },
+    "refresh": {
+      "description": "A pack script is replaced when the listing version changes. The user's enable and send-policy choices are kept, so a disabled pack script stays disabled.",
+      "userEdits": "Pack source is read-only. Duplicating a pack script produces an ordinary hand-written script with no policy."
+    }
+  },
+  "limits": {
+    "scriptsPerWorld": 64,
+    "sourceBytes": 262144,
+    "hooksPerScript": 256,
+    "sendAndEchoActionsPerEvent": 32,
+    "sendAndEchoCharactersPerEvent": 32768,
+    "sendCharacters": 4096,
+    "echoCharacters": 8192,
+    "eventCharacters": 32768,
+    "queuedEventsPerScript": 128,
+    "sendsPerSecond": 20,
+    "sendsPerMinute": 200,
+    "timerSecondsMinimum": 1,
+    "timerSecondsMaximum": 2147483,
+    "panelsPerScript": 8,
+    "widgetsPerPanel": 64,
+    "panelActionsPerEvent": 32,
+    "panelActionCharacters": 65536,
+    "panelCharactersPerEvent": 262144,
+    "propertyStringCharacters": 4096,
+    "listItems": 500,
+    "tableRows": 500,
+    "tableColumns": 32,
+    "groupChildren": 64,
+    "statePathCharacters": 512,
+    "stateEntriesPerBucket": 512,
+    "stateValueCharacters": 32768,
+    "stateBucketCharacters": 262144,
+    "msdpVariablesPerPayload": 64,
+    "msdpValueCharacters": 8192,
+    "workerTimeoutSeconds": 2
+  }
+}
