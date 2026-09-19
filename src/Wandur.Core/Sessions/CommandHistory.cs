@@ -6,6 +6,9 @@ public sealed class CommandHistory
     private int _position;
     private string _draft = "";
 
+    /// <summary>Public commands, oldest first. Private input never enters, so completion may read this directly.</summary>
+    public IReadOnlyList<string> Entries => _entries;
+
     public void Add(string command, bool isPrivate = false)
     {
         if (!isPrivate && !string.IsNullOrWhiteSpace(command) && _entries.LastOrDefault() != command)

@@ -2,12 +2,16 @@ using L = Wandur.Core.Localization.Strings;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using Wandur.Core.Input;
 
 namespace Wandur.Desktop.Views;
 
@@ -34,6 +38,12 @@ public sealed class TerminalView : UserControl
     private bool _syncingPrivate;
     private bool _sending;
     private bool _wasPrivate;
+    // Inline completion: the ghost is a muted TextBlock laid over the command box, placed after the typed text
+    // by the text presenter's own layout. It is never part of the text, so it can never be sent or selected.
+    private readonly TextBlock _ghost = new() { Name = "CompletionGhost", IsHitTestVisible = false, IsVisible = false, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, TextWrapping = TextWrapping.NoWrap, FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono") };
+    private readonly Panel _ghostHost = new() { Name = "CompletionGhostHost", IsHitTestVisible = false, ClipToBounds = true };
+    private string? _suggestion;
+    private string? _dismissedDraft;
 
     public TerminalView(WorkspaceController controller, Action<int>? editConfiguration = null)
     {
@@ -74,9 +84,18 @@ public sealed class TerminalView : UserControl
         _input.KeyDown += async (_, args) =>
         {
             if (args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None) { args.Handled = true; await Send(); }
+            // Tab and Right at the end of the text take the ghost; Escape puts it away until the draft changes.
+            // Without a ghost showing, every one of these keys keeps its ordinary meaning.
+            else if (_suggestion is not null && args.KeyModifiers == KeyModifiers.None && (args.Key == Key.Tab || (args.Key == Key.Right && _input.CaretIndex == (_input.Text ?? "").Length))) { AcceptSuggestion(); args.Handled = true; }
+            else if (_suggestion is not null && args.Key == Key.Escape && args.KeyModifiers == KeyModifiers.None) { _dismissedDraft = _input.Text ?? ""; RefreshSuggestion(); args.Handled = true; }
             else if (args.Key == Key.Up && !controller.IsPrivate) { _input.Text = controller.History.Previous(_input.Text ?? ""); _input.CaretIndex = _input.Text.Length; args.Handled = true; }
             else if (args.Key == Key.Down && !controller.IsPrivate) { _input.Text = controller.History.Next(); _input.CaretIndex = _input.Text.Length; args.Handled = true; }
         };
+        _ghost.Classes.Add("muted");
+        _ghostHost.Children.Add(_ghost);
+        _input.PropertyChanged += (_, args) => { if (args.Property == TextBox.TextProperty || args.Property == TextBox.CaretIndexProperty) RefreshSuggestion(); };
+        // The presenter scrolls to keep the caret in view after a layout pass, so the ghost follows it then.
+        _input.LayoutUpdated += (_, _) => { if (_suggestion is not null) PlaceGhost(); };
         _welcome = new Border
         {
             Padding = new Thickness(36), VerticalAlignment = VerticalAlignment.Center, MaxWidth = 520,
@@ -99,6 +118,7 @@ public sealed class TerminalView : UserControl
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 10 };
         entry.Children.Add(actions);
         Grid.SetColumn(_input, 1); entry.Children.Add(_input);
+        Grid.SetColumn(_ghostHost, 1); entry.Children.Add(_ghostHost);
         Grid.SetColumn(_send, 2); entry.Children.Add(_send);
         var composer = new Border { Name = "Composer", Padding = new Thickness(4, 4), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
         composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
@@ -131,7 +151,7 @@ public sealed class TerminalView : UserControl
         _footerHint.VerticalAlignment = VerticalAlignment.Center;
         _footerHint.TextWrapping = TextWrapping.NoWrap;
         _footerHint.TextTrimming = TextTrimming.CharacterEllipsis;
-        _footerHint.MaxWidth = 260;
+        _footerHint.MaxWidth = 280;
         // The agent status keeps the room it needs: the hint is the first thing to go on a narrow bar.
         tabBar.SizeChanged += (_, args) => _footerHint.IsVisible = args.NewSize.Width >= 640;
         _privateToggle.Classes.Add("command-bar-button");
@@ -234,11 +254,69 @@ public sealed class TerminalView : UserControl
         _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
         _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
         _resources.Update(_controller.GameState, _controller.IsConnected);
-        _footerHint.Text = _controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : L.CommandHistoryEnterSend;
         _syncingPrivate = true;
         _privateToggle.IsChecked = _controller.ManualPrivate;
         _syncingPrivate = false;
+        RefreshSuggestion();
         RefreshScroll();
+    }
+
+    /// <summary>
+    /// Works out what the ghost should say for the current draft. Line completion from the history wins over
+    /// word completion from the trie; nothing is offered while private, with the setting off, after Escape,
+    /// or with the caret away from the end. The footer hint names Tab only while a ghost is showing.
+    /// </summary>
+    private void RefreshSuggestion()
+    {
+        var text = _input.Text ?? "";
+        if (_dismissedDraft is not null && _dismissedDraft != text) _dismissedDraft = null;
+        _suggestion = _controller.Settings.ComposerSuggestions && _dismissedDraft is null && _input.IsEnabled
+            ? CompletionSuggester.Suggest(text, _input.CaretIndex, _controller.IsPrivate, _controller.History.Entries, _controller.Completions.Words)
+            : null;
+        _ghost.Text = _suggestion;
+        _ghost.IsVisible = _suggestion is not null;
+        if (_suggestion is not null) PlaceGhost();
+        _footerHint.Text = _controller.IsPrivate ? L.PrivateHiddenFromEchoAndHistory : _suggestion is not null ? L.CommandHintTabComplete : L.CommandHistoryEnterSend;
+    }
+
+    /// <summary>The typed prefix stays as typed; the remainder arrives in the casing it was last seen with.</summary>
+    private void AcceptSuggestion()
+    {
+        if (_suggestion is null) return;
+        _input.Text = (_input.Text ?? "") + _suggestion;
+        _input.CaretIndex = _input.Text.Length;
+        _input.ClearSelection();
+        RefreshSuggestion();
+    }
+
+    /// <summary>
+    /// Puts the ghost where the caret is: the end of the last line of the presenter's own text layout,
+    /// translated into the overlay, which is inset by the box's border and padding and clips at them.
+    /// Before the template exists the same font measures the draft instead.
+    /// </summary>
+    private void PlaceGhost()
+    {
+        var text = _input.Text ?? "";
+        _ghost.FontSize = _input.FontSize;
+        var border = _input.BorderThickness;
+        var padding = _input.Padding;
+        var inset = new Thickness(border.Left + padding.Left, border.Top, border.Right + padding.Right, border.Bottom);
+        if (_ghostHost.Margin != inset) _ghostHost.Margin = inset;
+        Point? origin = null;
+        var presenter = _input.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault();
+        if (presenter?.TextLayout is { TextLines.Count: > 0 } layout && string.Equals(presenter.Text ?? "", text, StringComparison.Ordinal))
+        {
+            var line = layout.TextLines[^1];
+            var x = line.GetDistanceFromCharacterHit(new CharacterHit(text.Length));
+            origin = presenter.TranslatePoint(new Point(x, layout.Height - line.Height), _ghostHost);
+        }
+        if (origin is null)
+        {
+            var measure = new TextLayout(text, new Typeface(_input.FontFamily), _input.FontSize, null);
+            origin = new Point(measure.WidthIncludingTrailingWhitespace, Math.Max(0, (_ghostHost.Bounds.Height - measure.Height) / 2));
+        }
+        var margin = new Thickness(Math.Max(0, origin.Value.X), Math.Max(0, origin.Value.Y), 0, 0);
+        if (_ghost.Margin != margin) _ghost.Margin = margin;
     }
     private void RefreshScroll()
     {

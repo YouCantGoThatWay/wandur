@@ -65,6 +65,12 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   a live view while scrolled up: the transcript splits with a draggable
   divider and the lower part keeps scrolling, share stored as
   `ScrollTailShare` (7c716c2, c616c06).
+- Inline completion (branch `feature/composer-complete`): the composer shows a
+  muted ghost after the typed text from `Wandur.Core.Input` (a bounded
+  case-insensitive trie fed by public server lines and sent commands, one per
+  session, plus whole lines from `CommandHistory.Entries`); Tab or Right at the
+  end accepts, Escape hides, `ClientSettings.ComposerSuggestions` turns it off.
+  See the Inline completion section of `docs/client-architecture.md`.
 - Last green run on main (September 19, after 061c31a): Core 475,
   Desktop 315; `artifacts/macos/Wandur.app` rebuilt by
   `scripts/package-macos.sh`. The discovery suite (25) now runs in

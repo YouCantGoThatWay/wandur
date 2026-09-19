@@ -1823,4 +1823,7 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ScriptCompleteVariable" xml:space="preserve"><value>The MSDP variable name, for example SHIPHULL.</value></data>
   <data name="ScriptCompleteValue" xml:space="preserve"><value>The decoded MSDP value: a string, a list or a table.</value></data>
   <data name="ScriptCompleteFormat" xml:space="preserve"><value>Display text for any value: null gives an empty string, arrays join with commas and objects become key: value pairs.</value></data>
+  <data name="ComposerSuggestions" xml:space="preserve"><value>Suggest completions while typing</value></data>
+  <data name="ComposerSuggestionsHint" xml:space="preserve"><value>Grayed text after what you type comes from your command history and words seen in this world. Tab or Right arrow accepts it, Escape hides it.</value></data>
+  <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ history · Tab complete · Enter send</value></data>
 </root>

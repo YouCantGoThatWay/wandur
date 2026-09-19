@@ -860,4 +860,7 @@ public static class Strings
     public static string ScriptCompleteVariable => Get(nameof(ScriptCompleteVariable));
     public static string ScriptCompleteValue => Get(nameof(ScriptCompleteValue));
     public static string ScriptCompleteFormat => Get(nameof(ScriptCompleteFormat));
+    public static string ComposerSuggestions => Get(nameof(ComposerSuggestions));
+    public static string ComposerSuggestionsHint => Get(nameof(ComposerSuggestionsHint));
+    public static string CommandHintTabComplete => Get(nameof(CommandHintTabComplete));
 }
