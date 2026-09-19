@@ -17,8 +17,8 @@
             { "name": "title", "type": "string", "required": false, "description": "The dock tool title. Defaults to the panel id, and is kept when a later call omits it." },
             { "name": "dock", "type": "string", "required": false, "values": ["left", "right"], "default": "right", "description": "Which side of the workspace the tool docks to." }
         ] },
-        { "name": "state", "kind": "namespace", "description": "The latest protocol values this session has received, cached in the worker.", "members": [
-            { "name": "get", "kind": "function", "signature": "mud.state.get(path)", "description": "The value at gmcp.<Package>.<field>... or msdp.<VARIABLE>, or undefined when unknown. Objects are returned as copies." },
+        { "name": "state", "kind": "namespace", "description": "The latest protocol values this session has received, cached in the worker and seeded from the client when the script starts.", "members": [
+            { "name": "get", "kind": "function", "signature": "mud.state.get(path)", "description": "The value at gmcp.<Package>.<field>... or msdp.<VARIABLE>, or undefined when unknown. Objects are returned as copies. Reading an unknown msdp.<VARIABLE> also asks the world once to report it; the value then arrives as an Events.Msdp event." },
             { "name": "snapshot", "kind": "function", "signature": "mud.state.snapshot()", "description": "A copy of the whole cache as { gmcp, msdp }." }
         ] }
       ]
@@ -49,10 +49,20 @@
       { "pattern": "gmcp.<Package>.<field>...", "example": "gmcp.Char.Vitals.hp", "description": "A GMCP package name is split on dots, so Char.Vitals is nested under Char." },
       { "pattern": "msdp.<VARIABLE>", "example": "msdp.SHIPHULL", "description": "One entry per MSDP variable, using the variable name exactly as received." }
     ],
+    "seed": {
+      "description": "When a script starts or restarts, the client sends everything it has received this session (including values that arrived during login, before the script ran) to the worker before the first line of the script runs. No Events.Gmcp or Events.Msdp callback fires for seeded values, so subscribe with mud.on and call your refresh function once at load.",
+      "json": "{\"gmcp\":{\"<Package>\":<json>},\"msdp\":{\"<VARIABLE>\":<json>}}"
+    },
+    "report": {
+      "description": "mud.state.get(\"msdp.<VARIABLE>\") for a variable the cache does not hold asks the world once, per script, to report it (MSDP REPORT then SEND). The answer arrives as an Events.Msdp event and enters the cache. Variables the world's mapping already reports are not asked for again.",
+      "namePattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$",
+      "maximumPerScript": 64
+    },
     "notes": [
       "The cache is fed by the same privacy-gated events a script receives, so nothing private ever enters it.",
       "An unknown path returns undefined, never null.",
-      "Values are copies: changing what get or snapshot returned does not change the cache."
+      "Values are copies: changing what get or snapshot returned does not change the cache.",
+      "The cache is seeded from the client when the script starts, so mud.state.get works from the first line."
     ]
   },
   "panel": {
@@ -170,6 +180,8 @@
     "stateBucketCharacters": 262144,
     "msdpVariablesPerPayload": 64,
     "msdpValueCharacters": 8192,
+    "msdpReportsPerScript": 64,
+    "stateSeedCharacters": 1048576,
     "workerTimeoutSeconds": 2
   }
 }

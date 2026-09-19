@@ -17,7 +17,9 @@ public sealed class SessionScripts(
     Func<string, Task<bool>> send,
     Action<string> echo,
     Action<ScriptPanelAction>? panels = null,
-    Func<bool>? restrictedSend = null) : IAsyncDisposable
+    Func<bool>? restrictedSend = null,
+    Func<string?>? seedState = null,
+    Action<string>? report = null) : IAsyncDisposable
 {
     private sealed record Work(ScriptEvent Input, long PrivacyEpoch, TaskCompletionSource<bool>? Completion = null);
     private readonly ScriptLineBuffer _lines = new();
@@ -88,6 +90,13 @@ public sealed class SessionScripts(
             _runtime = runtime;
             var source = Source;
             var restricted = restrictedSend?.Invoke() == true;
+            // The host's protocol cache goes first, so mud.state.get answers from the script's first line.
+            if (seedState?.Invoke() is { } seed)
+            {
+                var seeded = await Task.Run(() => runtime.DispatchAsync(new("state", seed), token), token);
+                if (generation != _generation) return;
+                if (seeded.Error is not null) { Fail(seeded.Error); return; }
+            }
             var result = await Task.Run(() => runtime.LoadAsync(source, token, restricted), token);
             if (generation != _generation) return;
             if (result.Error is not null) { Fail(result.Error); return; }
@@ -250,6 +259,11 @@ public sealed class SessionScripts(
                 try { panel = ScriptPanelAction.Parse(action.Text); }
                 catch (FormatException error) { Fail(L.Format(L.ScriptPanelRejected, error.Message)); return false; }
                 panels?.Invoke(panel);
+            }
+            else if (action.Kind == "report")
+            {
+                // The script read an MSDP variable the world has not sent; the session asks for it once.
+                if (JavaScriptEngine.IsValidMsdpName(action.Text)) report?.Invoke(action.Text);
             }
         }
         return true;

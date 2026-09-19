@@ -81,6 +81,30 @@ public sealed class ScriptRuntimeTests
     }
 
     [Fact]
+    public async Task RealWorkerAppliesAStateSeedBeforeTheScriptAndReportsUnknownVariables()
+    {
+        await using var runtime = CreateRuntime();
+        var seeded = await runtime.DispatchAsync(new("state", """{"gmcp":{"Char.Vitals":{"hp":9}},"msdp":{"HEALTH":"100"}}"""));
+        Assert.Null(seeded.Error);
+        Assert.Empty(seeded.Actions);
+        var loaded = await runtime.LoadAsync("""
+            mud.on(Events.Msdp, () => mud.echo("fired"));
+            mud.echo("health:" + mud.state.get("msdp.HEALTH") + " hp:" + mud.state.get("gmcp.Char.Vitals.hp"));
+            mud.echo("level:" + mud.state.get("msdp.LEVELCOMBAT"));
+            mud.alias(/^again$/, () => mud.echo("level:" + mud.state.get("msdp.LEVELCOMBAT")));
+            """);
+        Assert.Null(loaded.Error);
+        Assert.Equal(
+        [
+            new ScriptAction("echo", "health:100 hp:9"),
+            new ScriptAction("report", "LEVELCOMBAT"),
+            new ScriptAction("echo", "level:undefined")
+        ], loaded.Actions);
+        Assert.Equal([new ScriptAction("echo", "level:undefined")], (await runtime.DispatchAsync(new("command", "again"))).Actions);
+        Assert.True(runtime.IsRunning);
+    }
+
+    [Fact]
     public async Task RealWorkerPreservesUnicodeInSourceEventsAndActions()
     {
         await using var runtime = CreateRuntime();

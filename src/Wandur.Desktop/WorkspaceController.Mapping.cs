@@ -92,6 +92,7 @@ public sealed partial class WorkspaceController
                 {
                     ProtocolEvidence = ProtocolEvidence with { Gmcp = state.Gmcp, Msdp = state.Msdp };
                     _ = RefreshMappedProtocolSubscriptionAsync();
+                    _ = RefreshScriptReportsAsync();
                     Changed?.Invoke();
                 });
             };
@@ -116,7 +117,7 @@ public sealed partial class WorkspaceController
                         (room.Area?.Length ?? 0) + (room.Environment?.Length ?? 0) + room.Exits.Sum(exit => exit.Key.Length + (exit.Value?.Length ?? 0));
                     if (_pendingCharacters + length > 524_288 || _pending.Count >= 2048)
                     { _pending.Clear(); _pendingCharacters = 0; _droppedOutput = true; }
-                    _pending.Enqueue((session, "", -1, null, room));
+                    _pending.Enqueue((session, "", -1, null, room, -1));
                     _pendingCharacters += length;
                 }
             };

@@ -45,6 +45,8 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     private readonly Func<bool> _isPrivate;
     private readonly Func<string, Task<bool>> _send;
     private readonly Action<string> _echo;
+    private readonly Func<string?>? _seedState;
+    private readonly Action<string>? _report;
     private readonly HashSet<Guid> _attempted = [];
     private readonly Queue<long> _sentAt = [];
     private string? _worldKey;
@@ -59,10 +61,14 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     public string? Error { get; private set; }
     public event Action? Changed;
 
+    /// <param name="seedState">The session's protocol state, sent to every worker before its script runs.</param>
+    /// <param name="report">Called with an MSDP variable a script read that the world has not sent.</param>
     public WorldScriptLibrary(IScriptRuntimeFactory factory, IWorldScriptLibraryStore store, Func<bool> canRun,
-        Func<bool> isPrivate, Func<string, Task<bool>> send, Action<string> echo)
+        Func<bool> isPrivate, Func<string, Task<bool>> send, Action<string> echo,
+        Func<string?>? seedState = null, Action<string>? report = null)
     {
         _factory = factory; _store = store; _canRun = canRun; _isPrivate = isPrivate; _send = send; _echo = echo;
+        _seedState = seedState; _report = report;
         Panels.Callback = DeliverPanelEvent;
         Items.Add(Create(new(Guid.NewGuid(), L.ScriptDefaultName, ScriptExamples.Starter)));
     }
@@ -78,7 +84,8 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         WorldScriptEntry? created = null;
         var runtime = new SessionScripts(_factory, new EntrySourceStore(definition.Source), _canRun, _isPrivate, SendAsync, _echo,
             action => Panels.Apply(definition.Id, action),
-            () => created?.Saved is { Pack: not null, AllowSend: false });
+            () => created?.Saved is { Pack: not null, AllowSend: false },
+            _seedState, _report);
         runtime.Configure(_worldKey ?? "", WorldName);
         runtime.Changed += OnChanged;
         var entry = created = new WorldScriptEntry(definition, runtime);

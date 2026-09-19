@@ -26,7 +26,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     private readonly SemaphoreSlim _lifecycle = new(1, 1);
     private bool _startPending;
     private bool _disposed;
-    private readonly Queue<(IMudSession Session, string Text, long ScriptEpoch, ScriptEvent? Event, RoomObservation? Room)> _pending = new();
+    private readonly Queue<(IMudSession Session, string Text, long ScriptEpoch, ScriptEvent? Event, RoomObservation? Room, long CacheEpoch)> _pending = new();
     private readonly object _pendingLock = new();
     private bool _scriptPrivacyBlocked;
     private long _scriptOutputEpoch;
@@ -44,7 +44,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             () => IsConnected && !IsConnecting && !_disposed,
             () => IsPrivate || _login is not null,
             command => SendCoreAsync(command, fromScript: true),
-            text => { Terminal.AppendLocalText(L.ScriptOutputPrefix + text + "\n"); TerminalVersion++; Changed?.Invoke(); });
+            text => { Terminal.AppendLocalText(L.ScriptOutputPrefix + text + "\n"); TerminalVersion++; Changed?.Invoke(); },
+            () => ScriptState.SeedJson(), RequestMsdpReport);
         ScriptLibrary.Changed += () => Changed?.Invoke();
         InitializeAgent(agents);
         SettingsLoadResult loaded;
@@ -149,7 +150,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             using (SessionOpenTrace.Measure("mapping start")) StartMapping(profile, session);
             using (SessionOpenTrace.Measure("script library"))
             {
-                ScriptLibrary.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}", WorldName);
+                var worldKey = profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}";
+                ResetScriptState(worldKey);
+                ScriptLibrary.Configure(worldKey, WorldName);
                 ScriptLibrary.ApplyPack(packScripts ?? []);
             }
             using (SessionOpenTrace.Measure("agent profile"))
@@ -162,7 +165,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
                 lock (_pendingLock)
                 {
                     if (_pendingCharacters + text.Length > 524_288 || _pending.Count >= 2048) { _pending.Clear(); _pendingCharacters = 0; _droppedOutput = true; }
-                    _pending.Enqueue((session, text, containsPrivateText || wirePrivate || _scriptPrivacyBlocked ? -1 : _scriptOutputEpoch, null, null)); _pendingCharacters += text.Length;
+                    _pending.Enqueue((session, text, containsPrivateText || wirePrivate || _scriptPrivacyBlocked ? -1 : _scriptOutputEpoch, null, null, -1)); _pendingCharacters += text.Length;
                 }
             }
             if (session is TelnetSession telnet)
@@ -182,7 +185,11 @@ public sealed partial class WorkspaceController : IAsyncDisposable
                         if (_pendingCharacters + received.Text.Length > 524_288 || _pending.Count >= 2048)
                         { _pending.Clear(); _pendingCharacters = 0; _droppedOutput = true; }
                         var epoch = received.MayContainPrivateText || wirePrivate || _scriptPrivacyBlocked ? -1 : _scriptOutputEpoch;
-                        _pending.Enqueue((session, "", epoch, new("gmcp", received.Text), null));
+                        // Same rule as ReceiveProtocol: during login the parser's flag stands in for nothing but the login.
+                        var loginOnly = _scriptPrivacyBlocked && !_cachePrivate;
+                        var cacheEpoch = wirePrivate || _cachePrivate || (received.MayContainPrivateText && !loginOnly) ||
+                            Wandur.Core.Protocol.GmcpLoginProtocol.IsPrivate(received.Text) ? -1 : _cacheEpoch;
+                        _pending.Enqueue((session, "", epoch, new("gmcp", received.Text), null, cacheEpoch));
                         _pendingCharacters += received.Text.Length;
                     }
                 };
@@ -191,14 +198,14 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             session.StatusChanged += status => Dispatch(session, () =>
             {
                 Status = status.Message;
-                if (!status.Connected) { ResetAgentContext(); StopMapWalk("MapWalkDisconnected"); ScriptLibrary.Stop(); _login = null; IsConnecting = false; _serverPrivate = _promptPrivate = _manualPrivate = false; }
+                if (!status.Connected) { ResetAgentContext(); StopMapWalk("MapWalkDisconnected"); ScriptLibrary.Stop(); ScriptState.Clear(); _login = null; IsConnecting = false; _serverPrivate = _promptPrivate = _manualPrivate = false; }
                 RefreshScriptState(); Changed?.Invoke();
             });
             session.PrivateInputChanged += value =>
             {
                 // Stamp privacy on the receiving thread, before any queued UI callback can run.
                 _agentRunner?.CancelPending();
-                lock (_pendingLock) { wirePrivate = value; _scriptOutputEpoch++; }
+                lock (_pendingLock) { wirePrivate = value; _scriptOutputEpoch++; _cacheEpoch++; }
                 Dispatch(session, () => { _serverPrivate = value; RefreshScriptState(); Changed?.Invoke(); });
             };
             Changed?.Invoke();
@@ -233,9 +240,11 @@ public sealed partial class WorkspaceController : IAsyncDisposable
                 if (_scriptPrivacyBlocked && !blocked && _protocolBindings is not null) _mappingRefreshPending = true;
                 _scriptPrivacyBlocked = blocked; _scriptOutputEpoch++;
             }
+            if (_cachePrivate != IsPrivate) { _cachePrivate = IsPrivate; _cacheEpoch++; }
         }
         ScriptLibrary.RefreshState();
         _ = RefreshMappedProtocolSubscriptionAsync();
+        _ = RefreshScriptReportsAsync();
     }
 
     private void Dispatch(IMudSession session, Action action)
@@ -245,8 +254,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
 
     public void FlushOutput()
     {
-        List<(IMudSession Session, string Text, long ScriptEpoch, ScriptEvent? Event, RoomObservation? Room)> batch;
-        List<(IMudSession Session, long Epoch, PendingProtocolDiagnostic Message)> diagnostics;
+        List<(IMudSession Session, string Text, long ScriptEpoch, ScriptEvent? Event, RoomObservation? Room, long CacheEpoch)> batch;
+        List<(IMudSession Session, long Epoch, long CacheEpoch, PendingProtocolDiagnostic Message)> diagnostics;
         bool dropped;
         lock (_pendingLock)
         {
@@ -257,13 +266,13 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         }
         if (dropped) { ResetAgentContext(); StopMapWalk("MapWalkOutputLost"); Terminal.Clear(); _channels.Reset(); Notice = L.OutputArrivedTooQuicklyOlderOutputWasDiscardedTo; }
         bool changed = false;
-        var scriptChunks = new List<(string Text, long Epoch, ScriptEvent? Event)>();
+        var scriptChunks = new List<(string Text, long Epoch, ScriptEvent? Event, long CacheEpoch)>();
         foreach (var item in batch)
         {
             if (!ReferenceEquals(item.Session, _session)) continue;
             if (item.Room is { } room) { ObserveRoom(room); changed = true; continue; }
             if (item.Event is null) { Terminal.Append(item.Text); _promptTerminal.Append(item.Text); TrackMapOutput(item.Text); }
-            scriptChunks.Add((item.Text, item.ScriptEpoch, item.Event)); changed = true;
+            scriptChunks.Add((item.Text, item.ScriptEpoch, item.Event, item.CacheEpoch)); changed = true;
         }
         if (!changed && !diagnostics.Any(item => ReferenceEquals(item.Session, _session))) return;
         TerminalVersion++;
@@ -273,11 +282,16 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         catch (RegexMatchTimeoutException) { _promptPrivate = true; }
         RefreshScriptState();
         if (dropped) ScriptLibrary.Stop();
-        long currentEpoch;
-        lock (_pendingLock) currentEpoch = _scriptOutputEpoch;
+        long currentEpoch, currentCacheEpoch;
+        lock (_pendingLock) { currentEpoch = _scriptOutputEpoch; currentCacheEpoch = _cacheEpoch; }
         foreach (var item in diagnostics.Where(item => ReferenceEquals(item.Session, _session)))
         {
             var payload = item.Epoch == currentEpoch && !IsPrivate && _login is null ? item.Message.Payload : null;
+            // The host cache takes MSDP while auto-login runs, unlike scripts: a world sends a reported variable
+            // once, when the REPORT is accepted, which is during connect and login, then only on change. A
+            // script seeded later still needs those values. Private intervals stay out, as everywhere else.
+            if (item.CacheEpoch == currentCacheEpoch && !IsPrivate && item.Message.Option == 69 && item.Message.Payload is { } data && !ContainsSecret(data))
+                ScriptState.RecordMsdp(data);
             Diagnostics.AppendContent(item.Message.ReceivedAt, item.Message.Option, item.Message.Content);
             if (payload is not null) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
             FeedAgentProtocol(item.Message.Option, payload);
@@ -287,6 +301,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         }
         foreach (var chunk in scriptChunks)
         {
+            if (chunk.Event is { Kind: "gmcp" } gmcp && chunk.CacheEpoch == currentCacheEpoch && !IsPrivate && !ContainsSecret(gmcp.Text)) ScriptState.RecordGmcp(gmcp.Text);
             if (chunk.Epoch == currentEpoch)
             {
                 var isPublic = !IsPrivate && _login is null;
@@ -378,6 +393,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         ScriptLibrary.Stop();
         _login = null;
         FlushOutput();
+        ScriptState.Clear();
         SaveMap(force: true);
         _promptTerminal.Clear();
         var previous = _session;

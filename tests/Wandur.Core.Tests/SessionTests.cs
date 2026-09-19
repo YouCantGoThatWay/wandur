@@ -80,6 +80,37 @@ public class SessionTests
         Assert.Equal(0, server.Available);
     }
 
+    [Fact]
+    public async Task ScriptRequestedMsdpVariablesAreReportedAndSentUnderTheSameGuardsAsTheMappedRefresh()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        await using var session = new TelnetSession(new() { Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port });
+        Assert.False(await session.ReportMsdpAsync(["HEALTH"], timeout.Token));
+        await session.ConnectAsync(timeout.Token);
+        using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+        Assert.False(await session.ReportMsdpAsync(["HEALTH"], timeout.Token));
+        var negotiated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        session.ProtocolStateChanged += _ => negotiated.TrySetResult();
+        var stream = server.GetStream();
+        await stream.WriteAsync(new byte[] { 255, 251, 69 }, timeout.Token);
+        await negotiated.Task.WaitAsync(timeout.Token);
+        var handshake = new Wandur.Core.Protocol.TelnetParser().Feed(new byte[] { 255, 251, 69 }).Reply;
+        await stream.ReadExactlyAsync(new byte[handshake.Length], timeout.Token);
+        session.SetLocalPrivateInput(true);
+        Assert.False(await session.ReportMsdpAsync(["HEALTH"], timeout.Token));
+        session.SetLocalPrivateInput(false);
+        Assert.True(await session.ReportMsdpAsync(["1BAD", "bad-name"], timeout.Token));
+        Assert.Equal(0, server.Available);
+        Assert.True(await session.ReportMsdpAsync(["LEVELCOMBAT", "1BAD", "MONEYINV", "LEVELCOMBAT", "bad name"], timeout.Token));
+        static byte[] Frame(string content) => [255, 250, 69, .. Encoding.UTF8.GetBytes(content), 255, 240];
+        var expected = Frame("\u0001REPORT\u0002LEVELCOMBAT\u0002MONEYINV").Concat(Frame("\u0001SEND\u0002LEVELCOMBAT\u0002MONEYINV")).ToArray();
+        var actual = new byte[expected.Length];
+        await stream.ReadExactlyAsync(actual, timeout.Token);
+        Assert.Equal(expected, actual);
+        Assert.Equal(0, server.Available);
+    }
+
     [Theory]
     [InlineData("private text\n")]
     [InlineData("private café 🧙\n")]

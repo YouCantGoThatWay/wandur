@@ -46,6 +46,12 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
                     if (_loaded) throw new InvalidOperationException("A runtime can load only one script.");
                     if (Encoding.UTF8.GetByteCount(input.Text) > JavaScriptEngine.MaximumSourceBytes)
                         throw new InvalidDataException("Source exceeds 256 KiB.");
+                    _loaded = true;
+                }
+                // A state seed is the one message that may precede the load; the engine holds it until then.
+                else if (_process is null && input.Kind != "state") throw new InvalidOperationException("Script worker has not been loaded.");
+                if (_process is null)
+                {
                     var start = new ProcessStartInfo(executablePath)
                     {
                         UseShellExecute = false,
@@ -59,14 +65,14 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
                     if (entryAssemblyPath is not null) start.ArgumentList.Add(entryAssemblyPath);
                     start.ArgumentList.Add("--script-worker");
                     _process = Process.Start(start) ?? throw new InvalidOperationException("Could not start script worker.");
-                    _loaded = true;
                     // Drain stderr without retaining logs or allowing a full pipe to block the child.
                     _ = DrainErrorsAsync(_process.StandardError, _lifetime.Token);
                 }
-                process = _process ?? throw new InvalidOperationException("Script worker has not been loaded.");
+                process = _process ?? throw new InvalidOperationException("Could not start script worker.");
             }
-            if (input.Kind != "load" && input.Text.Length > JavaScriptEngine.MaximumEventCharacters)
-                throw new InvalidDataException("Event text exceeds 32768 characters.");
+            var limit = input.Kind == "state" ? JavaScriptEngine.MaximumStateCharacters : JavaScriptEngine.MaximumEventCharacters;
+            if (input.Kind != "load" && input.Text.Length > limit)
+                throw new InvalidDataException($"Event text exceeds {limit} characters.");
             var message = JsonSerializer.Serialize(input);
             if (message.Length > ScriptWorker.MaximumMessageCharacters) throw new InvalidDataException("Worker message exceeds size limit.");
             await process.StandardInput.WriteLineAsync(message.AsMemory(), cancellation.Token).ConfigureAwait(false);
@@ -99,9 +105,11 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
         var length = 0;
         var panelLength = 0;
         var panels = 0;
+        var reports = 0;
+        var outputs = 0;
         foreach (var action in result.Actions)
         {
-            if (action is null || action.Text is null || action.Kind is not ("send" or "echo" or "panel"))
+            if (action is null || action.Text is null || action.Kind is not ("send" or "echo" or "panel" or "report"))
                 throw new InvalidDataException("Invalid worker action.");
             if (action.Kind == "panel")
             {
@@ -110,7 +118,14 @@ public sealed class ProcessScriptRuntime(string executablePath, string? entryAss
                 panelLength += action.Text.Length;
                 continue;
             }
-            if (action.Text.Length > 8192) throw new InvalidDataException("Invalid worker action.");
+            if (action.Kind == "report")
+            {
+                // The worker is untrusted; a name reaches the wire only if the host would accept it from a mapping.
+                if (++reports > JavaScriptEngine.MaximumReportsPerScript || !JavaScriptEngine.IsValidMsdpName(action.Text))
+                    throw new InvalidDataException("Invalid report action.");
+                continue;
+            }
+            if (++outputs > 32 || action.Text.Length > 8192) throw new InvalidDataException("Invalid worker action.");
             if (action.Kind == "send" && (action.Text.Length is 0 or > 4096 || action.Text.Any(c => char.IsControl(c) || c is '\u2028' or '\u2029')))
                 throw new InvalidDataException("Invalid worker command.");
             length += action.Text.Length;

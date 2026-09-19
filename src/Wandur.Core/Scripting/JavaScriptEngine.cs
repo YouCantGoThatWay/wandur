@@ -12,10 +12,21 @@ public sealed class JavaScriptEngine
     public const int MaximumEventCharacters = 32768;
     public const int MaximumPanelActionCharacters = 65536;
     public const int MaximumPanelCharacters = 262144;
-    public const int MaximumActions = 64;
+    /// <summary>A state seed may carry two full buckets, so it is the one event allowed past the 32 KiB limit.</summary>
+    public const int MaximumStateCharacters = 1024 * 1024;
+    /// <summary>Distinct MSDP variables one script may ask the world to report by reading them.</summary>
+    public const int MaximumReportsPerScript = 64;
+    /// <summary>32 send and echo actions, 32 panel actions and 64 report actions.</summary>
+    public const int MaximumActions = 128;
     private Engine? _engine;
     private JsValue? _dispatch;
+    private string? _pendingState;
     public bool IsRunning { get; private set; }
+
+    /// <summary>An MSDP variable name the client will put in a REPORT request: letters, digits and
+    /// underscore, 1 to 128 characters, not starting with a digit.</summary>
+    public static bool IsValidMsdpName(string name)
+        => name.Length is >= 1 and <= 128 && !char.IsAsciiDigit(name[0]) && name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     /// <summary>Widget kinds a script may declare on a panel. The reference document is checked against this list.</summary>
     public static IReadOnlyList<string> PanelWidgetKinds { get; } =
@@ -40,6 +51,8 @@ public sealed class JavaScriptEngine
             // Only native JavaScript values are exposed. In particular, AllowClr is never enabled.
             // The send policy is baked into the bootstrap so no later message can relax it.
             _dispatch = _engine.Evaluate(Bootstrap.Replace("__RESTRICTED_SEND__", restrictedSend ? "true" : "false", StringComparison.Ordinal));
+            // A seed sent ahead of the load fills mud.state before the first line of the script runs.
+            if (_pendingState is { } seed) { _pendingState = null; _engine.Invoke(_dispatch, "state", seed, 0L); }
             _engine.Execute(source);
             IsRunning = true;
             return Dispatch(new ScriptEvent("flush"));
@@ -49,8 +62,14 @@ public sealed class JavaScriptEngine
 
     public ScriptResult Dispatch(ScriptEvent input)
     {
-        if (!IsRunning || _engine is null || _dispatch is null) return new(false, []);
-        if (input.Text.Length > MaximumEventCharacters) return Fail("Event text exceeds 32768 characters.");
+        if (input.Kind == "state" && input.Text.Length > MaximumStateCharacters) return Fail("State seed exceeds 1048576 characters.");
+        if (!IsRunning || _engine is null || _dispatch is null)
+        {
+            // The host sends the state seed before the load request; it is applied inside Load.
+            if (input.Kind == "state") _pendingState = input.Text;
+            return new(false, []);
+        }
+        if (input.Kind != "state" && input.Text.Length > MaximumEventCharacters) return Fail("Event text exceeds 32768 characters.");
         try
         {
             var json = _engine.Invoke(_dispatch, input.Kind, input.Text, input.ElapsedMilliseconds).AsString();
@@ -64,6 +83,7 @@ public sealed class JavaScriptEngine
         IsRunning = false;
         _engine = null;
         _dispatch = null;
+        _pendingState = null;
         return new(false, [], message[..Math.Min(message.Length, 2048)]);
     }
 
@@ -73,6 +93,8 @@ public sealed class JavaScriptEngine
             const panels = new Map(), handlers = new Map();
             const state = { gmcp: {}, msdp: {} };
             const sizes = { gmcp: { entries: new Map(), total: 0 }, msdp: { entries: new Map(), total: 0 } };
+            const requested = new Set();
+            const msdpName = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/, packageName = /^[A-Za-z][A-Za-z0-9_.]*$/;
             let actions = [], outputSize = 0, emitted = 0, panelCount = 0, panelSize = 0, clock = 0, hooks = 0;
             const restrictedSend = __RESTRICTED_SEND__;
             let sendAllowed = !restrictedSend;
@@ -258,6 +280,24 @@ public sealed class JavaScriptEngine
                 if (copy === undefined) return;
                 state.msdp[variable] = copy;
             }
+            // The host's cache of everything received so far, applied through the live paths so the same
+            // limits and copying hold. No listener runs: a seed is not new data from the world.
+            function seed(text) {
+                let parsed;
+                try { parsed = parse(text); } catch (_) { return; }
+                if (parsed === null || typeof parsed !== 'object') return;
+                const gmcp = parsed.gmcp, msdp = parsed.msdp;
+                if (gmcp !== null && typeof gmcp === 'object' && !Array.isArray(gmcp))
+                    for (const name of Object.keys(gmcp)) if (packageName.test(name)) recordGmcp(name, gmcp[name]);
+                if (msdp !== null && typeof msdp === 'object' && !Array.isArray(msdp))
+                    for (const name of Object.keys(msdp)) recordMsdp(name, msdp[name]);
+            }
+            // A variable the world has not sent is asked for once per script; the answer arrives as Events.Msdp.
+            function report(name) {
+                if (!msdpName.test(name) || requested.has(name) || requested.size >= 64) return;
+                requested.add(name);
+                actions.push({ Kind: 'report', Text: name });
+            }
             function call(callback, argument) {
                 const result = callback(argument);
                 if (result && typeof result.then === 'function')
@@ -286,8 +326,10 @@ public sealed class JavaScriptEngine
                     get: path => {
                         if (typeof path !== 'string') throw new TypeError('A state path must be a string.');
                         if (path.length > 512) throw new RangeError('A state path exceeds 512 characters.');
+                        const parts = path.split('.');
+                        if (parts[0] === 'msdp' && parts.length > 1 && !has(state.msdp, parts[1])) report(parts[1]);
                         let node = state;
-                        for (const part of path.split('.')) {
+                        for (const part of parts) {
                             if (node === null || typeof node !== 'object' || !has(node, part)) return undefined;
                             node = node[part];
                         }
@@ -328,7 +370,7 @@ public sealed class JavaScriptEngine
                         if (parsed !== null && typeof parsed === 'object') message = parsed;
                     }
                     catch (_) { /* A malformed callback message is ignored. */ }
-                }
+                } else if (kind === 'state') seed(text);
                 sendAllowed = !restrictedSend || kind === 'command' || (message !== null && message.event === 'click');
                 if (event !== null) {
                     for (const listener of listeners.slice()) {
@@ -357,7 +399,7 @@ public sealed class JavaScriptEngine
                         const handler = handlers.get(message.panel + '\u0000' + message.widget + '\u0000' + message.event);
                         if (handler !== undefined) call(handler, message.value === undefined ? null : message.value);
                     }
-                } else if (kind !== 'flush' && kind !== 'gmcp' && kind !== 'key' && kind !== 'msdp') throw new TypeError('Unknown script event.');
+                } else if (kind !== 'flush' && kind !== 'gmcp' && kind !== 'key' && kind !== 'msdp' && kind !== 'state') throw new TypeError('Unknown script event.');
                 const result = stringify({ Handled: handled, Actions: actions, Error: null });
                 actions = []; outputSize = 0; emitted = 0; panelCount = 0; panelSize = 0;
                 return result;

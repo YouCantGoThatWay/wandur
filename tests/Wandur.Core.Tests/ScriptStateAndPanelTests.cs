@@ -60,7 +60,10 @@ public sealed class ScriptStateAndPanelTests
         Assert.Empty(engine.Dispatch(new("gmcp", "Char.Vitals {\"hp\":42,\"mana\":10}")).Actions);
         Assert.Empty(engine.Dispatch(new("gmcp", "Char.Vitals {\"hp\":7,\"mana\":10}")).Actions);
         Assert.Empty(engine.Dispatch(Msdp("SHIPHULL", "\"1200\"")).Actions);
-        var echoes = engine.Dispatch(new("command", "probe")).Actions.Select(a => a.Text).ToArray();
+        var actions = engine.Dispatch(new("command", "probe")).Actions;
+        // The one unknown MSDP read asks the world for that variable; the GMCP miss asks for nothing.
+        Assert.Equal(new ScriptAction("report", "NOPE"), Assert.Single(actions, a => a.Kind == "report"));
+        var echoes = actions.Where(a => a.Kind == "echo").Select(a => a.Text).ToArray();
         Assert.Equal("7", echoes[0]);
         Assert.Equal("1200", echoes[1]);
         Assert.Equal("undefined", echoes[2]);
@@ -80,6 +83,72 @@ public sealed class ScriptStateAndPanelTests
             """);
         engine.Dispatch(new("gmcp", "Char.Vitals {\"hp\":5}"));
         Assert.Equal("5", Assert.Single(engine.Dispatch(new("command", "probe")).Actions).Text);
+    }
+
+    [Fact]
+    public void StateSeedSentBeforeLoadIsVisibleToTopLevelCodeAndFiresNoCallbacks()
+    {
+        var engine = new JavaScriptEngine();
+        var seeded = engine.Dispatch(new("state", """{"gmcp":{"Char.Vitals":{"hp":7},"9bad":{"x":1}},"msdp":{"HEALTH":"100","AFFECTS":["haste"],"__proto__":{"polluted":true}}}"""));
+        Assert.Null(seeded.Error);
+        Assert.Empty(seeded.Actions);
+        var loaded = engine.Load("""
+            mud.on(Events.Msdp, () => mud.echo("msdp fired"));
+            mud.on(Events.Gmcp, () => mud.echo("gmcp fired"));
+            mud.echo("health:" + mud.state.get("msdp.HEALTH") + " hp:" + mud.state.get("gmcp.Char.Vitals.hp") + " affects:" + mud.state.get("msdp.AFFECTS").join("+"));
+            mud.echo(JSON.stringify(mud.state.snapshot()));
+            """);
+        Assert.Null(loaded.Error);
+        Assert.Equal(
+        [
+            new ScriptAction("echo", "health:100 hp:7 affects:haste"),
+            new ScriptAction("echo", """{"gmcp":{"Char":{"Vitals":{"hp":7}}},"msdp":{"HEALTH":"100","AFFECTS":["haste"]}}""")
+        ], loaded.Actions);
+    }
+
+    [Fact]
+    public void StateSeedWhileRunningAppliesTheWorkerLimitsAndFiresNoCallbacks()
+    {
+        var engine = Loaded("""
+            mud.on(Events.Msdp, () => mud.echo("fired"));
+            mud.alias(/^count$/, () => mud.echo(String(Object.keys(mud.state.snapshot().msdp).length) + ":" + mud.state.get("msdp.V0")));
+            """);
+        var entries = string.Join(",", Enumerable.Range(0, 520).Select(i => $"\"V{i}\":\"{i}\""));
+        var seeded = engine.Dispatch(new("state", "{\"msdp\":{" + entries + "}}"));
+        Assert.Null(seeded.Error);
+        Assert.Empty(seeded.Actions);
+        Assert.Equal(new ScriptAction("echo", "512:0"), Assert.Single(engine.Dispatch(new("command", "count")).Actions));
+        Assert.Empty(engine.Dispatch(new("state", "not json")).Actions);
+        Assert.Empty(engine.Dispatch(new("state", "[]")).Actions);
+        Assert.True(engine.IsRunning);
+    }
+
+    [Fact]
+    public void ReadingAnUnknownMsdpVariableReportsItOnceAndInvalidNamesNever()
+    {
+        var engine = Loaded("mud.alias(/^read (.+)$/, m => mud.echo(String(mud.state.get(m[1]))));");
+        Assert.Equal([new ScriptAction("report", "LEVELCOMBAT"), new ScriptAction("echo", "undefined")],
+            engine.Dispatch(new("command", "read msdp.LEVELCOMBAT")).Actions);
+        Assert.Equal([new ScriptAction("echo", "undefined")], engine.Dispatch(new("command", "read msdp.LEVELCOMBAT")).Actions);
+        Assert.Equal([new ScriptAction("report", "ROOM"), new ScriptAction("echo", "undefined")],
+            engine.Dispatch(new("command", "read msdp.ROOM.VNUM")).Actions);
+        foreach (var path in new[] { "msdp.1BAD", "msdp.bad-name", "msdp.", "gmcp.Char.Vitals", "msdp." + new string('X', 129) })
+            Assert.Equal([new ScriptAction("echo", "undefined")], engine.Dispatch(new("command", "read " + path)).Actions);
+        Assert.Equal([new ScriptAction("echo", "[object Object]")], engine.Dispatch(new("command", "read msdp")).Actions);
+        engine.Dispatch(Msdp("HEALTH", "\"5\""));
+        Assert.Equal([new ScriptAction("echo", "5")], engine.Dispatch(new("command", "read msdp.HEALTH")).Actions);
+        Assert.Equal([new ScriptAction("echo", "undefined")], engine.Dispatch(new("command", "read msdp.HEALTH.sub")).Actions);
+    }
+
+    [Fact]
+    public void AScriptMayAskForAtMostSixtyFourVariables()
+    {
+        var engine = Loaded("mud.alias(/^probe$/, () => { for (let i = 0; i < 70; i++) mud.state.get('msdp.VAR_' + i); });");
+        var result = engine.Dispatch(new("command", "probe"));
+        Assert.Null(result.Error);
+        Assert.Equal(JavaScriptEngine.MaximumReportsPerScript, result.Actions.Count);
+        Assert.All(result.Actions, action => Assert.Equal("report", action.Kind));
+        Assert.Empty(engine.Dispatch(new("command", "probe")).Actions);
     }
 
     [Fact]

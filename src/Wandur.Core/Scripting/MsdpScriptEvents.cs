@@ -16,21 +16,26 @@ public static class MsdpScriptEvents
     /// <summary>Decoded variable updates, or an empty list when the payload is not valid MSDP.
     /// Callers must already have cleared the payload for privacy.</summary>
     public static IReadOnlyList<ScriptEvent> Decode(byte[] payload)
+        => DecodeValues(payload).Select(entry => new ScriptEvent("msdp", Message(entry.Variable, entry.Json))).ToArray();
+
+    /// <summary>The variables of one payload with their values serialized as JSON, in wire order.
+    /// This is what both the script events and the host state cache are built from.</summary>
+    public static IReadOnlyList<(string Variable, string Json)> DecodeValues(byte[] payload)
     {
         var fields = RoomProtocolDecoder.ParseMsdp(payload);
         if (fields is null) return [];
-        var events = new List<ScriptEvent>();
+        var values = new List<(string Variable, string Json)>();
         foreach (var (variable, value) in fields)
         {
-            if (events.Count >= MaximumVariables) break;
+            if (values.Count >= MaximumVariables) break;
             if (variable.Length is 0 or > 128 || variable.Any(char.IsControl)) continue;
             string json;
             try { json = JsonSerializer.Serialize(value, Values); }
             catch (Exception error) when (error is JsonException or NotSupportedException) { continue; }
             if (json.Length > MaximumValueCharacters) continue;
-            events.Add(new("msdp", Message(variable, json)));
+            values.Add((variable, json));
         }
-        return events;
+        return values;
     }
 
     private static string Message(string variable, string value)

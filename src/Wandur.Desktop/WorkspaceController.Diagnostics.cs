@@ -1,3 +1,4 @@
+using System.Text;
 using Wandur.Core.Protocol;
 using Wandur.Core.Sessions;
 using Wandur.Desktop.ViewModels;
@@ -7,7 +8,7 @@ namespace Wandur.Desktop;
 public sealed partial class WorkspaceController
 {
     private sealed record PendingProtocolDiagnostic(DateTimeOffset ReceivedAt, byte Option, byte[]? Payload, ProtocolDiagnosticContent Content);
-    private readonly Queue<(IMudSession Session, long Epoch, PendingProtocolDiagnostic Message)> _pendingDiagnostics = new();
+    private readonly Queue<(IMudSession Session, long Epoch, long CacheEpoch, PendingProtocolDiagnostic Message)> _pendingDiagnostics = new();
     private int _pendingDiagnosticBytes;
     private volatile string[] _diagnosticSecrets = [];
     private void RememberDiagnosticSecret(string value)
@@ -64,15 +65,22 @@ public sealed partial class WorkspaceController
         lock (_pendingLock)
         {
             var hidden = message.MayContainPrivateText || wirePrivate || _scriptPrivacyBlocked;
+            // The script state cache is gated by privacy alone, so a payload received during login is kept
+            // for it; the flush still hands scripts, bindings and the agent nothing while login runs.
+            // While only the login makes input private, the parser flags every packet, so that flag is
+            // replaced by what it would otherwise mean: a server echo interval or a GMCP login message.
+            var loginOnly = _scriptPrivacyBlocked && !_cachePrivate;
+            var cacheHidden = wirePrivate || _cachePrivate || (message.MayContainPrivateText && !loginOnly) ||
+                (message.Option == 201 && GmcpLoginProtocol.IsPrivate(Encoding.UTF8.GetString(message.Payload)));
             // Retain one extra byte so the formatter can report that a payload was truncated.
-            var payload = hidden ? null : message.Payload.Take(ProtocolDiagnosticFormatter.MaximumPayloadBytes + 1).ToArray();
+            var payload = cacheHidden ? null : message.Payload.Take(ProtocolDiagnosticFormatter.MaximumPayloadBytes + 1).ToArray();
             // Sanitize before queuing. Diagnostic visibility is independent of script/agent privacy.
             var content = ProtocolDiagnosticFormatter.Format(message.Option, message.Payload, hidden, _diagnosticSecrets);
             var diagnostic = new PendingProtocolDiagnostic(DateTimeOffset.UtcNow, message.Option, payload, content);
             var size = DiagnosticSize(diagnostic);
             while (_pendingDiagnostics.Count > 0 && (_pendingDiagnosticBytes + size > 524_288 || _pendingDiagnostics.Count >= 200))
                 _pendingDiagnosticBytes -= DiagnosticSize(_pendingDiagnostics.Dequeue().Message);
-            _pendingDiagnostics.Enqueue((session, hidden ? -1 : _scriptOutputEpoch,
+            _pendingDiagnostics.Enqueue((session, hidden ? -1 : _scriptOutputEpoch, cacheHidden ? -1 : _cacheEpoch,
                 diagnostic));
             _pendingDiagnosticBytes += size;
         }

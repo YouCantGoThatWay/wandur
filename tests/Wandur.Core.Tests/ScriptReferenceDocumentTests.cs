@@ -112,6 +112,17 @@ public sealed class ScriptReferenceDocumentTests
         Assert.Equal(WorldScriptLibraryStore.MaximumScripts, limits.GetProperty("scriptsPerWorld").GetInt32());
         Assert.Equal(MsdpScriptEvents.MaximumVariables, limits.GetProperty("msdpVariablesPerPayload").GetInt32());
         Assert.Equal(MsdpScriptEvents.MaximumValueCharacters, limits.GetProperty("msdpValueCharacters").GetInt32());
+        Assert.Equal(JavaScriptEngine.MaximumReportsPerScript, limits.GetProperty("msdpReportsPerScript").GetInt32());
+        Assert.Equal(JavaScriptEngine.MaximumStateCharacters, limits.GetProperty("stateSeedCharacters").GetInt32());
+        // The host cache that seeds a worker keeps the same bounds the worker documents for its own cache.
+        Assert.Equal(ProtocolStateCache.MaximumEntries, limits.GetProperty("stateEntriesPerBucket").GetInt32());
+        Assert.Equal(ProtocolStateCache.MaximumValueCharacters, limits.GetProperty("stateValueCharacters").GetInt32());
+        Assert.Equal(ProtocolStateCache.MaximumBucketCharacters, limits.GetProperty("stateBucketCharacters").GetInt32());
+        var report = reference.GetProperty("state").GetProperty("report");
+        Assert.Matches(report.GetProperty("namePattern").GetString()!, "LEVELCOMBAT");
+        Assert.DoesNotMatch(report.GetProperty("namePattern").GetString()!, "1BAD");
+        Assert.True(JavaScriptEngine.IsValidMsdpName("LEVELCOMBAT"));
+        Assert.False(JavaScriptEngine.IsValidMsdpName("1BAD"));
     }
 
     [Fact]
