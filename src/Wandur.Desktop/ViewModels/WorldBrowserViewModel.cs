@@ -166,7 +166,7 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
             var existing = controller.Settings.Profiles.FirstOrDefault(p => p.Host.Equals(profile.Host, StringComparison.OrdinalIgnoreCase) && p.Port == profile.Port && p.UseTls == profile.UseTls);
             if (existing is not null)
             {
-                var updated = existing with { Theme = profile.Theme, ProtocolMapping = profile.GetProtocolMapping() ?? existing.GetProtocolMapping() };
+                var updated = existing with { Theme = profile.Theme ?? existing.Theme, ProtocolMapping = profile.GetProtocolMapping() ?? existing.GetProtocolMapping() };
                 if (updated != existing)
                 {
                     try { controller.SaveSettings(controller.Settings with

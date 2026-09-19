@@ -49,7 +49,7 @@ public sealed partial class SessionWorkspace
             if (mapping is not null && profile.ProtocolMapping is { } previous &&
                 System.Text.Json.JsonSerializer.Serialize(mapping, Wandur.Models.ModelJson.Options) ==
                 System.Text.Json.JsonSerializer.Serialize(previous, Wandur.Models.ModelJson.Options)) mapping = previous;
-            return profile with { Theme = listing.Theme, ProtocolMapping = mapping };
+            return profile with { Theme = listing.Theme ?? profile.Theme, ProtocolMapping = mapping };
         }
         var settings = Active.Controller.Settings;
         var profiles = settings.Profiles.Select(Update).ToList();
