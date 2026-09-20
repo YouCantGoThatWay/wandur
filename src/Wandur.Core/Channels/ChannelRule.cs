@@ -88,8 +88,10 @@ public sealed class ChannelRuleSet
             catch (RegexMatchTimeoutException) { continue; }
             if (!match.Success) continue;
             var speaker = match.Groups["speaker"] is { Success: true } group ? group.Value : "";
-            // A speaker is one word of letters. Anything else is prose that happens to read like a channel.
-            if (speaker.Length > 0 && !speaker.All(char.IsLetter)) continue;
+            // A speaker is a short name: letters, and for worlds that speak through a description ("A Human
+            // male" on a CommNet) spaces, apostrophes and hyphens, never digits or punctuation. Anything else
+            // is prose that happens to read like a channel.
+            if (speaker.Length > 40 || (speaker.Length > 0 && (!char.IsLetter(speaker[0]) || !speaker.All(c => char.IsLetter(c) || c is ' ' or '\'' or '-')))) continue;
             var text = match.Groups["text"] is { Success: true } body ? body.Value : plain;
             return new(rule.Channel, speaker, text.Trim(), timestamp, plain, rule.IsPrivate) { ReplyCommand = rule.ReplyCommand };
         }

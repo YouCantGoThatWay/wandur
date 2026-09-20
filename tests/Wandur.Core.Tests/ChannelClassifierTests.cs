@@ -56,7 +56,16 @@ public sealed class ChannelClassifierTests
         Expect(rules, "Cade tells you: land on pad two", "tell", "Cade", "land on pad two");
         Expect(rules, "(OOC) Dax: good hunting", "ooc", "Dax", "good hunting");
         Expect(rules, "Enno shouts 'raid incoming'", "shout", "Enno", "raid incoming");
+        // Legends of the Jedi marks account holders with @ and staff with a role tag, and has a CommNet channel
+        // with a frequency and a tone; these are the shapes the owner's transcript showed on 2026-09-19.
+        Expect(rules, "(OOC) @Ryken: i had hibachi last week, it was excellent", "ooc", "Ryken", "i had hibachi last week, it was excellent");
+        Expect(rules, "(OOC) @Nield [IMM]: Now I'm hungry.", "ooc", "Nield", "Now I'm hungry.");
+        Expect(rules, "(OOC) @Fishy [NEW]: the natroll is waiting for me next tl", "ooc", "Fishy", "the natroll is waiting for me next tl");
+        Expect(rules, "(OOC) @Faern [RPC]: While I expect the pats to be better than the Jets most years", "ooc", "Faern", "While I expect the pats to be better than the Jets most years");
+        Expect(rules, "CommNet 0 [A Human male]( warmly ): Well played everyone!", "commnet", "A Human male", "Well played everyone!");
+        Expect(rules, "CommNet 0 [A Human female]: Yuriko? Are you on Ryloth and not busy?", "commnet", "A Human female", "Yuriko? Are you on Ryloth and not busy?");
         Assert.Null(Classify(rules, "Fenn says, 'nice ship'"));
+        Assert.Null(Classify(rules, "If you have any questions, you can ask on the RPC or OOC channels."));
     }
 
     [Fact]
