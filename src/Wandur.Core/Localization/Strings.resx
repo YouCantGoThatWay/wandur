@@ -1836,4 +1836,8 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ConsoleWrap" xml:space="preserve"><value>Wrap lines</value></data>
   <data name="ConsoleCount" xml:space="preserve"><value>{0} entries · latest {1} retained</value></data>
   <data name="ConsolePrivate" xml:space="preserve"><value>[private] marks text hidden while input was private.</value></data>
+  <data name="DiagnosticsFilterPlaceholder" xml:space="preserve"><value>Filter messages</value></data>
+  <data name="DiagnosticsAllKinds" xml:space="preserve"><value>All</value></data>
+  <data name="DiagnosticsMoreKinds" xml:space="preserve"><value>{0} more</value></data>
+  <data name="DiagnosticsShownOfTotal" xml:space="preserve"><value>{0} of {1}</value></data>
 </root>

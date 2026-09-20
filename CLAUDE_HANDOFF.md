@@ -82,6 +82,13 @@ card keep updating whenever the cache accepts a server value.
   protocol redactor). `Views/ConsoleView.cs` only notes changes while hidden
   or paused and updates its editor incrementally; see the Diagnostics console
   section of `docs/client-architecture.md`.
+- Diagnostics filter (branch `feature/diagnostics-filter`): the Messages tab
+  has a chip per kind seen (GMCP package, each MSDP variable, or the option
+  name, with counts, "All" and a "more" toggle past 24) and a filter box that
+  matches kind names and bodies; `ProtocolDiagnosticsViewModel.Visible` is
+  the filtered view over the same retained entries, so nothing is dropped.
+  Only GMCP and MSDP reach diagnostics from the parser today; other options
+  get their name as the kind when they do.
 - Inline completion (branch `feature/composer-complete`): the composer shows a
   muted ghost after the typed text from `Wandur.Core.Input` (a bounded
   case-insensitive trie fed by public server lines and sent commands, one per
