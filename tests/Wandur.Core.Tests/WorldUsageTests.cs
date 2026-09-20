@@ -46,12 +46,86 @@ public sealed class WorldUsageTests : IDisposable
             return (Scalar("PRAGMA user_version"), Scalar("SELECT COUNT(*) FROM profiles WHERE world_id='w1'"),
                 Scalar("SELECT COUNT(*) FROM world_usage"), Scalar("SELECT COUNT(*) FROM world_connections"));
         });
-        Assert.Equal(5, version);
+        Assert.Equal(6, version);
         Assert.Equal(1, profiles);
         Assert.Equal(0, usageRows); Assert.Equal(0, logRows);
         // The pre-existing world takes a count without any further migration.
         new SqliteWorldUsageStore(database).RecordConnection("old.example", 4000);
         Assert.Equal(1, Count("world_usage")); Assert.Equal(1, Count("world_connections"));
+    }
+
+    [Fact]
+    public void MigrationFromVersionFiveKeepsTheUsageRowsAndAddsTheLastCharacter()
+    {
+        Directory.CreateDirectory(_directory);
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString()))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE worlds(id TEXT PRIMARY KEY NOT NULL);
+                CREATE TABLE endpoints(endpoint_key TEXT PRIMARY KEY NOT NULL,world_id TEXT NOT NULL REFERENCES worlds(id));
+                CREATE TABLE profiles(id TEXT PRIMARY KEY NOT NULL,world_id TEXT REFERENCES worlds(id),payload TEXT NOT NULL,position INTEGER NOT NULL DEFAULT 0);
+                CREATE TABLE scripts(world_id TEXT NOT NULL REFERENCES worlds(id),id TEXT NOT NULL,name TEXT NOT NULL,source TEXT NOT NULL,enabled INTEGER NOT NULL,macro_json TEXT,pack_json TEXT,PRIMARY KEY(world_id,id));
+                CREATE TABLE world_usage(world_id TEXT PRIMARY KEY NOT NULL REFERENCES worlds(id),connections INTEGER NOT NULL DEFAULT 0,last_connected_at TEXT NOT NULL);
+                CREATE TABLE world_connections(id INTEGER PRIMARY KEY,world_id TEXT NOT NULL REFERENCES worlds(id),connected_at TEXT NOT NULL);
+                INSERT INTO worlds(id) VALUES('w1');
+                INSERT INTO endpoints(endpoint_key,world_id) VALUES('old.example:4000','w1');
+                INSERT INTO profiles(id,world_id,payload,position) VALUES('7d2f5a1c-0f3e-4a6b-9c8d-1e2f3a4b5c6d','w1','{}',0);
+                INSERT INTO world_usage(world_id,connections,last_connected_at) VALUES('w1',2,'2026-09-19T20:00:00.0000000+00:00');
+                INSERT INTO world_connections(world_id,connected_at) VALUES('w1','2026-09-19T19:00:00.0000000+00:00');
+                INSERT INTO world_connections(world_id,connected_at) VALUES('w1','2026-09-19T20:00:00.0000000+00:00');
+                PRAGMA user_version=5;
+                """;
+            command.ExecuteNonQuery();
+        }
+        var database = Database;
+        var (version, connections, character, logRows) = database.Read(connection =>
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT (SELECT user_version FROM pragma_user_version), connections, last_character, (SELECT COUNT(*) FROM world_connections) FROM world_usage WHERE world_id='w1'";
+            using var rows = command.ExecuteReader(); Assert.True(rows.Read());
+            return (rows.GetInt64(0), rows.GetInt64(1), rows.IsDBNull(2) ? null : rows.GetString(2), rows.GetInt64(3));
+        });
+        Assert.Equal(6, version);
+        Assert.Equal(2, connections); Assert.Null(character); Assert.Equal(2, logRows);
+        var id = Guid.Parse("7d2f5a1c-0f3e-4a6b-9c8d-1e2f3a4b5c6d");
+        var store = new SqliteWorldUsageStore(database);
+        Assert.Null(store.Load()[id].LastCharacter);
+        // The migrated row takes the name in place, keeping its count.
+        store.RecordCharacter("old.example", 4000, "Talek");
+        var usage = store.Load()[id];
+        Assert.Equal("Talek", usage.LastCharacter);
+        Assert.Equal(2, usage.Connections);
+        Assert.Equal(1, Count("world_usage"));
+    }
+
+    [Fact]
+    public void RecordingACharacterRemembersTheLastNamePerWorldAndIgnoresBlankOrControlNames()
+    {
+        var first = new ConnectionProfile { Name = "First", Host = "first.example", Port = 4000 };
+        var second = new ConnectionProfile { Name = "Second", Host = "second.example", Port = 5000, Username = "account" };
+        Settings.Save(new ClientSettings { Profiles = [first, second] });
+        var store = new SqliteWorldUsageStore(Database, new Clock());
+        // A name learned before any connection was counted gets a row that counts nothing.
+        store.RecordCharacter("second.example", 5000, " Talek ");
+        var usage = store.Load();
+        Assert.False(usage.ContainsKey(first.Id));
+        Assert.Equal("Talek", usage[second.Id].LastCharacter);
+        Assert.Equal(0, usage[second.Id].Connections);
+        store.RecordConnection("second.example", 5000);
+        usage = store.Load();
+        Assert.Equal(1, usage[second.Id].Connections);
+        Assert.Equal("Talek", usage[second.Id].LastCharacter);
+        // The last character played replaces the one before; a blank or a control character changes nothing.
+        store.RecordCharacter("second.example", 5000, "Mira");
+        store.RecordCharacter("second.example", 5000, "  ");
+        store.RecordCharacter("second.example", 5000, "Mira\u0007");
+        Assert.Equal("Mira", store.Load()[second.Id].LastCharacter);
+        Assert.Equal(1, Count("world_usage"));
+        // Another profile on the same world sees the same character: the name belongs to the world.
+        Settings.Save(Settings.Load().Settings with { Profiles = [first, second, second with { Id = Guid.NewGuid(), Username = "other" }] });
+        Assert.Equal(2, store.Load().Values.Count(entry => entry.LastCharacter == "Mira"));
     }
 
     [Fact]

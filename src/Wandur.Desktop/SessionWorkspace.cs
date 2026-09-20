@@ -22,8 +22,11 @@ public sealed class SessionTab(WorkspaceController controller) : INotifyProperty
     internal bool HadSession { get; set; }
     /// <summary>Whether the current connection has already been counted; cleared while the tab is disconnected.</summary>
     internal bool ConnectionCounted { get; set; }
+    /// <summary>The character name last written to the usage store for this tab, so a name is stored once.</summary>
+    internal string? RecordedCharacter { get; set; }
     public string Endpoint => Controller.HasSession ? Controller.Endpoint : L.FindAMUDInTheDirectory;
-    public string Title => (HasActivity ? "●  " : "") + (Controller.HasSession ? CustomName ?? Controller.WorldName : L.FindAMUD);
+    /// <summary>The world and, once known, the character: "Legends of the Jedi · Talek". A custom name replaces both.</summary>
+    public string Title => (HasActivity ? "●  " : "") + (Controller.HasSession ? CustomName ?? Controller.SessionLabel : L.FindAMUD);
     public event PropertyChangedEventHandler? PropertyChanged;
     internal void Refresh()
     {
@@ -119,6 +122,21 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         ApplyAppearance();
         Changed?.Invoke();
         CountConnection(tab);
+        RecordCharacter(tab);
+    }
+
+    /// <summary>
+    /// The character a connected session plays as is remembered on its world, once per name, so the saved worlds
+    /// can name it before the next connection. A store that cannot be written keeps the session running.
+    /// </summary>
+    private void RecordCharacter(SessionTab tab)
+    {
+        if (_usage is null || tab.Profile is not { } profile || !tab.Controller.IsConnected) return;
+        var name = tab.Controller.CharacterName;
+        if (name.Length == 0 || name == tab.RecordedCharacter) return;
+        tab.RecordedCharacter = name;
+        try { _usage.RecordCharacter(profile.Host, profile.Port, name); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Data.Common.DbException) { }
     }
 
     /// <summary>
@@ -193,6 +211,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         }
         tab.Profile = profile;
         tab.ConnectionCounted = false;
+        tab.RecordedCharacter = null;
         IsBrowsing = false;
         using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
         await tab.Controller.StartAsync(profile, entry?.SupportedScripts);
