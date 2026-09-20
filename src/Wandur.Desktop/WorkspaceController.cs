@@ -299,15 +299,19 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         foreach (var item in diagnostics.Where(item => ReferenceEquals(item.Session, _session)))
         {
             var payload = item.Epoch == currentEpoch && !IsPrivate && _login is null ? item.Message.Payload : null;
-            // The host cache takes MSDP while auto-login runs, unlike scripts: a world sends a reported variable
-            // once, when the REPORT is accepted, which is during connect and login, then only on change. A
-            // script seeded later still needs those values. Private intervals stay out, as everywhere else.
-            if (item.CacheEpoch == currentCacheEpoch && !IsPrivate && item.Message.Option == 69 && item.Message.Payload is { } data && !ContainsSecret(data))
+            // The host cache and the binding engine both take server values while auto-login runs, unlike scripts: a
+            // world sends a reported variable once, when the REPORT is accepted, which is during connect and login, then
+            // only on change. A script seeded later still needs those values, and the vitals strip must keep following
+            // the world through a login that lingers (a GMCP login the world never confirms, a slow reconnect). Both are
+            // gated by privacy alone, never by the login: the binding engine only maps server values to vitals and never
+            // sees typed text, and it rejects login packages and redacted bodies itself. Private intervals stay out.
+            var cachePublic = item.CacheEpoch == currentCacheEpoch && !IsPrivate;
+            if (cachePublic && item.Message.Option == 69 && item.Message.Payload is { } data && !ContainsSecret(data))
                 foreach (var (variable, json) in MsdpScriptEvents.DecodeValues(data))
                     // Cached while scripts get nothing: replayed to them once play is public.
                     if (ScriptState.RecordMsdp(variable, json) && payload is null) _replayMsdp.TryAdd(variable, true);
             Diagnostics.AppendContent(item.Message.ReceivedAt, item.Message.Option, item.Message.Content);
-            if (payload is not null) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
+            if (cachePublic) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
             FeedAgentProtocol(item.Message.Option, payload);
             // Raw MSDP reaches scripts the same way GMCP does, one event per variable, never while private.
             if (payload is not null && item.Message.Option == 69)
