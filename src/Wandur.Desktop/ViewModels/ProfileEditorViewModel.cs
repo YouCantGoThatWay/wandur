@@ -16,7 +16,8 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
     private readonly IAgentClientServices? _agents;
     private readonly Dictionary<Guid, AgentProfileViewModel> _agentEditors = [];
     private readonly Dictionary<Guid, ProfileAutomationEditor> _automationEditors = [];
-    public IReadOnlyList<LocalizedChoiceViewModel> Sections { get; } = [new(nameof(L.ProfileConnectionSection)), new(nameof(L.ProfileLoginSection)), new(nameof(L.WorldScripts)), new(nameof(L.MacrosTab)), new(nameof(L.AgentSettings))];
+    public IReadOnlyList<LocalizedChoiceViewModel> Sections { get; } = [new(nameof(L.ProfileConnectionSection)), new(nameof(L.ProfileLoginSection)), new(nameof(L.WorldScripts)), new(nameof(L.MacrosTab)), new(nameof(L.AgentSettings)), new(nameof(L.ProfileChannelsSection))];
+    public const int ChannelsSection = 5;
     [ObservableProperty] private int _sectionIndex;
     [ObservableProperty] private bool _sectionsVisible = true;
     public bool IsConnection => SectionIndex == 0;
@@ -24,6 +25,7 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
     public bool IsScripts => SectionIndex == 2;
     public bool IsMacros => SectionIndex == 3;
     public bool IsAgent => SectionIndex == 4;
+    public bool IsChannels => SectionIndex == ChannelsSection;
     public bool IsAutomation => IsScripts || IsMacros || IsAgent;
     public bool IsConnectionForm => !IsAutomation;
     public bool CanEditAutomation => IsAgent ? _agents is not null : _automationFactory is not null;
@@ -61,7 +63,7 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
     partial void OnSectionIndexChanged(int value) => RefreshSections();
     private void RefreshSections()
     {
-        foreach (var property in new[] { nameof(IsConnection), nameof(IsLogin), nameof(IsScripts), nameof(IsMacros), nameof(IsAgent), nameof(Agent), nameof(IsAutomation), nameof(IsConnectionForm), nameof(CanEditAutomation), nameof(ShowAutomationPlaceholder), nameof(ShowAutomationEditors), nameof(SectionTitle), nameof(Automation) }) OnPropertyChanged(property);
+        foreach (var property in new[] { nameof(IsConnection), nameof(IsLogin), nameof(IsScripts), nameof(IsMacros), nameof(IsAgent), nameof(IsChannels), nameof(Agent), nameof(IsAutomation), nameof(IsConnectionForm), nameof(CanEditAutomation), nameof(ShowAutomationPlaceholder), nameof(ShowAutomationEditors), nameof(SectionTitle), nameof(Automation) }) OnPropertyChanged(property);
     }
     private void LanguageChanged()
     {
@@ -78,8 +80,30 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
         string Username, string Password, bool Remember, bool AutoLogin, string UsernamePrompt, string PasswordPrompt);
     private FormState? _baseline;
     private FormState Capture() => new(WorldName, Host, Port, Encoding, UseTls, Username, Password, RememberPassword, AutoLogin, UsernamePrompt, PasswordPrompt);
-    public bool HasUnsavedChanges => (_baseline is not null && Capture() != _baseline)
+    public bool HasUnsavedChanges => (_baseline is not null && Capture() != _baseline) || RulesChanged
         || _pendingRemoval || _automationEditors.Values.Any(e => e.HasUnsavedChanges) || _agentEditors.Values.Any(e => e.HasUnsavedChanges);
+
+    /// <summary>The world's channel rules, taught from the transcript or delivered by a pack, edited in place.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<ChannelRuleEditor> ChannelRules { get; } = [];
+    private Wandur.Core.Channels.ChannelRuleList _rulesBaseline = [];
+    public bool HasChannelRules => ChannelRules.Count > 0;
+    private Wandur.Core.Channels.ChannelRuleList CurrentRules() => new(ChannelRules.Select(r => r.ToRule()));
+    private bool RulesChanged => !CurrentRules().Equals(_rulesBaseline);
+    private void LoadRules(IEnumerable<Wandur.Core.Channels.ChannelRule>? rules)
+    {
+        foreach (var editor in ChannelRules) editor.Changed -= DraftChanged;
+        ChannelRules.Clear();
+        foreach (var rule in rules ?? []) { var editor = new ChannelRuleEditor(rule); editor.Changed += DraftChanged; ChannelRules.Add(editor); }
+        _rulesBaseline = CurrentRules();
+        OnPropertyChanged(nameof(HasChannelRules));
+    }
+    [RelayCommand]
+    private void RemoveRule(ChannelRuleEditor? editor)
+    {
+        if (editor is null || !ChannelRules.Remove(editor)) return;
+        editor.Changed -= DraftChanged;
+        OnPropertyChanged(nameof(HasChannelRules)); DraftChanged();
+    }
     private void DraftChanged() => OnPropertyChanged(nameof(HasUnsavedChanges));
     public Func<Task<bool>>? ConfirmDiscardAsync { get; set; }
     public async Task<bool> CanCloseAsync() => !IsBusy && (!HasUnsavedChanges || (ConfirmDiscardAsync is not null && await ConfirmDiscardAsync()));
@@ -161,6 +185,7 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
         RememberPassword = _passwordId.HasValue; AutoLogin = value?.AutoLogin ?? false;
         UsernamePrompt = value?.UsernamePrompt ?? AutoLoginSequence.DefaultUsernamePrompt;
         PasswordPrompt = value?.PasswordPrompt ?? AutoLoginSequence.DefaultPasswordPrompt;
+        LoadRules(value?.ChannelRules);
         Error = ""; DirectoryStatus = L.SavedWorldEditTheAddressToLookUpIts; DirectoryTip = "";
         _updating = false; _baseline = Capture(); DraftChanged(); OnPropertyChanged(nameof(PendingRemoval)); RemoveCommand.NotifyCanExecuteChanged(); RefreshSections();
     }
@@ -239,13 +264,17 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
             }
             NormalizeAddress();
             if (Port is null || decimal.Truncate(Port.Value) != Port.Value) throw new ArgumentException(L.EnterAWholePortNumber);
+            var sameWorld = SelectedProfile is { } previous && previous.Host.TrimEnd('.').Equals(Host.Trim().TrimEnd('.'), StringComparison.OrdinalIgnoreCase)
+                && previous.Port == (int)Port.Value && previous.UseTls == UseTls;
             var profile = new ConnectionProfile
             {
                 Id = EditingProfile.Id, Name = WorldName.Trim(), Host = Host.Trim(), Port = (int)Port.Value,
                 Encoding = Encoding, UseTls = UseTls, Username = Username.Trim(), PasswordId = _passwordId,
                 AutoLogin = AutoLogin, UsernamePrompt = UsernamePrompt, PasswordPrompt = PasswordPrompt,
-                Theme = SelectedProfile is { } previous && previous.Host.TrimEnd('.').Equals(Host.Trim().TrimEnd('.'), StringComparison.OrdinalIgnoreCase)
-                    && previous.Port == (int)Port.Value && previous.UseTls == UseTls ? previous.Theme : null,
+                Theme = sameWorld ? SelectedProfile!.Theme : null,
+                // The codebase came from the directory for this endpoint; the rules were taught to this world.
+                Codebase = sameWorld ? SelectedProfile!.Codebase : "",
+                ChannelRules = CurrentRules(),
                 ProtocolMapping = SelectedProfile?.GetProtocolMapping() is { } mapping && mapping.Endpoint.Matches(new(Host.Trim(), (int)Port.Value, UseTls))
                     ? mapping : null
             };
@@ -261,7 +290,7 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
             _passwordId = _store.Profiles.First(p => p.Id == profile.Id).PasswordId;
             if (agent?.HasUnsavedChanges == true) await agent.SaveDraftAsync(WorldKey(profile));
             if (automation?.HasUnsavedChanges == true) await automation.SaveAsync(WorldKey(profile));
-            _baseline = Capture(); DraftChanged();
+            _baseline = Capture(); _rulesBaseline = CurrentRules(); DraftChanged();
             if (!close)
             {
                 var saved = _store.Profiles.First(p => p.Id == profile.Id);
@@ -283,5 +312,31 @@ public sealed partial class ProfileEditorViewModel : ObservableObject, IDisposab
         _disposed = true; CancelLookup(); Password = "";
         Wandur.Core.Localization.UiLanguage.Changed -= LanguageChanged;
         ClearEditors();
+        foreach (var editor in ChannelRules) editor.Changed -= DraftChanged;
     }
+}
+
+/// <summary>One channel rule on the profile, as the Channels section edits it. Exclusion and privacy are shown, not edited.</summary>
+public sealed partial class ChannelRuleEditor : ObservableObject
+{
+    public ChannelRuleEditor(Wandur.Core.Channels.ChannelRule rule)
+    {
+        _channel = rule.Channel; _pattern = rule.Pattern; _replyCommand = rule.ReplyCommand ?? ""; _enabled = !rule.Disabled;
+        IsExclude = rule.Exclude; IsPrivate = rule.IsPrivate;
+    }
+    [ObservableProperty] private string _channel;
+    [ObservableProperty] private string _pattern;
+    [ObservableProperty] private string _replyCommand;
+    [ObservableProperty] private bool _enabled;
+    public bool IsExclude { get; }
+    public bool IsPrivate { get; }
+    public string Kind => IsExclude ? L.ProfileChannelExclude : IsPrivate ? L.TeachChannelPrivate : "";
+    public bool HasKind => Kind.Length > 0;
+    public event Action? Changed;
+    partial void OnChannelChanged(string value) => Changed?.Invoke();
+    partial void OnPatternChanged(string value) => Changed?.Invoke();
+    partial void OnReplyCommandChanged(string value) => Changed?.Invoke();
+    partial void OnEnabledChanged(bool value) => Changed?.Invoke();
+    public Wandur.Core.Channels.ChannelRule ToRule()
+        => new(Channel.Trim(), Pattern, ReplyCommand.Trim().Length == 0 ? null : ReplyCommand.Trim(), IsPrivate, IsExclude, !Enabled);
 }

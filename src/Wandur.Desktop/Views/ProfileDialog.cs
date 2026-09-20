@@ -23,6 +23,7 @@ public sealed partial class ProfileDialog : Window
         var scriptHost = this.FindControl<ContentControl>("ProfileScriptsHost")!;
         var macroHost = this.FindControl<ContentControl>("ProfileMacrosHost")!;
         var agentHost = this.FindControl<ContentControl>("ProfileAgentHost")!;
+        this.FindControl<ContentControl>("ProfileChannelsHost")!.Content = new ChannelRulesView(model);
         var agentViews = new Dictionary<AgentProfileViewModel, AgentSettingsView>();
         var scriptViews = new Dictionary<ProfileAutomationEditor, ScriptLibraryView>();
         var macroViews = new Dictionary<ProfileAutomationEditor, MacroLibraryView>();

@@ -122,6 +122,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     internal void ApplySettings(ClientSettings settings)
     {
         Settings = settings;
+        RefreshChannelRules();
         Display.ApplySettings(settings);
         ThemeService.Apply(settings);
         TerminalVersion++;

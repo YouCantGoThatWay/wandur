@@ -59,6 +59,7 @@
         <ContentControl Name="ProfileScriptsHost" IsVisible="{Binding IsScripts}" />
         <ContentControl Name="ProfileMacrosHost" IsVisible="{Binding IsMacros}" />
         <ContentControl Name="ProfileAgentHost" IsVisible="{Binding IsAgent}" />
+        <ContentControl Name="ProfileChannelsHost" IsVisible="{Binding IsChannels}" />
         <StackPanel IsVisible="{Binding ShowAutomationPlaceholder}" Margin="32" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
           <TextBlock Text="{ReflectionBinding [ProfileSaveFirst], Source={x:Static loc:LocalizedText.Instance}}" FontSize="20" />
           <TextBlock Text="{ReflectionBinding [ProfileSaveFirstHelp], Source={x:Static loc:LocalizedText.Instance}}" TextWrapping="Wrap" Classes="muted" />

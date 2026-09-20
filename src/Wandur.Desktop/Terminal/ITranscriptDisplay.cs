@@ -18,7 +18,14 @@ public interface ITranscriptDisplay : IDisposable
     /// <summary>The text of that first visible row, which is what a reader watches for when the layout moves under them.</summary>
     string TopVisibleText { get; }
     event Action? ViewportChanged;
+    /// <summary>A right click on the transcript: the line under the pointer and the selection, for a menu.</summary>
+    event Action<TranscriptContext>? MenuRequested;
+    /// <summary>Copies the selection to the clipboard; false when nothing was selected or there is no clipboard.</summary>
+    Task<bool> CopySelectionAsync();
 }
+
+/// <summary>What was under the pointer when the transcript's menu was asked for.</summary>
+public sealed record TranscriptContext(string? Line, string? Selection, Control Anchor);
 
 public interface ITranscriptDisplayFactory
 {

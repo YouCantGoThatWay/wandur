@@ -94,7 +94,7 @@ public sealed class ProfileSectionsTests
         {
             UiLanguage.Apply(language); window.Show(); Dispatcher.UIThread.RunJobs();
             Assert.True(window.CanResize);
-            var sections = Find<ListBox>(window, "ProfileSections"); Assert.Equal(5, sections.ItemCount);
+            var sections = Find<ListBox>(window, "ProfileSections"); Assert.Equal(6, sections.ItemCount);
             sections.SelectedIndex = 1; Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Assert.True(model.IsLogin);
             Find<TextBox>(window, "LoginUsername").Text = "Ackbar";
             sections.SelectedIndex = 2; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();

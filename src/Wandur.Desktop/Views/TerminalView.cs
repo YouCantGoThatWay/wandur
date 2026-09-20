@@ -12,6 +12,7 @@ using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Wandur.Core.Input;
+using Wandur.Desktop.ViewModels;
 
 namespace Wandur.Desktop.Views;
 
@@ -64,6 +65,7 @@ public sealed class TerminalView : UserControl
         _latest.Margin = new Thickness(16);
         _latest.IsVisible = false;
         _tail = new Wandur.Desktop.Terminal.TranscriptTailPane(controller.Terminal, () => controller.Display.FollowTail());
+        _tail.MenuRequested += line => ShowTranscriptMenu(new(line, null, _tail));
         _tail.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.LiveViewWhileScrolledUp)));
         _tail.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.LiveViewWhileScrolledUp)));
         _divider.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
@@ -252,11 +254,55 @@ public sealed class TerminalView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll;
+        _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll; _controller.Display.MenuRequested += ShowTranscriptMenu;
         Refresh();
         if (_focusWanted) PostFocus();
     }
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _focusWanted = false; _pressed = null; _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; base.OnDetachedFromVisualTree(e); }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _focusWanted = false; _pressed = null; _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; _controller.Display.MenuRequested -= ShowTranscriptMenu;
+        _menu?.Close(); base.OnDetachedFromVisualTree(e);
+    }
+
+    private ContextMenu? _menu;
+    /// <summary>The transcript's menu while it is open, for tests.</summary>
+    internal ContextMenu? TranscriptMenu => _menu;
+
+    /// <summary>
+    /// A right click on the transcript or the live view: copy the selection when there is one, and mark the
+    /// line under the pointer (or the first selected line, with the second selected line as a further
+    /// example) as a channel. The menu opens at the pointer; the selection is left where the reader made it.
+    /// </summary>
+    private void ShowTranscriptMenu(Wandur.Desktop.Terminal.TranscriptContext context)
+    {
+        var selected = (context.Selection ?? "").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        var line = selected.FirstOrDefault() ?? context.Line?.Trim();
+        var second = selected.Count > 1 ? selected[1] : null;
+        var menu = new ContextMenu { Name = "TranscriptMenu", Placement = PlacementMode.Pointer };
+        if (selected.Count > 0)
+        {
+            menu.Items.Add(new MenuItem { Name = "TranscriptCopyMenu", [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.TranscriptCopy)),
+                Command = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(() => _controller.Display.CopySelectionAsync()) });
+        }
+        if (line is { Length: > 0 })
+        {
+            menu.Items.Add(new MenuItem { Name = "MarkChannelMenu", [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.MarkAsChannel)),
+                Command = new CommunityToolkit.Mvvm.Input.RelayCommand(() => OpenMarkChannel(line, second), () => _controller.ActiveProfile is not null) });
+        }
+        if (menu.Items.Count == 0) return;
+        _menu?.Close();
+        _menu = menu;
+        menu.Closed += (_, _) => { if (ReferenceEquals(_menu, menu)) _menu = null; };
+        menu.Open(context.Anchor);
+    }
+
+    /// <summary>Opens the teaching dialog for one line, owned by this view's window.</summary>
+    internal void OpenMarkChannel(string line, string? second = null)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner) return;
+        var dialog = new MarkChannelDialog(new MarkChannelViewModel(_controller, line, second));
+        _ = dialog.ShowDialog(owner);
+    }
 
     /// <summary>
     /// The session was opened or its tab brought to the front: the next keys belong in the command box. The
