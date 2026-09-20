@@ -122,7 +122,7 @@ public sealed class TerminalView : UserControl
         Grid.SetColumn(_send, 2); entry.Children.Add(_send);
         var composer = new Border { Name = "Composer", Padding = new Thickness(4, 4), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
         composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
-        var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics) { Name = "ProtocolDiagnostics" };
+        var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics, controller.ConsoleLog) { Name = "ProtocolDiagnostics" };
         diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
         output.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });
         var terminalPane = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto"), Children = { output, _resources, composer } };

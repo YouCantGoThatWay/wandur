@@ -5,6 +5,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Wandur.Core.Diagnostics;
 using Wandur.Desktop.ViewModels;
 using L = Wandur.Core.Localization.Strings;
 
@@ -12,7 +13,8 @@ namespace Wandur.Desktop.Views;
 
 public sealed class ProtocolDiagnosticsView : UserControl
 {
-    public ProtocolDiagnosticsView(ProtocolDiagnosticsViewModel model)
+    /// <param name="console">The session's raw text stream; when given, a Console tab shows it beside the protocol messages.</param>
+    public ProtocolDiagnosticsView(ProtocolDiagnosticsViewModel model, ConsoleLog? console = null)
     {
         DataContext = model;
         var count = Ui.Text("", 11, "muted");
@@ -64,6 +66,13 @@ public sealed class ProtocolDiagnosticsView : UserControl
             new TabItem { Name = "ProtocolMessagesTab", Header = Ui.TextKey(nameof(L.DiagnosticsMessages), 12), Content = body },
             new TabItem { Name = "ProtocolSchemaTab", Header = Ui.TextKey(nameof(L.DiagnosticsObservedFields), 12), Content = schemaBody }
         } };
+        if (console is not null)
+        {
+            var consoleTab = new TabItem { Name = "ProtocolConsoleTab", Header = Ui.TextKey(nameof(L.ConsoleTab), 12), Content = new ConsoleView(console) { Name = "ConsoleView" } };
+            tabs.Items.Add(consoleTab);
+            // The message count, Follow and Clear above the tabs belong to the protocol list, not the console.
+            tabs.SelectionChanged += (_, _) => bar.IsVisible = !ReferenceEquals(tabs.SelectedItem, consoleTab);
+        }
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { bar, tabs } };
         Grid.SetRow(tabs, 1); Content = root;
     }

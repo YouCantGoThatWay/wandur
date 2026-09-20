@@ -14,6 +14,7 @@ namespace Wandur.Desktop.Views;
 /// Read-only body view for a diagnostics entry: GMCP/MSDP payloads are already pretty-printed as JSON by
 /// <c>ProtocolDiagnosticFormatter</c>, so this reuses the AvaloniaEdit engine the script and markdown editors
 /// use, with the JSON syntax highlighter configured. Malformed or non-JSON bodies still render as plain text.
+/// The plain mode drops the highlighter for text that is not JSON at all, such as the console stream.
 /// </summary>
 public sealed class DiagnosticsBodyEditor : TextEditor
 {
@@ -21,9 +22,11 @@ public sealed class DiagnosticsBodyEditor : TextEditor
         AvaloniaProperty.Register<DiagnosticsBodyEditor, string>(nameof(SourceText), "", defaultBindingMode: BindingMode.OneWay);
     protected override Type StyleKeyOverride => typeof(TextEditor);
     public string SourceText { get => GetValue(SourceTextProperty); set => SetValue(SourceTextProperty, value); }
+    private readonly bool _plain;
 
-    public DiagnosticsBodyEditor(bool wordWrap = true)
+    public DiagnosticsBodyEditor(bool wordWrap = true, bool plain = false)
     {
+        _plain = plain;
         IsReadOnly = true;
         ShowLineNumbers = false;
         WordWrap = wordWrap;
@@ -49,7 +52,7 @@ public sealed class DiagnosticsBodyEditor : TextEditor
     {
         var light = ActualThemeVariant == ThemeVariant.Light;
         TextArea.SelectionBrush = Brush.Parse(light ? "#B6D7FF" : "#264F78");
-        SyntaxHighlighting = JsonSyntax.Create(light);
+        SyntaxHighlighting = _plain ? null : JsonSyntax.Create(light);
     }
 }
 

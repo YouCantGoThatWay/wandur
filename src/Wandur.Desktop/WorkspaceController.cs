@@ -44,7 +44,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             () => IsConnected && !IsConnecting && !_disposed,
             () => IsPrivate || _login is not null,
             command => SendCoreAsync(command, fromScript: true),
-            text => { Terminal.AppendLocalText(L.ScriptOutputPrefix + text + "\n"); TerminalVersion++; Changed?.Invoke(); },
+            text => { Terminal.AppendLocalText(L.ScriptOutputPrefix + text + "\n"); LogConsoleScript(text); TerminalVersion++; Changed?.Invoke(); },
             () => ScriptState.SeedJson(), RequestMsdpReport);
         ScriptLibrary.Changed += () => Changed?.Invoke();
         InitializeAgent(agents);
@@ -159,7 +159,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             }
             using (SessionOpenTrace.Measure("agent profile"))
                 Agent?.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}");
-            using (SessionOpenTrace.Measure("diagnostics reset")) Diagnostics.ClearCommand.Execute(null);
+            using (SessionOpenTrace.Measure("diagnostics reset")) { Diagnostics.ClearCommand.Execute(null); ConsoleLog.Clear(); }
             _passwordPrompt = AutoLoginSequence.Compile(profile?.PasswordPrompt ?? AutoLoginSequence.DefaultPasswordPrompt);
             var wirePrivate = false;
             void ReceiveText(string text, bool containsPrivateText)
@@ -283,7 +283,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         {
             if (!ReferenceEquals(item.Session, _session)) continue;
             if (item.Room is { } room) { ObserveRoom(room); changed = true; continue; }
-            if (item.Event is null) { Terminal.Append(item.Text); _promptTerminal.Append(item.Text); TrackMapOutput(item.Text); }
+            if (item.Event is null) { Terminal.Append(item.Text); _promptTerminal.Append(item.Text); TrackMapOutput(item.Text); LogConsoleReceived(item.Text, item.ScriptEpoch == -1); }
             scriptChunks.Add((item.Text, item.ScriptEpoch, item.Event, item.CacheEpoch)); changed = true;
         }
         if (!changed && !diagnostics.Any(item => ReferenceEquals(item.Session, _session))) return;
@@ -377,6 +377,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         var localText = !isPrivate && (Settings.LocalEcho || IsDemo) ? command : "";
         _promptTerminal.Clear();
         Terminal.AppendLocalText(localText + "\n");
+        LogConsoleSent(command, isPrivate);
         TerminalVersion++;
         Changed?.Invoke();
         try

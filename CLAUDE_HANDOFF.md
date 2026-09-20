@@ -65,6 +65,15 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   a live view while scrolled up: the transcript splits with a draggable
   divider and the lower part keeps scrolling, share stored as
   `ScrollTailShare` (7c716c2, c616c06).
+- Diagnostics console (branch `feature/diagnostics-console`): a Console tab
+  beside Messages and Observed fields shows the raw text stream and the sent
+  commands from `Wandur.Core.Diagnostics.ConsoleLog`, fed by
+  `WorkspaceController.Console.cs` from the output flush, the send path and
+  script echoes, with control characters made visible and the diagnostics
+  privacy rule (one `[private]` marker, remembered secrets masked by the
+  protocol redactor). `Views/ConsoleView.cs` only notes changes while hidden
+  or paused and updates its editor incrementally; see the Diagnostics console
+  section of `docs/client-architecture.md`.
 - Inline completion (branch `feature/composer-complete`): the composer shows a
   muted ghost after the typed text from `Wandur.Core.Input` (a bounded
   case-insensitive trie fed by public server lines and sent commands, one per

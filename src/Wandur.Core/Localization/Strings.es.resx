@@ -1826,4 +1826,11 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="ComposerSuggestions" xml:space="preserve"><value>Sugerir completados al escribir</value></data>
   <data name="ComposerSuggestionsHint" xml:space="preserve"><value>El texto gris tras lo que escribes proviene del historial de comandos y de palabras vistas en este mundo. Tab o flecha derecha lo acepta, Escape lo oculta.</value></data>
   <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ historial · Tab completar · Intro enviar</value></data>
+  <data name="ConsoleTab" xml:space="preserve"><value>Consola</value></data>
+  <data name="ConsolePause" xml:space="preserve"><value>Pausar</value></data>
+  <data name="ConsoleClear" xml:space="preserve"><value>Borrar</value></data>
+  <data name="ConsoleCopy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="ConsoleWrap" xml:space="preserve"><value>Ajustar líneas</value></data>
+  <data name="ConsoleCount" xml:space="preserve"><value>{0} entradas · se conservan las últimas {1}</value></data>
+  <data name="ConsolePrivate" xml:space="preserve"><value>[private] marca el texto oculto mientras la entrada era privada.</value></data>
 </root>
