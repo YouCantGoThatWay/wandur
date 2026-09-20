@@ -22,6 +22,13 @@ empty only while its name is cleared, and still resets everything on a
 character name change (`MappedVitalsLiveTests.TheOpponentCardShowsInTheSecondFight`
 covers 20 two-fight variants).
 
+Map search (branch `feature/map-search`): a magnifier in the map toolbar reveals a search box that filters
+rooms already seen by observed name or description (AND terms, a quoted phrase, case-insensitive, never a
+room with no observed text), highlighting matches with the theme's accent ring, dimming the rest, and
+counting them beside the box. Enter or Next steps through matches in name order, switching floor as needed,
+an "on other floors" dropdown reaches the rest directly, Escape clears the search, and nothing here is ever
+sent to the world.
+
 ## Operating rules (keep)
 
 - Git identity for every commit in this repository and in the private site

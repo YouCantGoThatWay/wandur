@@ -83,6 +83,7 @@ public sealed partial class MapViewModel
         OnPropertyChanged(nameof(SelectedAreaChoice)); OnPropertyChanged(nameof(IsGridMode)); OnPropertyChanged(nameof(Legend));
         OnPropertyChanged(nameof(Floors)); OnPropertyChanged(nameof(VisibleRooms));
         FloorUpCommand.NotifyCanExecuteChanged(); FloorDownCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(RoomSearchOtherFloorMatches)); OnPropertyChanged(nameof(HasRoomSearchOtherFloorMatches));
         FitFloor();
     }
     partial void OnSearchQueryChanged(string value)

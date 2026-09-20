@@ -28,13 +28,17 @@ public sealed class RoomMapControl : Control
     private static readonly IBrush Ground = Brush.Parse("#10191F");
     public static readonly StyledProperty<IBrush> CanvasBrushProperty = AvaloniaProperty.Register<RoomMapControl, IBrush>(nameof(CanvasBrush), Brush.Parse("#10191F"));
     public static readonly StyledProperty<IBrush> GridBrushProperty = AvaloniaProperty.Register<RoomMapControl, IBrush>(nameof(GridBrush), Brush.Parse("#1D2B34"));
+    /// <summary>The theme's accent brush, used for the search-match ring so it always reads against every preset.</summary>
+    public static readonly StyledProperty<IBrush> SearchHighlightBrushProperty = AvaloniaProperty.Register<RoomMapControl, IBrush>(nameof(SearchHighlightBrush), Brush.Parse("#F2BF6A"));
     public IBrush CanvasBrush { get => GetValue(CanvasBrushProperty); set => SetValue(CanvasBrushProperty, value); }
     public IBrush GridBrush { get => GetValue(GridBrushProperty); set => SetValue(GridBrushProperty, value); }
-    static RoomMapControl() => AffectsRender<RoomMapControl>(CanvasBrushProperty, GridBrushProperty);
+    public IBrush SearchHighlightBrush { get => GetValue(SearchHighlightBrushProperty); set => SetValue(SearchHighlightBrushProperty, value); }
+    static RoomMapControl() => AffectsRender<RoomMapControl>(CanvasBrushProperty, GridBrushProperty, SearchHighlightBrushProperty);
     public RoomMapControl()
     {
         this.Bind(CanvasBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("MapCanvasBrush"));
         this.Bind(GridBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("MapGridBrush"));
+        this.Bind(SearchHighlightBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AccentBrush"));
         GestureRecognizers.Add(new PinchGestureRecognizer());
         AddHandler(InputElement.PinchEvent, OnPinch);
         AddHandler(InputElement.PinchEndedEvent, (_, e) => { _pinchStartZoom = null; e.Handled = true; });
@@ -77,6 +81,8 @@ public sealed class RoomMapControl : Control
         var rooms = Model.VisibleRooms;
         var byId = Model.Snapshot.Rooms.ToDictionary(r => r.Id);
         var candidates = Model.Snapshot.CandidateRoomIds.ToHashSet();
+        var searchActive = Model.IsRoomSearchActive;
+        var searchMatches = Model.RoomSearchMatchIds;
         var gridMode = Model.IsGridMode;
         var half = gridMode ? viewport.Scale / 2 : Math.Clamp(viewport.Scale * .16, 4, 26);
         var visibleIds = rooms.Select(r => r.Id).ToHashSet();
@@ -159,71 +165,76 @@ public sealed class RoomMapControl : Control
             var style = MapEnvironmentPalette.Resolve(room, palette);
             var fill = Brush.Parse(style.Color);
             var inferred = room.Provisional || (current && Model.Snapshot.State != MapTrackingState.Confirmed);
-            context.DrawRectangle(fill, new Pen(gridMode ? Ground : accent, gridMode ? .5 : 1.3,
-                inferred && !gridMode ? DashStyle.Dash : null), bounds, 0, 0);
-            if (selected) context.DrawRectangle(null, new Pen(Brushes.White, 2), gridMode ? bounds.Deflate(2) : bounds.Inflate(4));
-            if (!string.IsNullOrWhiteSpace(style.Symbol) && half >= 8 && !current)
+            var isSearchMatch = searchActive && searchMatches.Contains(room.Id);
+            using (context.PushOpacity(searchActive && !isSearchMatch ? .35 : 1))
             {
-                var symbol = Text(style.Symbol, Ground, Math.Clamp(half, 10, 18));
-                context.DrawText(symbol, new Point(screen.X - symbol.Width / 2, screen.Y - symbol.Height / 2));
-            }
-            if (room.IsLocked && half >= 8) DrawText(context, "×", new Point(bounds.Right - 10, bounds.Top), Ground, 12);
-            if (!string.IsNullOrEmpty(room.Notes) && half >= 8) context.DrawEllipse(Brushes.White, new Pen(Ground, 1), new Point(bounds.Left + 4, bounds.Top + 4), 2, 2);
-            DrawExitLights(context, room, outgoing, screen, half);
-            if (current)
-            {
-                var markerRadius = Math.Clamp(half * .55, 4, 9);
-                context.DrawEllipse(Ground, new Pen(Brushes.White, 1.5), screen, markerRadius + 2, markerRadius + 2);
-                context.DrawEllipse(Model.Snapshot.State == MapTrackingState.Confirmed ? Mint : null,
-                    new Pen(Mint, 2), screen, markerRadius, markerRadius);
-            }
-            else if (candidate) DrawText(context, "?", new Point(screen.X - 4, screen.Y - 8), Amber, 13);
-            _hits.Add((room.Id, gridMode ? bounds : bounds.Inflate(4)));
-
-            if (!gridMode && (Model.Zoom >= .65 || selected || current))
-            {
-                var width = Math.Clamp(viewport.Scale - 10, 55, 130);
-                using var label = new TextLayout(room.Name, Font, 10, Route,
-                    textAlignment: TextAlignment.Center, textWrapping: TextWrapping.Wrap,
-                    textTrimming: TextTrimming.CharacterEllipsis, maxWidth: width, maxLines: 2);
-                var positions = new[]
+                context.DrawRectangle(fill, new Pen(gridMode ? Ground : accent, gridMode ? .5 : 1.3,
+                    inferred && !gridMode ? DashStyle.Dash : null), bounds, 0, 0);
+                if (isSearchMatch) context.DrawRectangle(null, new Pen(SearchHighlightBrush, 2.5), gridMode ? bounds.Inflate(1) : bounds.Inflate(selected ? 8 : 4));
+                if (selected) context.DrawRectangle(null, new Pen(Brushes.White, 2), gridMode ? bounds.Deflate(2) : bounds.Inflate(4));
+                if (!string.IsNullOrWhiteSpace(style.Symbol) && half >= 8 && !current)
                 {
-                    new Point(screen.X - width / 2, screen.Y + half + 5),
-                    new Point(screen.X + half + 7, screen.Y - label.Height / 2),
-                    new Point(screen.X - half - width - 7, screen.Y - label.Height / 2)
-                };
-                foreach (var point in positions)
-                {
-                    var labelBounds = new Rect(point, new Size(width, label.Height));
-                    if (!new Rect(Bounds.Size).Contains(labelBounds) || reserved.Any(r => r.Intersects(labelBounds))) continue;
-                    context.FillRectangle(Ground, labelBounds);
-                    label.Draw(context, point);
-                    reserved.Add(labelBounds);
-                    break;
+                    var symbol = Text(style.Symbol, Ground, Math.Clamp(half, 10, 18));
+                    context.DrawText(symbol, new Point(screen.X - symbol.Width / 2, screen.Y - symbol.Height / 2));
                 }
-            }
+                if (room.IsLocked && half >= 8) DrawText(context, "×", new Point(bounds.Right - 10, bounds.Top), Ground, 12);
+                if (!string.IsNullOrEmpty(room.Notes) && half >= 8) context.DrawEllipse(Brushes.White, new Pen(Ground, 1), new Point(bounds.Left + 4, bounds.Top + 4), 2, 2);
+                DrawExitLights(context, room, outgoing, screen, half);
+                if (current)
+                {
+                    var markerRadius = Math.Clamp(half * .55, 4, 9);
+                    context.DrawEllipse(Ground, new Pen(Brushes.White, 1.5), screen, markerRadius + 2, markerRadius + 2);
+                    context.DrawEllipse(Model.Snapshot.State == MapTrackingState.Confirmed ? Mint : null,
+                        new Pen(Mint, 2), screen, markerRadius, markerRadius);
+                }
+                else if (candidate) DrawText(context, "?", new Point(screen.X - 4, screen.Y - 8), Amber, 13);
 
-            // Floor badges are navigation of the map only; they never send movement commands.
-            var destinations = outgoing.Where(l => byId.TryGetValue(l.ToId, out var target) && (target.Z != room.Z || target.Area != room.Area))
-                .Select(l => byId[l.ToId]).DistinctBy(r => r.Id).OrderBy(r => r.Z).ToArray();
-            var badgeY = screen.Y - half - 20;
-            foreach (var destination in destinations)
-            {
-                var floor = destination.Z;
-                var caption = destination.Area != room.Area ? "↗ " + (destination.Area ?? L.MapUnassignedArea) : (floor > room.Z ? "↑ " : "↓ ") + floor.ToString("0.##", CultureInfo.CurrentCulture);
-                var text = Text(caption, Route, 10);
-                var badge = new Rect(screen.X + half + 7, badgeY, text.Width + 8, 17);
-                context.DrawRectangle(Tile, new Pen(Gray, 1), badge, 3, 3);
-                context.DrawText(text, new Point(badge.X + 4, badge.Y + 1));
-                _destinationHits.Add((destination.Id, badge));
-                badgeY -= 21;
+                if (!gridMode && (Model.Zoom >= .65 || selected || current))
+                {
+                    var width = Math.Clamp(viewport.Scale - 10, 55, 130);
+                    using var label = new TextLayout(room.Name, Font, 10, Route,
+                        textAlignment: TextAlignment.Center, textWrapping: TextWrapping.Wrap,
+                        textTrimming: TextTrimming.CharacterEllipsis, maxWidth: width, maxLines: 2);
+                    var positions = new[]
+                    {
+                        new Point(screen.X - width / 2, screen.Y + half + 5),
+                        new Point(screen.X + half + 7, screen.Y - label.Height / 2),
+                        new Point(screen.X - half - width - 7, screen.Y - label.Height / 2)
+                    };
+                    foreach (var point in positions)
+                    {
+                        var labelBounds = new Rect(point, new Size(width, label.Height));
+                        if (!new Rect(Bounds.Size).Contains(labelBounds) || reserved.Any(r => r.Intersects(labelBounds))) continue;
+                        context.FillRectangle(Ground, labelBounds);
+                        label.Draw(context, point);
+                        reserved.Add(labelBounds);
+                        break;
+                    }
+                }
+
+                // Floor badges are navigation of the map only; they never send movement commands.
+                var destinations = outgoing.Where(l => byId.TryGetValue(l.ToId, out var target) && (target.Z != room.Z || target.Area != room.Area))
+                    .Select(l => byId[l.ToId]).DistinctBy(r => r.Id).OrderBy(r => r.Z).ToArray();
+                var badgeY = screen.Y - half - 20;
+                foreach (var destination in destinations)
+                {
+                    var floor = destination.Z;
+                    var caption = destination.Area != room.Area ? "↗ " + (destination.Area ?? L.MapUnassignedArea) : (floor > room.Z ? "↑ " : "↓ ") + floor.ToString("0.##", CultureInfo.CurrentCulture);
+                    var text = Text(caption, Route, 10);
+                    var badge = new Rect(screen.X + half + 7, badgeY, text.Width + 8, 17);
+                    context.DrawRectangle(Tile, new Pen(Gray, 1), badge, 3, 3);
+                    context.DrawText(text, new Point(badge.X + 4, badge.Y + 1));
+                    _destinationHits.Add((destination.Id, badge));
+                    badgeY -= 21;
+                }
+                // Known vertical exits with no destination remain explicitly unexplored.
+                var vertical = room.KnownExits.Where(d => d is "up" or "down")
+                    .Where(d => !outgoing.Any(l => l.Direction == d && byId.ContainsKey(l.ToId))).ToArray();
+                if (!gridMode && vertical.Length > 0)
+                    DrawText(context, string.Join(" ", vertical.Select(d => d == "up" ? "↑?" : "↓?")),
+                        new Point(screen.X + half + 6, screen.Y - 7), accent, 10);
             }
-            // Known vertical exits with no destination remain explicitly unexplored.
-            var vertical = room.KnownExits.Where(d => d is "up" or "down")
-                .Where(d => !outgoing.Any(l => l.Direction == d && byId.ContainsKey(l.ToId))).ToArray();
-            if (!gridMode && vertical.Length > 0)
-                DrawText(context, string.Join(" ", vertical.Select(d => d == "up" ? "↑?" : "↓?")),
-                    new Point(screen.X + half + 6, screen.Y - 7), accent, 10);
+            _hits.Add((room.Id, gridMode ? bounds : bounds.Inflate(4)));
         }
         if (gridMode && Model.PlannedRoute is { } route)
             foreach (var step in route.Steps)
