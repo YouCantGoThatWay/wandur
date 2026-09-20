@@ -871,4 +871,8 @@ public static class Strings
     public static string ConsoleWrap => Get(nameof(ConsoleWrap));
     public static string ConsoleCount => Get(nameof(ConsoleCount));
     public static string ConsolePrivate => Get(nameof(ConsolePrivate));
+    public static string DiagnosticsFilterPlaceholder => Get(nameof(DiagnosticsFilterPlaceholder));
+    public static string DiagnosticsAllKinds => Get(nameof(DiagnosticsAllKinds));
+    public static string DiagnosticsMoreKinds => Get(nameof(DiagnosticsMoreKinds));
+    public static string DiagnosticsShownOfTotal => Get(nameof(DiagnosticsShownOfTotal));
 }

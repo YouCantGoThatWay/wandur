@@ -370,6 +370,32 @@
       <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>
+    <Style Selector=":is(Button).diag-chip">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Margin" Value="0,0,6,4" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector=":is(Button).diag-chip /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector=":is(Button).diag-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ToolbarHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.diag-chip:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.diag-chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ToolbarPressedBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
     <Style Selector="ToolTip">
       <Setter Property="MaxWidth" Value="320" />
     </Style>
