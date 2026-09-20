@@ -864,4 +864,11 @@ public static class Strings
     public static string ComposerSuggestions => Get(nameof(ComposerSuggestions));
     public static string ComposerSuggestionsHint => Get(nameof(ComposerSuggestionsHint));
     public static string CommandHintTabComplete => Get(nameof(CommandHintTabComplete));
+    public static string ConsoleTab => Get(nameof(ConsoleTab));
+    public static string ConsolePause => Get(nameof(ConsolePause));
+    public static string ConsoleClear => Get(nameof(ConsoleClear));
+    public static string ConsoleCopy => Get(nameof(ConsoleCopy));
+    public static string ConsoleWrap => Get(nameof(ConsoleWrap));
+    public static string ConsoleCount => Get(nameof(ConsoleCount));
+    public static string ConsolePrivate => Get(nameof(ConsolePrivate));
 }

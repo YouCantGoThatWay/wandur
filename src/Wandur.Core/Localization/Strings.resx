@@ -1829,4 +1829,11 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ComposerSuggestions" xml:space="preserve"><value>Suggest completions while typing</value></data>
   <data name="ComposerSuggestionsHint" xml:space="preserve"><value>Grayed text after what you type comes from your command history and words seen in this world. Tab or Right arrow accepts it, Escape hides it.</value></data>
   <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ history · Tab complete · Enter send</value></data>
+  <data name="ConsoleTab" xml:space="preserve"><value>Console</value></data>
+  <data name="ConsolePause" xml:space="preserve"><value>Pause</value></data>
+  <data name="ConsoleClear" xml:space="preserve"><value>Clear</value></data>
+  <data name="ConsoleCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="ConsoleWrap" xml:space="preserve"><value>Wrap lines</value></data>
+  <data name="ConsoleCount" xml:space="preserve"><value>{0} entries · latest {1} retained</value></data>
+  <data name="ConsolePrivate" xml:space="preserve"><value>[private] marks text hidden while input was private.</value></data>
 </root>

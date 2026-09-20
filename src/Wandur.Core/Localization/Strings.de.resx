@@ -1829,4 +1829,11 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="ComposerSuggestions" xml:space="preserve"><value>Vervollständigungen beim Tippen vorschlagen</value></data>
   <data name="ComposerSuggestionsHint" xml:space="preserve"><value>Grauer Text hinter der Eingabe stammt aus dem Befehlsverlauf und aus Wörtern, die in dieser Welt zu sehen waren. Tab oder Pfeil rechts übernimmt ihn, Escape blendet ihn aus.</value></data>
   <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ Verlauf · Tab ergänzen · Enter senden</value></data>
+  <data name="ConsoleTab" xml:space="preserve"><value>Konsole</value></data>
+  <data name="ConsolePause" xml:space="preserve"><value>Pause</value></data>
+  <data name="ConsoleClear" xml:space="preserve"><value>Leeren</value></data>
+  <data name="ConsoleCopy" xml:space="preserve"><value>Kopieren</value></data>
+  <data name="ConsoleWrap" xml:space="preserve"><value>Zeilen umbrechen</value></data>
+  <data name="ConsoleCount" xml:space="preserve"><value>{0} Einträge · die letzten {1} bleiben erhalten</value></data>
+  <data name="ConsolePrivate" xml:space="preserve"><value>[private] steht für Text, der bei privater Eingabe verborgen wurde.</value></data>
 </root>

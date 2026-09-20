@@ -1829,4 +1829,11 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   <data name="ComposerSuggestions" xml:space="preserve"><value>Suggérer des complétions pendant la saisie</value></data>
   <data name="ComposerSuggestionsHint" xml:space="preserve"><value>Le texte grisé après ce que vous tapez vient de l'historique des commandes et des mots vus dans ce monde. Tab ou flèche droite l'accepte, Échap le masque.</value></data>
   <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ historique · Tab compléter · Entrée envoi</value></data>
+  <data name="ConsoleTab" xml:space="preserve"><value>Console</value></data>
+  <data name="ConsolePause" xml:space="preserve"><value>Pause</value></data>
+  <data name="ConsoleClear" xml:space="preserve"><value>Effacer</value></data>
+  <data name="ConsoleCopy" xml:space="preserve"><value>Copier</value></data>
+  <data name="ConsoleWrap" xml:space="preserve"><value>Renvoyer à la ligne</value></data>
+  <data name="ConsoleCount" xml:space="preserve"><value>{0} entrées · les {1} dernières sont conservées</value></data>
+  <data name="ConsolePrivate" xml:space="preserve"><value>[private] marque le texte masqué pendant la saisie privée.</value></data>
 </root>

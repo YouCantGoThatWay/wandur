@@ -1829,4 +1829,11 @@ Pare após receber uma lista do inventário.</value></data>
   <data name="ComposerSuggestions" xml:space="preserve"><value>Sugerir complementos ao digitar</value></data>
   <data name="ComposerSuggestionsHint" xml:space="preserve"><value>O texto cinza após o que você digita vem do histórico de comandos e de palavras vistas neste mundo. Tab ou seta para a direita aceita, Esc oculta.</value></data>
   <data name="CommandHintTabComplete" xml:space="preserve"><value>↑ ↓ histórico · Tab completar · Enter enviar</value></data>
+  <data name="ConsoleTab" xml:space="preserve"><value>Console</value></data>
+  <data name="ConsolePause" xml:space="preserve"><value>Pausar</value></data>
+  <data name="ConsoleClear" xml:space="preserve"><value>Limpar</value></data>
+  <data name="ConsoleCopy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="ConsoleWrap" xml:space="preserve"><value>Quebrar linhas</value></data>
+  <data name="ConsoleCount" xml:space="preserve"><value>{0} entradas · as últimas {1} são mantidas</value></data>
+  <data name="ConsolePrivate" xml:space="preserve"><value>[private] marca o texto oculto enquanto a entrada era privada.</value></data>
 </root>
