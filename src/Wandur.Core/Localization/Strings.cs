@@ -419,6 +419,7 @@ public static class Strings
     public static string ScriptRateExceeded => Get(nameof(ScriptRateExceeded));
     public static string ScriptSourceTooLarge => Get(nameof(ScriptSourceTooLarge));
     public static string ScriptWorkerFailed => Get(nameof(ScriptWorkerFailed));
+    public static string ScriptWorkerRestartLimit => Get(nameof(ScriptWorkerRestartLimit));
     public static string ScriptTrustHint => Get(nameof(ScriptTrustHint));
     public static string ScriptEditorTitle => Get(nameof(ScriptEditorTitle));
     public static string ScriptRun => Get(nameof(ScriptRun));

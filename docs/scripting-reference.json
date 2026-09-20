@@ -1,7 +1,7 @@
 {
   "version": 1,
   "title": "Wandur world scripting API",
-  "description": "Machine-readable summary of the JavaScript API a Wandur world script may use. Scripts run in an isolated worker with no host, filesystem, network or package APIs. Everything a script can reach is listed here.",
+  "description": "Machine-readable summary of the JavaScript API a Wandur world script may use. Each script runs in its own engine inside the session's worker process, with no host, filesystem, network or package APIs; a runaway callback stops that script only. Everything a script can reach is listed here.",
   "globals": [
     {
       "name": "mud",
@@ -195,7 +195,7 @@
     "sendCharacters": 4096,
     "echoCharacters": 8192,
     "eventCharacters": 32768,
-    "queuedEventsPerScript": 128,
+    "queuedEventsPerSession": 1024,
     "sendsPerSecond": 20,
     "sendsPerMinute": 200,
     "timerSecondsMinimum": 1,
@@ -221,6 +221,8 @@
     "msdpValueCharacters": 8192,
     "msdpReportsPerScript": 64,
     "stateSeedCharacters": 1048576,
+    "callbackTimeoutMilliseconds": 300,
+    "callbackStatements": 100000,
     "workerTimeoutSeconds": 2
   }
 }

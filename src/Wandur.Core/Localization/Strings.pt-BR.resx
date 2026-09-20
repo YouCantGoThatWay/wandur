@@ -1162,6 +1162,9 @@ A demonstração offline está disponível em Arquivo.</value>
   <data name="ScriptWorkerFailed" xml:space="preserve">
     <value>O processo do script parou ou não respondeu.</value>
   </data>
+  <data name="ScriptWorkerRestartLimit" xml:space="preserve">
+    <value>O processo de scripts parou três vezes em cinco minutos e não foi iniciado novamente.</value>
+  </data>
   <data name="ScriptTrustHint" xml:space="preserve">
     <value>Execute scripts confiáveis. Os scripts podem enviar comandos ao jogo. Eles só iniciam quando você clica em Executar.</value>
   </data>

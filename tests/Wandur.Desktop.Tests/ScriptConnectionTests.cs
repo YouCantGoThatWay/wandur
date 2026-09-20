@@ -426,16 +426,31 @@ public sealed class ScriptConnectionTests
     }
 }
 
+/// <summary>The worker's engine set in-process: the same routing, seeding and per-script failure as the worker
+/// process, without a process. <see cref="Created"/> counts the hosts a library asked for.</summary>
 internal sealed class InlineScriptFactory : IScriptRuntimeFactory
 {
-    public IScriptRuntime Create() => new InlineScriptRuntime();
-    private sealed class InlineScriptRuntime : IScriptRuntime
-    {
-        private JavaScriptEngine? _engine = new();
-        public bool IsRunning => _engine?.IsRunning == true;
-        public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false) => Task.FromResult(_engine!.Load(source, restrictedSend));
-        public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default) => Task.FromResult(_engine!.Dispatch(input));
-        public void Stop() => _engine = null;
-        public ValueTask DisposeAsync() { Stop(); return ValueTask.CompletedTask; }
-    }
+    public int Created { get; private set; }
+    public InlineScriptHost? Host { get; private set; }
+    public ISessionScriptHost Create() { Created++; return Host = new InlineScriptHost(); }
+}
+
+internal sealed class InlineScriptHost : ISessionScriptHost
+{
+    private readonly ScriptEngineSet _engines = new();
+    private bool _stopped;
+    public bool IsRunning => !_stopped;
+    public int Loaded => _engines.Count;
+    public event Action<string>? Failed;
+    public Task<IReadOnlyList<ScriptResult>> SeedAsync(string state, CancellationToken cancellationToken = default)
+        => Task.FromResult(_stopped ? (IReadOnlyList<ScriptResult>)[] : _engines.Seed(state));
+    public Task<ScriptResult> LoadAsync(string id, string source, bool restrictedSend = false, CancellationToken cancellationToken = default)
+        => _stopped ? throw new ScriptWorkerException("Stopped.") : Task.FromResult(_engines.Load(id, source, restrictedSend));
+    public Task<IReadOnlyList<ScriptResult>> DispatchAsync(IReadOnlyList<string> ids, ScriptEvent input, CancellationToken cancellationToken = default)
+        => _stopped ? throw new ScriptWorkerException("Stopped.") : Task.FromResult(_engines.Dispatch(ids, input));
+    public Task StopAsync(string id, CancellationToken cancellationToken = default) { _engines.Stop(id); return Task.CompletedTask; }
+    public void Stop() { _stopped = true; _engines.Clear(); }
+    /// <summary>Pretends the process died, as a test's stand-in for a crash.</summary>
+    public void Crash(string reason = "The script worker exited.") { Stop(); Failed?.Invoke(reason); }
+    public ValueTask DisposeAsync() { Stop(); return ValueTask.CompletedTask; }
 }

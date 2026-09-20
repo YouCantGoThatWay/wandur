@@ -1162,6 +1162,9 @@ La demo sin conexión está en Archivo.</value>
   <data name="ScriptWorkerFailed" xml:space="preserve">
     <value>El proceso del script se detuvo o no respondió.</value>
   </data>
+  <data name="ScriptWorkerRestartLimit" xml:space="preserve">
+    <value>El proceso de scripts se detuvo tres veces en cinco minutos y no se volvió a iniciar.</value>
+  </data>
   <data name="ScriptTrustHint" xml:space="preserve">
     <value>Ejecuta scripts de confianza. Los scripts pueden enviar comandos al juego. Solo se inician al pulsar Ejecutar.</value>
   </data>

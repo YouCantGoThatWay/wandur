@@ -1162,6 +1162,9 @@ La démo hors ligne est disponible dans Fichier.</value>
   <data name="ScriptWorkerFailed" xml:space="preserve">
     <value>Le processus du script s’est arrêté ou n’a pas répondu.</value>
   </data>
+  <data name="ScriptWorkerRestartLimit" xml:space="preserve">
+    <value>Le processus de scripts s’est arrêté trois fois en cinq minutes et n’a pas été relancé.</value>
+  </data>
   <data name="ScriptTrustHint" xml:space="preserve">
     <value>Exécutez des scripts de confiance. Ils peuvent envoyer des commandes au jeu et ne démarrent que lorsque vous appuyez sur Exécuter.</value>
   </data>

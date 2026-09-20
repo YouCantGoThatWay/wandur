@@ -36,16 +36,15 @@ public sealed class WorldScriptEntry : INotifyPropertyChanged
     }
 }
 
-/// <summary>Owns independently enabled workers. Editor drafts are separate from saved, executable source.</summary>
+/// <summary>The scripts of one session, independently enabled, all hosted by the session's one worker process.
+/// Editor drafts are separate from saved, executable source.</summary>
 public sealed class WorldScriptLibrary : IAsyncDisposable
 {
-    private readonly IScriptRuntimeFactory _factory;
     private readonly IWorldScriptLibraryStore _store;
     private readonly Func<bool> _canRun;
     private readonly Func<bool> _isPrivate;
     private readonly Func<string, Task<bool>> _send;
     private readonly Action<string> _echo;
-    private readonly Func<string?>? _seedState;
     private readonly Action<string>? _report;
     private readonly HashSet<Guid> _attempted = [];
     private readonly Queue<long> _sentAt = [];
@@ -56,19 +55,22 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     public ObservableCollection<WorldScriptEntry> Items { get; } = [];
     /// <summary>The docked panels this session's scripts declare.</summary>
     public ScriptPanelHost Panels { get; } = new();
+    /// <summary>The session's worker: started when the first script runs, ended with the session's world or the library.</summary>
+    public SessionScriptWorker Worker { get; }
     public bool MacrosEnabled { get; private set; } = true;
     public string WorldName { get; private set; } = "";
     public string? Error { get; private set; }
     public event Action? Changed;
 
-    /// <param name="seedState">The session's protocol state, sent to every worker before its script runs.</param>
+    /// <param name="seedState">The session's protocol state, sent to the worker before a script runs whenever it has changed.</param>
     /// <param name="report">Called with an MSDP variable a script read that the world has not sent.</param>
     public WorldScriptLibrary(IScriptRuntimeFactory factory, IWorldScriptLibraryStore store, Func<bool> canRun,
         Func<bool> isPrivate, Func<string, Task<bool>> send, Action<string> echo,
         Func<string?>? seedState = null, Action<string>? report = null)
     {
-        _factory = factory; _store = store; _canRun = canRun; _isPrivate = isPrivate; _send = send; _echo = echo;
-        _seedState = seedState; _report = report;
+        _store = store; _canRun = canRun; _isPrivate = isPrivate; _send = send; _echo = echo; _report = report;
+        Worker = new SessionScriptWorker(factory, seedState);
+        Worker.Crashed += OnWorkerCrashed;
         Panels.Callback = DeliverPanelEvent;
         Items.Add(Create(new(Guid.NewGuid(), L.ScriptDefaultName, ScriptExamples.Starter)));
     }
@@ -82,10 +84,10 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
     private WorldScriptEntry Create(WorldScriptDefinition definition)
     {
         WorldScriptEntry? created = null;
-        var runtime = new SessionScripts(_factory, new EntrySourceStore(definition.Source), _canRun, _isPrivate, SendAsync, _echo,
+        var runtime = new SessionScripts(Worker, definition.Id.ToString(), new EntrySourceStore(definition.Source), _canRun, _isPrivate, SendAsync, _echo,
             action => Panels.Apply(definition.Id, action),
             () => created?.Saved is { Pack: not null, AllowSend: false },
-            _seedState, _report);
+            _report);
         runtime.Configure(_worldKey ?? "", WorldName);
         runtime.Changed += OnChanged;
         var entry = created = new WorldScriptEntry(definition, runtime);
@@ -108,6 +110,15 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
             throw new InvalidOperationException(L.ScriptRateExceeded);
         _sentAt.Enqueue(now);
         return _send(command);
+    }
+
+    /// <summary>The worker process died. Its scripts are already marked failed; when the restart budget allows,
+    /// the enabled ones among them run again from scratch on a fresh process, seeded from the host cache.</summary>
+    private void OnWorkerCrashed(IReadOnlyList<SessionScripts> failed, bool restart)
+    {
+        if (_disposed) return;
+        foreach (var entry in Items) if (failed.Contains(entry.Runtime)) _attempted.Remove(entry.Id);
+        if (restart) RefreshState(); else Changed?.Invoke();
     }
 
     private void OnChanged()
@@ -322,8 +333,18 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         Changed?.Invoke();
     }
     public void Tick() { foreach (var entry in Items) entry.Runtime.Tick(); }
-    public void Feed(string text) { foreach (var entry in Items) entry.Runtime.Feed(text); }
-    public void Publish(ScriptEvent input) { foreach (var entry in Items) entry.Runtime.Publish(input); }
+    /// <summary>Server text: completed lines reach every running script, once each, in the same order.</summary>
+    public void Feed(string text)
+    {
+        if (_isPrivate() || !Items.Any(entry => entry.Runtime.IsRunning)) { Worker.DiscardPartialLine(); return; }
+        Worker.Feed(text);
+    }
+    /// <summary>One event to every running script, and to one still loading, through the worker's single queue.</summary>
+    public void Publish(ScriptEvent input)
+    {
+        if (_isPrivate() || !Items.Any(entry => entry.Runtime.IsRunning || entry.Runtime.IsBusy)) return;
+        Worker.Publish(input);
+    }
     public bool HandleShortcut(string key)
     {
         if (_disposed || _suspended || !_canRun() || _isPrivate()) return false;
@@ -331,7 +352,7 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         foreach (var entry in matches) entry.Runtime.Publish(new("key", key));
         return matches.Length > 0;
     }
-    public void DiscardPartialLine() { foreach (var entry in Items) entry.Runtime.DiscardPartialLine(); }
+    public void DiscardPartialLine() => Worker.DiscardPartialLine();
     public async Task<bool> HandleCommandAsync(string command)
     {
         foreach (var entry in Items.ToArray())
@@ -352,12 +373,19 @@ public sealed class WorldScriptLibrary : IAsyncDisposable
         }
     }
 
-    public void Stop() { foreach (var entry in Items) entry.Runtime.Stop(); }
+    /// <summary>Stops every script and ends the worker process; the next script to run starts a fresh one.</summary>
+    public void Stop()
+    {
+        foreach (var entry in Items) entry.Runtime.Stop();
+        Worker.Shutdown();
+    }
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
         Panels.Clear();
         foreach (var entry in Items) { entry.Runtime.Changed -= OnChanged; await entry.Runtime.DisposeAsync(); }
+        Worker.Crashed -= OnWorkerCrashed;
+        await Worker.DisposeAsync();
     }
 }
