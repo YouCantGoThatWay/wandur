@@ -5,6 +5,14 @@ Read it, then `docs/verification.md` for what has been verified and when.
 The September 18 handoff about Icesus resource bars and directory refresh is
 complete and recorded in `docs/verification.md`; it no longer needs action.
 
+Mapped vitals fix (branch `fix/mapped-vitals`): the vitals strip stopped
+following the world when a login lingered (a GMCP login the world never
+confirms, or a slow reconnect), because the binding engine was fed only
+through the login-gated `payload` while the script cache is gated by privacy
+alone; `ProtocolBindingEngine.Observe` now runs on the same cache-gated
+condition in `WorkspaceController.FlushOutput`, so mapped bars and the opponent
+card keep updating whenever the cache accepts a server value.
+
 ## Operating rules (keep)
 
 - Git identity for every commit in this repository and in the private site
