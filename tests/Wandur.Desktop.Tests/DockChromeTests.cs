@@ -15,8 +15,10 @@ using Wandur.Core.Settings;
 namespace Wandur.Desktop.Tests;
 
 /// <summary>
-/// The docking chrome: every dock is square, header and content, and neighbouring panels are separated by
-/// the 4 px gap and the splitter alone. The header shows the move cursor on its grip glyph and an arrow elsewhere.
+/// The docking chrome: the centre document is squared off, each side dock is rounded only on its outer
+/// edge (left docks on the left, right docks on the right), header and content alike, and neighbouring
+/// panels are separated by the 4 px gap and the splitter alone. The header shows the move cursor on its
+/// grip glyph and an arrow elsewhere.
 /// </summary>
 public sealed class DockChromeTests
 {
@@ -41,7 +43,7 @@ public sealed class DockChromeTests
         new(border.TranslatePoint(new Point(0, 0), window) ?? default, border.Bounds.Size);
 
     [AvaloniaFact]
-    public void EveryDockIsSquareAndTheSideDocksMeetTheCentreAcrossTheGap()
+    public void SideDocksAreRoundedOnTheirOuterEdgeOnlyAndMeetTheSquareCentreAcrossTheGap()
     {
         var window = CreateWindow();
         try
@@ -56,8 +58,13 @@ public sealed class DockChromeTests
 
             Assert.Equal(new CornerRadius(0), document.CornerRadius);
             Assert.Equal(new Thickness(1), document.BorderThickness);
-            foreach (var border in new[] { leftHeader, leftContent, rightHeader, rightContent, channelsHeader, channelsContent })
-                Assert.Equal(new CornerRadius(0), border.CornerRadius);
+            Assert.Equal(new CornerRadius(10, 0, 0, 0), leftHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, 10), leftContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), rightHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), rightContent.CornerRadius);
+            // The Channels panel shares the right edge below the map, rounded on that edge the same way.
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), channelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), channelsContent.CornerRadius);
 
             // The header drags as a whole, but only its grip glyph says so with the cursor; the title shows an arrow.
             var chrome = (ToolChromeControl)leftHeader.TemplatedParent!;
@@ -91,7 +98,7 @@ public sealed class DockChromeTests
     }
 
     [AvaloniaFact]
-    public async Task ScriptPanelDocksAreSquareLikeTheEdgeTheyShare()
+    public async Task ScriptPanelDocksAreRoundedLikeTheEdgeTheyShare()
     {
         var path = Path.Combine(Path.GetTempPath(), "wandur-dock-panels-" + Guid.NewGuid());
         Directory.CreateDirectory(path);
@@ -121,9 +128,12 @@ public sealed class DockChromeTests
             var channelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "channels-dock"));
             var libraryContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Left, "left"));
 
-            // A panels dock is square like its neighbours, header and content alike.
-            foreach (var border in new[] { panelsHeader, panelsContent, leftPanelsHeader, leftPanelsContent, document })
-                Assert.Equal(new CornerRadius(0), border.CornerRadius);
+            // A panels dock is rounded on the outer edge it shares with its neighbours and squared towards the centre, like them.
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), panelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), panelsContent.CornerRadius);
+            Assert.Equal(new CornerRadius(10, 0, 0, 0), leftPanelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, 10), leftPanelsContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0), document.CornerRadius);
 
             var centre = Frame(document, window);
             var map = Frame(mapContent, window);
@@ -144,7 +154,7 @@ public sealed class DockChromeTests
             {
                 using var frame = window.CaptureRenderedFrame();
                 Directory.CreateDirectory(directory);
-                frame!.Save(Path.Combine(directory, "square-docks.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                frame!.Save(Path.Combine(directory, "rounded-docks.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
         }
         finally
