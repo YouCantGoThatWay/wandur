@@ -366,5 +366,135 @@ public sealed class WorldCatalogTests : IDisposable
         Assert.NotNull(reopened.Warning);
     }
 
+    /// <summary>The directory as deployed on September 20, 2026: the id is a slug, the art lives under the slug route
+    /// and the mapping names whatever world id the worker gave it.</summary>
+    private static string SlugSnapshot(string host = "mud.example.org", int port = 4000, int? tlsPort = 4001, string mappingWorldId = "mudverse:7") =>
+        JsonSerializer.Serialize(new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.Parse("2026-09-20T08:00:00Z"), worlds = new[] { new WorldListing
+        {
+            Id = "lantern-forest", Name = "Lantern & Forest", Summary = "A quiet world", Description = "A wizard's forest.\n\nVisit & explore.\nStay awhile.",
+            Host = host, Port = port, TlsPort = tlsPort, GeneratedArtworkPath = "worlds/lantern-forest/art",
+            Source = new() { Provider = "mudverse", Name = "MUDVerse", RecordId = "7" }, Tags = ["Exploration"],
+            ProtocolMapping = new Wandur.Models.WorldMapping { WorldId = mappingWorldId, Endpoint = new(host, port), SchemaFingerprint = new('a', 64), GeneratedAt = DateTimeOffset.UtcNow, Revision = 1,
+                Bindings = [new() { Source = new("GMCP", "Char.Vitals", "/hp"), Target = new("character", "resource", "health", "current"), Label = "Health" }] }
+        } } }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+
+    [Fact]
+    public async Task SlugIdsAreOpaqueArtComesFromTheWorldsRouteAndTheMappingAppliesByEndpoint()
+    {
+        var requests = new List<string>();
+        using var http = new HttpClient(new Handler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.AbsolutePath == "/directory" ? new(HttpStatusCode.OK) { Content = new StringContent(SlugSnapshot()) }
+                : request.RequestUri.AbsolutePath == "/worlds/lantern-forest/art" ? new(HttpStatusCode.OK) { Content = new ByteArrayContent([4, 5, 6]) }
+                : new(HttpStatusCode.NotFound);
+        }));
+        using var catalog = new WorldCatalog(CachePath, new Uri("http://localhost/"), http);
+        await catalog.LoadAsync();
+        Assert.Null(catalog.Warning);
+        var world = Assert.Single(catalog.Worlds);
+        Assert.Equal("lantern-forest", world.Id);
+        Assert.Same(world, catalog.FindEndpoint("MUD.EXAMPLE.ORG", 4000, false));
+        Assert.Equal(new byte[] { 4, 5, 6 }, await catalog.GetArtAsync(world));
+        Assert.Equal(["/directory", "/worlds/lantern-forest/art"], requests);
+        // The key is the id as given: the provider's record id plays no part in it.
+        Assert.Equal(world.ArtKey, (world with { Source = new() }).ArtKey);
+        Assert.NotEqual(world.ArtKey, (world with { Id = "mudverse:7" }).ArtKey);
+        // The worker's mapping still says mudverse:7; it applies because it was made for this endpoint.
+        Assert.Equal("mudverse:7", world.MappingForEndpoint("mud.example.org", 4000, false)!.WorldId);
+        Assert.NotNull(world.ToProfile().ProtocolMapping);
+        Assert.Null(world.MappingForEndpoint("mud.example.org", 4001, true));
+        // The cached copy round-trips with the slug untouched.
+        using var reopened = new WorldCatalog(CachePath, new Uri("http://localhost/"), http);
+        Assert.Equal("lantern-forest", Assert.Single(reopened.Worlds).Id);
+        Assert.Equal(new byte[] { 4, 5, 6 }, await reopened.GetArtAsync(reopened.Worlds[0]));
+        Assert.Equal(2, requests.Count);
+    }
+
+    [Fact]
+    public async Task ARenamedWorldKeepsItsCachedArtworkAndResolvesByEndpoint()
+    {
+        // The cache on disk predates the slugs: the fixture's world is mudverse:7 with its art already downloaded.
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(CachePath, File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "wandur-directory.json")));
+        var requests = new List<string>();
+        using var http = new HttpClient(new Handler(request =>
+        {
+            requests.Add(request.RequestUri!.PathAndQuery);
+            return request.RequestUri.AbsolutePath == "/directory" ? new(HttpStatusCode.OK) { Content = new StringContent(SlugSnapshot()) } : new(HttpStatusCode.NotFound);
+        }));
+        using var catalog = new WorldCatalog(CachePath, new Uri("http://localhost/"), http);
+        var old = Assert.Single(catalog.Worlds);
+        Assert.Equal("mudverse:7", old.Id);
+        var artDirectory = Path.Combine(_dir, "directory-art");
+        Directory.CreateDirectory(artDirectory);
+        File.WriteAllBytes(Path.Combine(artDirectory, old.ArtKey + ".png"), [9, 9, 9]);
+
+        await catalog.LoadAsync();
+        Assert.Null(catalog.Warning);
+        var renamed = catalog.FindEndpoint("mud.example.org", 4000, false)!;
+        Assert.Equal("lantern-forest", renamed.Id);
+        Assert.DoesNotContain(catalog.Worlds, w => w.Id == "mudverse:7");
+        Assert.NotEqual(old.ArtKey, renamed.ArtKey);
+        // The picture moved with the world: nothing is fetched again.
+        Assert.Equal(new byte[] { 9, 9, 9 }, await catalog.GetArtAsync(renamed));
+        Assert.Equal(["/directory"], requests);
+        Assert.True(File.Exists(Path.Combine(artDirectory, renamed.ArtKey + ".png")));
+        // The same snapshot again changes nothing.
+        await catalog.LoadAsync(force: true);
+        Assert.Equal(["/directory", "/directory"], requests);
+        Assert.Equal(new byte[] { 9, 9, 9 }, await catalog.GetArtAsync(catalog.Worlds[0]));
+    }
+
+    /// <summary>The catalog's own client, the one the browser and the thumbnails share, follows the API's 301 from
+    /// an old art path to the slug route, query string and all. A stub handler cannot show that; a loopback server can.</summary>
+    [Fact]
+    public async Task TheCatalogFollowsTheDirectorysRedirectToTheSlugRoute()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(CachePath, File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "wandur-directory.json")).Replace("games/7/art", "worlds/mudverse:7/art?size=400"));
+        using var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0); probe.Start();
+        var port = ((IPEndPoint)probe.LocalEndpoint).Port; probe.Stop();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        var requests = new List<string>();
+        var serving = Task.Run(async () =>
+        {
+            while (listener.IsListening)
+            {
+                HttpListenerContext context;
+                try { context = await listener.GetContextAsync(); }
+                catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or InvalidOperationException) { return; }
+                var path = context.Request.Url!.PathAndQuery;
+                lock (requests) requests.Add(path);
+                if (path == "/worlds/mudverse:7/art?size=400")
+                {
+                    context.Response.StatusCode = 301;
+                    context.Response.RedirectLocation = $"http://127.0.0.1:{port}/worlds/lantern-forest/art?size=400";
+                }
+                else if (path == "/worlds/lantern-forest/art?size=400")
+                {
+                    context.Response.StatusCode = 200;
+                    await context.Response.OutputStream.WriteAsync(new byte[] { 7, 7, 7 });
+                }
+                else context.Response.StatusCode = 404;
+                context.Response.Close();
+            }
+        });
+        try
+        {
+            using var catalog = new WorldCatalog(CachePath, new Uri($"http://127.0.0.1:{port}/"));
+            var world = Assert.Single(catalog.Worlds);
+            Assert.Equal(new byte[] { 7, 7, 7 }, await catalog.GetArtAsync(world));
+            lock (requests) Assert.Equal(["/worlds/mudverse:7/art?size=400", "/worlds/lantern-forest/art?size=400"], requests);
+        }
+        finally
+        {
+            listener.Stop(); listener.Close();
+            await Task.WhenAny(serving, Task.Delay(TimeSpan.FromSeconds(5)));
+        }
+    }
+
     public void Dispose() { if (Directory.Exists(_dir)) Directory.Delete(_dir, true); }
 }

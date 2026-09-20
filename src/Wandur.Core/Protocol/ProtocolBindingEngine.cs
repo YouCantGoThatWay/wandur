@@ -31,7 +31,8 @@ public sealed class ProtocolBindingEngine
     public bool UpdateMapping(WorldMapping mapping)
     {
         if (!MappingValidation.IsValid(mapping)) throw new ArgumentException("Invalid protocol mapping.", nameof(mapping));
-        var sameEndpoint = _mapping.WorldId == mapping.WorldId && _mapping.Endpoint.Matches(mapping.Endpoint);
+        // The world id is the directory's label for the mapping, not part of its identity; a renamed world keeps its state.
+        var sameEndpoint = _mapping.Endpoint.Matches(mapping.Endpoint);
         if (sameEndpoint && _bindings.ToHashSet().SetEquals(mapping.Bindings)) { _mapping = mapping; return false; }
         var sameIdentity = _bindings.Where(b => b.Target.Category == "identity").ToHashSet()
             .SetEquals(mapping.Bindings.Where(b => b.Target.Category == "identity"));

@@ -64,22 +64,25 @@ public sealed record WorldListing
         ? L.Format(L.PlayersOnAverage, average.ToString("0.#", CultureInfo.CurrentCulture))
         : Population.ReportedRange is { Length: > 0 } range ? L.Format(L.PlayersListedRange, range)
         : Population.LatestCount is { } latest ? L.Format(L.PlayersLastObserved, latest) : L.PlayerCountUnknown;
+    /// <summary>The artwork cache key: the directory's id, taken as an opaque string, plus what the picture was made
+    /// from. A world whose id changes on the server keeps its picture through <see cref="WorldCatalog"/>, which
+    /// re-keys cached art by endpoint when a snapshot renames a world.</summary>
     [JsonIgnore] public string ArtKey
     {
         get
         {
-            // Keep already downloaded MUDVerse artwork reusable across the schema migration.
-            var identity = Source.Provider == "mudverse" ? Source.RecordId : Id;
-            var subject = HasSuppliedArtwork ? $"{identity}\nsupplied\n{BannerUrl}" : $"{identity}\n{Name}\n{Summary}\n{Description}";
+            var subject = HasSuppliedArtwork ? $"{Id}\nsupplied\n{BannerUrl}" : $"{Id}\n{Name}\n{Summary}\n{Description}";
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(subject)));
         }
     }
 
+    /// <summary>The listing's mapping when it was generated for this exact endpoint. The mapping's world id is the
+    /// worker's label and is not compared with the listing's id: a mapping file may predate a rename.</summary>
     public Wandur.Models.WorldMapping? MappingForEndpoint(string host, int port, bool tls)
     {
         var endpoint = new Wandur.Models.WorldEndpoint(host, port, tls);
         return Wandur.Models.MappingValidation.Endpoint(endpoint) && Wandur.Models.MappingValidation.IsValid(ProtocolMapping)
-            && ProtocolMapping!.WorldId == Id && ProtocolMapping.Endpoint.Matches(endpoint) ? ProtocolMapping : null;
+            && ProtocolMapping!.Endpoint.Matches(endpoint) ? ProtocolMapping : null;
     }
 
     public ConnectionProfile ToProfile(bool tls = false)

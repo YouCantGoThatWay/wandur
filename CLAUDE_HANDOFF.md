@@ -228,6 +228,12 @@ covers 20 two-fight variants).
   session, no em dash). Schema version 6 adds `world_usage.last_character`, written by
   `SessionWorkspace.RecordCharacter` once per name while connected and read back as
   `WorldUsage.LastCharacter`, which the saved worlds row does not show yet.
+- Slug ids (branch `feature/slug-ids`): the directory's world `id` is an opaque slug (`legends-of-the-jedi`,
+  never `mudverse:<n>`), `generated_artwork_path` is `worlds/<slug>/art` and the client never parses either;
+  `ArtKey` hashes the id as given, `WorldCatalog.LoadAsync` re-keys cached art by host and ports when a snapshot
+  renames a world, and a listing's mapping applies by endpoint alone (`MappingForEndpoint` no longer compares
+  `WorldId`). Packs, maps, usage and knowledge were already keyed by endpoint, the catalog's own `HttpClient`
+  follows the API's 301s, and `SlugDirectoryTests` plus three `WorldCatalogTests` cover it.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

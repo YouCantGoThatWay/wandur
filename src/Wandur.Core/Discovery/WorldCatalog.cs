@@ -83,6 +83,8 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
             var parsed = WorldDirectorySnapshot.Parse(json, out _);
             token.ThrowIfCancellationRequested();
             _cache.WriteSnapshot(parsed.ToJson());
+            var previous = Worlds;
+            await Task.Run(() => AdoptRenamedWorlds(previous, parsed.Worlds), token);
             (Worlds, FetchedAt) = (parsed.Worlds, parsed.FetchedAt);
             _lastLoaded = _time.GetTimestamp();
             if (response.Headers.TryGetValues("X-Wandur-Stale", out var values) && values.Contains("true"))
@@ -110,10 +112,33 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { /* The cached copy opens the world. */ }
     }
 
+    /// <summary>Ids are the directory's opaque strings, so a snapshot may rename a world (the move from
+    /// <c>mudverse:&lt;n&gt;</c> to slugs did that for every world). Anything this client keeps under an id is the
+    /// artwork cache; a world that vanished by id but is listed at the same endpoint adopts the new id by
+    /// copying its picture under the new key, so nothing is downloaded twice. A cache that cannot be read or
+    /// written costs at most that copy; the snapshot itself is never held back.</summary>
+    private void AdoptRenamedWorlds(IReadOnlyList<WorldListing> previous, IReadOnlyList<WorldListing> current)
+    {
+        if (previous.Count == 0 || current.Count == 0) return;
+        var ids = current.Select(world => world.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var old in previous)
+        {
+            if (ids.Contains(old.Id) || old.WebOnly || old.Host.Length == 0 || (old.Port ?? old.TlsPort) is null) continue;
+            var renamed = current.Where(world => !world.WebOnly && SameHost(world.Host, old.Host) && world.Port == old.Port && world.TlsPort == old.TlsPort).Take(2).ToArray();
+            // Only the id moved: a picture regenerated for a changed description is still fetched afresh.
+            if (renamed.Length != 1 || renamed[0].ArtKey == old.ArtKey || (old with { Id = renamed[0].Id }).ArtKey != renamed[0].ArtKey) continue;
+            try
+            {
+                if (_cache.ReadArtwork(renamed[0].ArtKey) is null && _cache.ReadArtwork(old.ArtKey) is { } art) _cache.WriteArtwork(renamed[0].ArtKey, art);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { }
+        }
+    }
+    private static bool SameHost(string left, string right) => string.Equals(left.TrimEnd('.'), right.TrimEnd('.'), StringComparison.OrdinalIgnoreCase);
+
     public WorldListing? FindEndpoint(string host, int port, bool tls)
     {
-        var matches = Worlds.Where(w => !w.WebOnly && string.Equals(w.Host.TrimEnd('.'), host.TrimEnd('.'), StringComparison.OrdinalIgnoreCase)
-            && (tls ? w.TlsPort == port : w.Port == port)).Take(2).ToArray();
+        var matches = Worlds.Where(w => !w.WebOnly && SameHost(w.Host, host) && (tls ? w.TlsPort == port : w.Port == port)).Take(2).ToArray();
         return matches.Length == 1 ? matches[0] : null;
     }
 

@@ -260,7 +260,9 @@ public sealed class ProtocolBindingTests
             profile with { Port = 4001 }, profile with { UseTls = true } }) Assert.Null(changed.GetProtocolMapping());
         var listing = new WorldListing { Id = "test", Name = "Test", ProtocolMapping = mapping };
         Assert.Null(listing.MappingForEndpoint(null!, 4000, false));
-        Assert.Null((listing with { Id = "another" }).MappingForEndpoint("mud.example", 4000, false));
+        // The listing's id is the directory's opaque label and may change under a mapping; the endpoint decides.
+        Assert.Same(mapping, (listing with { Id = "another" }).MappingForEndpoint("mud.example", 4000, false));
+        Assert.Null((listing with { Id = "another" }).MappingForEndpoint("mud.example", 4001, false));
     }
 
     private sealed class SnapshotCache(string json) : IWorldCatalogCache
