@@ -3,9 +3,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Wandur.Core.Mapping;
 using Wandur.Desktop.ViewModels;
 using L = Wandur.Core.Localization.Strings;
 
@@ -48,7 +50,8 @@ public sealed partial class MapView : UserControl
         canvas.SizeChanged += (_, args) => model.SetViewportSize(args.NewSize.Width, args.NewSize.Height);
         var empty = Ui.TextKey(nameof(L.MapEmpty), 12, "muted"); empty.HorizontalAlignment = HorizontalAlignment.Center; empty.VerticalAlignment = VerticalAlignment.Center; empty.Margin = new Thickness(18);
         empty.Bind(IsVisibleProperty, new Binding(nameof(model.IsEmpty)));
-        var map = new Grid { Children = { canvas, empty } };
+        var searchDropdown = CreateRoomSearchOtherFloorDropdown();
+        var map = new Grid { Children = { canvas, empty, searchDropdown } };
         var autoCenter = Ui.ToolbarIconKey(new ToggleButton { Name = "MapAutoCenterToggle" },
             "M 8,2 V 5 M 8,11 V 14 M 2,8 H 5 M 11,8 H 14 M 8,6 A 2,2 0 1 0 8,10 A 2,2 0 1 0 8,6", nameof(L.MapAutoCenter));
         autoCenter.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.AutoCenter)) { Mode = BindingMode.TwoWay });
@@ -156,7 +159,10 @@ public sealed partial class MapView : UserControl
             buttons.Children.Add(toggle);
             map.Children.Add(tools);
         }
-        var toolbar = Ui.Toolbar(buttons, "MapToolbar");
+        var searchRow = CreateRoomSearchRow();
+        var toolbarContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { searchRow, buttons } };
+        Grid.SetColumn(buttons, 1);
+        var toolbar = Ui.Toolbar(toolbarContent, "MapToolbar");
         var protocols = Label(nameof(model.ProtocolStatus), 10);
         protocols.Name = "MapProtocolStatus";
         protocols.TextWrapping = TextWrapping.NoWrap;
@@ -220,4 +226,55 @@ public sealed partial class MapView : UserControl
     }
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); Model.Attach(); }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { Model.Detach(); base.OnDetachedFromVisualTree(e); }
+
+    /// <summary>The magnifier reveals a text box, a live match count and a Next button, all in the one toolbar row.</summary>
+    private Control CreateRoomSearchRow()
+    {
+        var toggle = Ui.ToolbarIconKey(new ToggleButton { Name = "MapSearchToggle" },
+            "M 6,2.5 A 3.5,3.5 0 1 0 6,9.5 A 3.5,3.5 0 1 0 6,2.5 M 8.5,8.5 L 13,13", nameof(L.MapRoomSearchToggle));
+        toggle.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(Model.IsRoomSearchVisible)) { Mode = BindingMode.TwoWay });
+        var box = new TextBox { Name = "MapSearchBox", Width = 150, FontSize = 11, MinHeight = 0, Padding = new Thickness(8, 3), VerticalAlignment = VerticalAlignment.Center };
+        box.Bind(TextBox.PlaceholderTextProperty, LocalizedText.Binding(nameof(L.MapRoomSearchPlaceholder)));
+        box.Bind(TextBox.TextProperty, new Binding(nameof(Model.RoomSearchQuery)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+        box.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchVisible)));
+        box.KeyDown += (_, args) =>
+        {
+            if (args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None)
+            { Model.NextRoomSearchMatchCommand.Execute(null); args.Handled = true; }
+            else if (args.Key == Key.Escape && args.KeyModifiers == KeyModifiers.None)
+            { Model.ClearRoomSearchCommand.Execute(null); args.Handled = true; }
+        };
+        var count = Ui.Text("", 10, "muted");
+        count.Name = "MapSearchCount";
+        count.VerticalAlignment = VerticalAlignment.Center;
+        count.Bind(TextBlock.TextProperty, new Binding(nameof(Model.RoomSearchCountLabel)));
+        count.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchActive)));
+        var next = Ui.ToolbarIconKey(new Button { Name = "MapSearchNext", Command = Model.NextRoomSearchMatchCommand }, "M 5,3 L 10,8 L 5,13", nameof(L.MapRoomSearchNext));
+        next.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchVisible)));
+        return new StackPanel { Name = "MapSearchRow", Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { toggle, box, next, count } };
+    }
+
+    /// <summary>Matches on a floor other than the one shown, reachable without stepping through every match.</summary>
+    private Control CreateRoomSearchOtherFloorDropdown()
+    {
+        var list = new ListBox
+        {
+            Name = "MapSearchOtherFloor", MaxHeight = 160,
+            ItemTemplate = new FuncDataTemplate<MapRoom>((room, _) => room is null ? null : new TextBlock
+            { Text = $"{room.Name} · {(string.IsNullOrEmpty(room.Area) ? L.MapUnassignedArea : room.Area)} · {L.Format(L.MapFloor, room.Z)}", TextTrimming = TextTrimming.CharacterEllipsis })
+        };
+        list.Bind(ItemsControl.ItemsSourceProperty, new Binding(nameof(Model.RoomSearchOtherFloorMatches)));
+        list.Bind(SelectingItemsControl.SelectedItemProperty, new Binding(nameof(Model.SelectedRoomSearchMatch)) { Mode = BindingMode.TwoWay });
+        var panel = new Border
+        {
+            Name = "MapSearchOtherFloorPanel", Padding = new Thickness(8), MaxWidth = 260,
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(8, 4, 0, 0), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            Child = new StackPanel { Spacing = 4, Children = { Ui.TextKey(nameof(L.MapRoomSearchOtherFloors), 10, "muted"), list } }
+        };
+        panel.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));
+        panel.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        panel.Bind(IsVisibleProperty, new Binding(nameof(Model.HasRoomSearchOtherFloorMatches)));
+        return panel;
+    }
 }

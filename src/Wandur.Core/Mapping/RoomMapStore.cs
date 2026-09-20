@@ -8,6 +8,9 @@ public interface IRoomMapStore
 {
     MapSnapshot? Load(string host, int port);
     void Save(string host, int port, MapSnapshot snapshot);
+    /// <summary>Rooms of this world whose observed name or description matches every search term. See <see cref="RoomSearch"/>.</summary>
+    IReadOnlyList<MapRoom> SearchRooms(string host, int port, string query) =>
+        Load(host, port) is { } snapshot ? RoomSearch.Search(snapshot.Rooms, query) : [];
 }
 
 public sealed class RoomMapStore(string directory) : IRoomMapStore

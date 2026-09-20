@@ -475,6 +475,11 @@ public static class Strings
     public static string MapSearchRooms => Get(nameof(MapSearchRooms));
     public static string MapSearchAndEdit => Get(nameof(MapSearchAndEdit));
     public static string MapNoSearchResults => Get(nameof(MapNoSearchResults));
+    public static string MapRoomSearchToggle => Get(nameof(MapRoomSearchToggle));
+    public static string MapRoomSearchPlaceholder => Get(nameof(MapRoomSearchPlaceholder));
+    public static string MapRoomSearchCount => Get(nameof(MapRoomSearchCount));
+    public static string MapRoomSearchNext => Get(nameof(MapRoomSearchNext));
+    public static string MapRoomSearchOtherFloors => Get(nameof(MapRoomSearchOtherFloors));
     public static string MapEditMode => Get(nameof(MapEditMode));
     public static string MapEditHint => Get(nameof(MapEditHint));
     public static string MapAddRoom => Get(nameof(MapAddRoom));

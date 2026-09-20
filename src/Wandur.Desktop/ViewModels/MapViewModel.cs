@@ -183,6 +183,7 @@ public sealed partial class MapViewModel : ObservableObject
         FloorUpCommand.NotifyCanExecuteChanged(); FloorDownCommand.NotifyCanExecuteChanged();
         RefreshEditorState();
         RefreshNavigationState();
+        NotifyRoomSearchChanged();
     }
     partial void OnSelectedRoomIdChanged(string? value)
     {
@@ -194,6 +195,7 @@ public sealed partial class MapViewModel : ObservableObject
         SelectedRoomId = null;
         OnPropertyChanged(nameof(VisibleRooms)); OnPropertyChanged(nameof(FloorLabel));
         FloorUpCommand.NotifyCanExecuteChanged(); FloorDownCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(RoomSearchOtherFloorMatches)); OnPropertyChanged(nameof(HasRoomSearchOtherFloorMatches));
     }
     partial void OnExerciseStepChanged(int value)
     {

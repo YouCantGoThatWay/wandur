@@ -1269,6 +1269,11 @@ mud.alias(/^lh$/, () =&gt; mud.send("look"));</value>
   <data name="MapSearchRooms" xml:space="preserve"><value>Buscar salas, IDs, descrições ou notas</value></data>
   <data name="MapSearchAndEdit" xml:space="preserve"><value>Buscar e editar</value></data>
   <data name="MapNoSearchResults" xml:space="preserve"><value>Nenhuma sala encontrada.</value></data>
+  <data name="MapRoomSearchToggle" xml:space="preserve"><value>Pesquisar salas por nome ou descrição</value></data>
+  <data name="MapRoomSearchPlaceholder" xml:space="preserve"><value>Pesquisar salas...</value></data>
+  <data name="MapRoomSearchCount" xml:space="preserve"><value>{0} salas</value></data>
+  <data name="MapRoomSearchNext" xml:space="preserve"><value>Próxima correspondência</value></data>
+  <data name="MapRoomSearchOtherFloors" xml:space="preserve"><value>Em outros andares</value></data>
   <data name="MapEditMode" xml:space="preserve"><value>Editar mapa</value></data>
   <data name="MapEditHint" xml:space="preserve"><value>Arraste as salas para movê-las. As alterações são salvas com este mundo e podem ser desfeitas.</value></data>
   <data name="MapAddRoom" xml:space="preserve"><value>Adicionar sala</value></data>

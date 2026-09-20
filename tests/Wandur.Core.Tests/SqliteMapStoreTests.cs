@@ -45,6 +45,23 @@ public sealed class SqliteMapStoreTests : IDisposable
     }
 
     [Fact]
+    public void SearchRoomsMatchesObservedTextOfTheStoredWorldOnly()
+    {
+        IRoomMapStore store = new SqliteRoomMapStore(Database, Legacy);
+        var rooms = new[]
+        {
+            Room("a") with { ObservedName = "Ancient Temple", ObservedDescription = "A crumbling temple." },
+            Room("b") with { ObservedName = "Market Square", ObservedDescription = "A busy square." },
+            Room("c") with { ObservedName = null, ObservedDescription = null },
+        };
+        store.Save("host", 4, new MapSnapshot(rooms, [], [], null, MapTrackingState.Unknown, RoomDataSource.Text, 0));
+        store.Save("other", 4, new MapSnapshot([Room("d") with { ObservedName = "Temple" }], [], [], null, MapTrackingState.Unknown, RoomDataSource.Text, 0));
+        Assert.Equal(["a"], store.SearchRooms("host", 4, "temple").Select(r => r.Id));
+        Assert.Empty(store.SearchRooms("host", 4, "cathedral"));
+        Assert.Empty(store.SearchRooms("missing.example", 4, "temple"));
+    }
+
+    [Fact]
     public void ConcurrentStaleSessionsCannotReviveDeletedRoomsOrExits()
     {
         var firstStore = new SqliteRoomMapStore(Database, Legacy);

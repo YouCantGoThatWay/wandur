@@ -1269,6 +1269,11 @@ mud.alias(/^lh$/, () =&gt; mud.send("look"));</value>
   <data name="MapSearchRooms" xml:space="preserve"><value>Räume, IDs, Beschreibungen oder Notizen suchen</value></data>
   <data name="MapSearchAndEdit" xml:space="preserve"><value>Suchen und bearbeiten</value></data>
   <data name="MapNoSearchResults" xml:space="preserve"><value>Keine passenden Räume.</value></data>
+  <data name="MapRoomSearchToggle" xml:space="preserve"><value>Räume nach Name oder Beschreibung durchsuchen</value></data>
+  <data name="MapRoomSearchPlaceholder" xml:space="preserve"><value>Räume suchen …</value></data>
+  <data name="MapRoomSearchCount" xml:space="preserve"><value>{0} Räume</value></data>
+  <data name="MapRoomSearchNext" xml:space="preserve"><value>Nächster Treffer</value></data>
+  <data name="MapRoomSearchOtherFloors" xml:space="preserve"><value>Auf anderen Ebenen</value></data>
   <data name="MapEditMode" xml:space="preserve"><value>Karte bearbeiten</value></data>
   <data name="MapEditHint" xml:space="preserve"><value>Ziehe Räume, um sie zu verschieben. Änderungen werden für diese Welt gespeichert und lassen sich rückgängig machen.</value></data>
   <data name="MapAddRoom" xml:space="preserve"><value>Raum hinzufügen</value></data>
