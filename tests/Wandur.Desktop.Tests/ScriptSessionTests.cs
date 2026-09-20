@@ -7,6 +7,45 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class ScriptSessionTests
 {
+    /// <summary>A pack script boots a worker process while the world is still sending its first values;
+    /// what is published during that boot must reach the script once it runs, not vanish.</summary>
+    [AvaloniaFact]
+    public async Task EventsPublishedWhileTheWorkerBootsAreDeliveredOnceTheScriptRuns()
+    {
+        var factory = new RecordingScriptFactory { BlockLoad = true };
+        var privateInput = false;
+        await using var scripts = new SessionScripts(factory, new MemoryScriptStore(), () => true, () => privateInput,
+            _ => Task.FromResult(true), _ => { }, seedState: () => "{\"gmcp\":{},\"msdp\":{}}");
+        scripts.Configure("world", "Test world");
+        var run = scripts.RunAsync();
+        await WaitFor(() => factory.Runtime is { } runtime && runtime.Events.Count == 1);
+        Assert.True(scripts.IsBusy);
+        Assert.False(scripts.IsRunning);
+        scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"5\"}"));
+        scripts.Publish(new("msdp", "{\"variable\":\"HEALTH\",\"value\":\"1000\"}"));
+        factory.Runtime!.Loaded.SetResult(true);
+        await run;
+        Assert.True(scripts.IsRunning);
+        await WaitFor(() => factory.Runtime.Events.Count(e => e.Kind == "msdp") == 2);
+        Assert.Equal("state", factory.Runtime.Events[0].Kind);
+        Assert.Contains(factory.Runtime.Events, e => e.Kind == "msdp" && e.Text.Contains("LEVELCOMBAT", StringComparison.Ordinal));
+
+        // A privacy change during the boot discards what was buffered: the host replays the cache once play is public.
+        scripts.Stop();
+        factory = new RecordingScriptFactory { BlockLoad = true };
+        await using var second = new SessionScripts(factory, new MemoryScriptStore(), () => true, () => privateInput,
+            _ => Task.FromResult(true), _ => { });
+        second.Configure("world", "Test world");
+        var secondRun = second.RunAsync();
+        await WaitFor(() => factory.Runtime is not null && second.IsBusy);
+        second.Publish(new("msdp", "{\"variable\":\"MANA\",\"value\":\"1\"}"));
+        privateInput = true; second.RefreshState(); privateInput = false; second.RefreshState();
+        factory.Runtime!.Loaded.SetResult(true);
+        await secondRun;
+        await Task.Delay(100);
+        Assert.DoesNotContain(factory.Runtime.Events, e => e.Kind == "msdp");
+    }
+
     [AvaloniaFact]
     public async Task FragmentedServerLinesAndPrivateInputAreIsolatedFromScripts()
     {
@@ -111,18 +150,23 @@ internal sealed class MemoryScriptStore : IWorldScriptStore
 internal sealed class RecordingScriptFactory : IScriptRuntimeFactory
 {
     public bool BlockDispatch { get; init; }
+    public bool BlockLoad { get; init; }
     public RecordingScriptRuntime? Runtime { get; private set; }
-    public IScriptRuntime Create() => Runtime = new(BlockDispatch);
+    public IScriptRuntime Create() => Runtime = new(BlockDispatch, BlockLoad);
 }
 
-internal sealed class RecordingScriptRuntime(bool blockDispatch) : IScriptRuntime
+internal sealed class RecordingScriptRuntime(bool blockDispatch, bool blockLoad = false) : IScriptRuntime
 {
     public List<ScriptEvent> Events { get; } = [];
     public TaskCompletionSource<ScriptResult> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource<bool> Loaded { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public bool IsRunning { get; private set; }
     public bool RestrictedSend { get; private set; }
-    public Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false)
-    { IsRunning = true; RestrictedSend = restrictedSend; return Task.FromResult(new ScriptResult(false, [])); }
+    public async Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false)
+    {
+        if (blockLoad) await Loaded.Task;
+        IsRunning = true; RestrictedSend = restrictedSend; return new ScriptResult(false, []);
+    }
     public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default)
     {
         lock (Events) Events.Add(input);

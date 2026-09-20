@@ -23,6 +23,11 @@ public sealed class SessionScripts(
 {
     private sealed record Work(ScriptEvent Input, long PrivacyEpoch, TaskCompletionSource<bool>? Completion = null);
     private readonly ScriptLineBuffer _lines = new();
+    // Events published while the worker boots, delivered once the script runs. A pack script starts at
+    // connect and boots a process; the values the world sends during login would otherwise fall between
+    // the seed taken before the boot and the running state that accepts events.
+    private readonly List<ScriptEvent> _startup = [];
+    private const int MaximumStartupEvents = 1024;
     private readonly Stopwatch _clock = new();
     private readonly Queue<long> _sentAt = new();
     private IScriptRuntime? _runtime;
@@ -82,7 +87,7 @@ public sealed class SessionScripts(
         var cancellation = new CancellationTokenSource();
         _cancellation = cancellation;
         var token = cancellation.Token;
-        IsBusy = true; Changed?.Invoke();
+        IsBusy = true; _startup.Clear(); Changed?.Invoke();
         IScriptRuntime? runtime = null;
         try
         {
@@ -105,6 +110,9 @@ public sealed class SessionScripts(
             _queue = Channel.CreateBounded<Work>(new BoundedChannelOptions(128)
             { SingleReader = false, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
             await ApplyAsync(result, generation, privacy);
+            if (generation == _generation && IsRunning && privacy == _privacyEpoch)
+                foreach (var pending in _startup) if (!Enqueue(new(pending, privacy))) break;
+            _startup.Clear();
             if (generation == _generation && IsRunning)
             {
                 var reader = _queue.Reader;
@@ -125,7 +133,7 @@ public sealed class SessionScripts(
     {
         _generation++;
         IsRunning = IsBusy = false;
-        _clock.Stop(); _lines.Clear(); _tickPending = false;
+        _clock.Stop(); _lines.Clear(); _startup.Clear(); _tickPending = false;
         var queue = _queue; _queue = null;
         queue?.Writer.TryComplete();
         if (queue is not null) while (queue.Reader.TryRead(out var work)) work.Completion?.TrySetResult(true);
@@ -153,6 +161,7 @@ public sealed class SessionScripts(
             _wasPrivate = privacy;
             _privacyEpoch++;
             _lines.Clear();
+            _startup.Clear();
         }
         Changed?.Invoke();
     }
@@ -168,7 +177,13 @@ public sealed class SessionScripts(
 
     public void Publish(ScriptEvent input)
     {
-        if (!IsRunning || isPrivate()) return;
+        if (isPrivate()) return;
+        if (IsBusy && !IsRunning)
+        {
+            if (_startup.Count < MaximumStartupEvents) _startup.Add(input);
+            return;
+        }
+        if (!IsRunning) return;
         Enqueue(new(input, _privacyEpoch));
     }
 
