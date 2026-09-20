@@ -12,6 +12,15 @@ through the login-gated `payload` while the script cache is gated by privacy
 alone; `ProtocolBindingEngine.Observe` now runs on the same cache-gated
 condition in `WorkspaceController.FlushOutput`, so mapped bars and the opponent
 card keep updating whenever the cache accepts a server value.
+Second fight fix (branch `fix/second-fight`): the opponent card was missing
+from the next fight because `ProtocolBindingEngine` discarded the opponent's
+observations whenever OPPONENTNAME changed or cleared, and a world reports a
+variable only when it changes, so OPPONENTHEALTHMAX (same 100 as before, or
+sent before the name) never came back; the engine now retains the opponent,
+vehicle and world observations across identity changes, presents an entity
+empty only while its name is cleared, and still resets everything on a
+character name change (`MappedVitalsLiveTests.TheOpponentCardShowsInTheSecondFight`
+covers 20 two-fight variants).
 
 ## Operating rules (keep)
 
