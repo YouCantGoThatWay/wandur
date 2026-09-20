@@ -21,14 +21,21 @@ public sealed class ScriptSessionTests
         await WaitFor(() => factory.Runtime is { } runtime && runtime.Events.Count == 1);
         Assert.True(scripts.IsBusy);
         Assert.False(scripts.IsRunning);
-        scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"5\"}"));
+        scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"4\"}"));
         scripts.Publish(new("msdp", "{\"variable\":\"HEALTH\",\"value\":\"1000\"}"));
+        // A long login replay, well past the 128 slots of the live queue, must not count as an overflow.
+        for (var i = 0; i < 300; i++) scripts.Publish(new("msdp", "{\"variable\":\"VAR" + i + "\",\"value\":\"" + i + "\"}"));
+        scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"5\"}"));
         factory.Runtime!.Loaded.SetResult(true);
         await run;
         Assert.True(scripts.IsRunning);
-        await WaitFor(() => factory.Runtime.Events.Count(e => e.Kind == "msdp") == 2);
+        await WaitFor(() => factory.Runtime.Events.Count(e => e.Kind == "msdp") == 302);
+        Assert.True(scripts.IsRunning, scripts.Error);
         Assert.Equal("state", factory.Runtime.Events[0].Kind);
-        Assert.Contains(factory.Runtime.Events, e => e.Kind == "msdp" && e.Text.Contains("LEVELCOMBAT", StringComparison.Ordinal));
+        // The repeated variable is delivered once, in its first position, with its latest value.
+        var combat = Assert.Single(factory.Runtime.Events, e => e.Kind == "msdp" && e.Text.Contains("LEVELCOMBAT", StringComparison.Ordinal));
+        Assert.Contains("\"5\"", combat.Text, StringComparison.Ordinal);
+        Assert.Equal(combat, factory.Runtime.Events.First(e => e.Kind == "msdp"));
 
         // A privacy change during the boot discards what was buffered: the host replays the cache once play is public.
         scripts.Stop();

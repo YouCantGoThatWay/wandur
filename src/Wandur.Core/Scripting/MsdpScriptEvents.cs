@@ -41,6 +41,20 @@ public static class MsdpScriptEvents
     /// <summary>One script event for a variable whose value is already serialized, as the host cache keeps it.</summary>
     public static ScriptEvent Event(string variable, string json) => new("msdp", Message(variable, json));
 
+    /// <summary>The variable named by an msdp event's text, or null when the text is not one of ours.</summary>
+    public static string? VariableOf(string text)
+    {
+        if (text.Length > 64 * 1024) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = 16 });
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("variable", out var variable) && variable.ValueKind == JsonValueKind.String
+                ? variable.GetString() : null;
+        }
+        catch (JsonException) { return null; }
+    }
+
     private static string Message(string variable, string value)
     {
         var buffer = new ArrayBufferWriter<byte>();

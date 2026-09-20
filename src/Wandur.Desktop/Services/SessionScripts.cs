@@ -110,14 +110,24 @@ public sealed class SessionScripts(
             _queue = Channel.CreateBounded<Work>(new BoundedChannelOptions(128)
             { SingleReader = false, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait });
             await ApplyAsync(result, generation, privacy);
-            if (generation == _generation && IsRunning && privacy == _privacyEpoch)
-                foreach (var pending in _startup) if (!Enqueue(new(pending, privacy))) break;
-            _startup.Clear();
             if (generation == _generation && IsRunning)
             {
                 var reader = _queue.Reader;
                 _ = Task.Run(() => PumpAsync(runtime, reader, generation, token));
             }
+            // The pump is running, so the boot backlog is written with back-pressure rather than through the
+            // bounded TryWrite, which would count a long login replay as a queue overflow.
+            if (generation == _generation && IsRunning && privacy == _privacyEpoch && _queue is { } queue)
+            {
+                var backlog = LatestPerKey(_startup);
+                _startup.Clear();
+                foreach (var pending in backlog)
+                {
+                    if (generation != _generation || !IsRunning) break;
+                    await queue.Writer.WriteAsync(new(pending, privacy), token);
+                }
+            }
+            _startup.Clear();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -173,6 +183,27 @@ public sealed class SessionScripts(
         if (!IsRunning || isPrivate()) { _lines.Clear(); return; }
         foreach (var line in _lines.Feed(text))
             if (!Enqueue(new(new("line", line), _privacyEpoch))) break;
+    }
+
+    /// <summary>Collapses a boot backlog so each MSDP variable and GMCP package is delivered once, with its
+    /// latest value, in first-seen order. Other event kinds are kept as they are.</summary>
+    internal static List<ScriptEvent> LatestPerKey(IReadOnlyList<ScriptEvent> events)
+    {
+        var latest = new Dictionary<string, int>(StringComparer.Ordinal);
+        var kept = new List<ScriptEvent>(events.Count);
+        foreach (var item in events)
+        {
+            var key = item.Kind switch
+            {
+                "msdp" => MsdpScriptEvents.VariableOf(item.Text) is { } variable ? "msdp:" + variable : null,
+                "gmcp" => "gmcp:" + (item.Text.IndexOf(' ') is var space && space > 0 ? item.Text[..space] : item.Text),
+                _ => null
+            };
+            if (key is null) { kept.Add(item); continue; }
+            if (latest.TryGetValue(key, out var index)) kept[index] = item;
+            else { latest[key] = kept.Count; kept.Add(item); }
+        }
+        return kept;
     }
 
     public void Publish(ScriptEvent input)
