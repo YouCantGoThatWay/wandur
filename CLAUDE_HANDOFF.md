@@ -71,10 +71,12 @@ sent to the world.
   theme switch 3 to 8 ms, world themes follow the open session (applied on
   open, on tab change, reverted on close), never the selected row.
 - Dock chrome (commit 3da421b): 4px gaps, squared center panel, side docks
-  rounded only on their outer edge; since `feature/composer-focus-usage` every
-  dock is square (`DockChromeConverter.Radius` is 0, the per-edge shape stays so
-  a radius can come back in one place) and the tool header shows the move
-  cursor on its grip glyph only, an arrow elsewhere (`App.axaml`).
+  rounded only on their outer edge (left docks curve on the left, right docks
+  on the right, header and content). `feature/composer-focus-usage` squared
+  every dock; `feature/rounded-side-docks` brought the 10 px outer-edge radius
+  back (`DockChromeConverter.Radius`, floating panels rounded top and bottom
+  again). The tool header shows the move cursor on its grip glyph only, an
+  arrow elsewhere (`App.axaml`).
 - Session open (commit 6616b74, merged 2cc43b9): tab usable in 60 to 85 ms
   instead of 1.3 to 1.6 s; cause was login-prompt regex compilation for every
   saved world on every theme validation. `SessionOpenTrace` measures the path.
@@ -228,9 +230,9 @@ sent to the world.
   case it lands when the pointer leaves. Each row shows the directory's cached
   artwork as a 40 by 30 letterboxed tile (`WorldThumbnails`, one scaled bitmap
   per world through `WorldCatalog.GetArtAsync`, loads one at a time) or the
-  world's initials in the panel colour. The same branch squares every dock
-  (corner radius 0 on the left, right, centre, panel and floating chrome, gaps
-  unchanged, `DockChromeTests` asserts it) and puts the move cursor on the
+  world's initials in the panel colour. The same branch squared every dock
+  (later undone by `feature/rounded-side-docks`, which restored the outer-edge
+  radius; `DockChromeTests` asserts the shape) and puts the move cursor on the
   header's grip glyph with a plain arrow over the rest of the header.
 - Session character (branch `feature/session-character`): `WorkspaceController.CharacterName`
   is the name the world reported through the mapping (identity `name` of the character, kept for
