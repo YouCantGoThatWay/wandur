@@ -48,12 +48,12 @@ public sealed class MainWindow : Window
     public ConnectionProfile? SelectedProfile => _worldPicker.SelectedItem as ConnectionProfile;
     public bool ToolbarVisible { get => _toolbar?.IsVisible ?? true; set { _toolbar.IsVisible = value; _menus.Refresh(); } }
 
-    public MainWindow(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, WorldCatalog? catalog = null, IProfileAutomationFactory? profileAutomationFactory = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
+    public MainWindow(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, WorldCatalog? catalog = null, IProfileAutomationFactory? profileAutomationFactory = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null)
     {
         _agents = agents;
         _profileAutomationFactory = profileAutomationFactory ?? new ProfileAutomationFactory(scriptRuntimes, scriptLibraryStore);
         Catalog = catalog ?? new WorldCatalog(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(store.FilePath))!, "directory.json"));
-        Sessions = new(displays, store, passwords, maps, scriptRuntimes, scriptLibraryStore, knowledge, Catalog, agents, classification);
+        Sessions = new(displays, store, passwords, maps, scriptRuntimes, scriptLibraryStore, knowledge, Catalog, agents, classification, usage);
         Title = "Wandur";
         Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(new Uri("avares://Wandur/Assets/icon-256.png")));
         Width = 1380; Height = 900; MinWidth = 1040; MinHeight = 680;

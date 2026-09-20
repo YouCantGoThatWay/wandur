@@ -77,6 +77,7 @@ internal sealed class TranscriptDisplay : ITranscriptDisplay
         }
     }
     public bool IsFollowingTail => _surface.Terminal.Buffer.IsAtBottom;
+    public bool HasSelection => !_disposed && _surface.Terminal.Selection.HasSelection;
     public int ViewportTop
     {
         get => _surface.ViewportY;

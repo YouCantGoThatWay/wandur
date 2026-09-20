@@ -64,7 +64,10 @@ covers 20 two-fight variants).
   theme switch 3 to 8 ms, world themes follow the open session (applied on
   open, on tab change, reverted on close), never the selected row.
 - Dock chrome (commit 3da421b): 4px gaps, squared center panel, side docks
-  rounded only on their outer edge.
+  rounded only on their outer edge; since `feature/composer-focus-usage` every
+  dock is square (`DockChromeConverter.Radius` is 0, the per-edge shape stays so
+  a radius can come back in one place) and the tool header shows the move
+  cursor on its grip glyph only, an arrow elsewhere (`App.axaml`).
 - Session open (commit 6616b74, merged 2cc43b9): tab usable in 60 to 85 ms
   instead of 1.3 to 1.6 s; cause was login-prompt regex compilation for every
   saved world on every theme validation. `SessionOpenTrace` measures the path.
@@ -197,6 +200,25 @@ covers 20 two-fight variants).
   of `docs/client-architecture.md`, `docs/scripting.md`. Tests:
   `ScriptRuntimeTests` (Core), `SessionWorkerTests` (Desktop; the last test
   runs the real `Wandur.dll --script-worker` and kills it).
+- Composer focus and saved worlds (branch `feature/composer-focus-usage`): the
+  command box takes focus when a session is activated (opened, or its tab
+  chosen; `SessionContentView` passes the signal to `TerminalView.FocusComposer`)
+  once it is enabled, unless focus moved since, or a dialog, another window or a
+  text editor holds the keyboard, and a left click on the transcript or the live view that moved under
+  4 units and left no selection focuses it too (`TerminalView`), while
+  `world_usage` and the append-only `world_connections` log (schema version 5,
+  `SqliteWorldUsageStore`, one count per successful connection from
+  `SessionWorkspace.CountConnection`) sort the Saved worlds list by a recency
+  weighted score (`WorldUsage.Score`: 1.0 within 30 days, 0.5 to 90, 0.25 after)
+  with never-connected worlds keeping their manual `position` order, reordering
+  at once unless the pointer is over the list or a row menu is open, in which
+  case it lands when the pointer leaves. Each row shows the directory's cached
+  artwork as a 40 by 30 letterboxed tile (`WorldThumbnails`, one scaled bitmap
+  per world through `WorldCatalog.GetArtAsync`, loads one at a time) or the
+  world's initials in the panel colour. The same branch squares every dock
+  (corner radius 0 on the left, right, centre, panel and floating chrome, gaps
+  unchanged, `DockChromeTests` asserts it) and puts the move cursor on the
+  header's grip glyph with a plain arrow over the rest of the header.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

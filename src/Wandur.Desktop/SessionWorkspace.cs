@@ -20,6 +20,8 @@ public sealed class SessionTab(WorkspaceController controller) : INotifyProperty
     public bool IsClosing { get; internal set; }
     internal int LastVersion { get; set; }
     internal bool HadSession { get; set; }
+    /// <summary>Whether the current connection has already been counted; cleared while the tab is disconnected.</summary>
+    internal bool ConnectionCounted { get; set; }
     public string Endpoint => Controller.HasSession ? Controller.Endpoint : L.FindAMUDInTheDirectory;
     public string Title => (HasActivity ? "●  " : "") + (Controller.HasSession ? CustomName ?? Controller.WorldName : L.FindAMUD);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -42,6 +44,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     private readonly IWorldKnowledgeStore? _knowledge;
     private readonly Wandur.Core.Discovery.WorldCatalog? _catalog;
     private readonly Wandur.Core.Classification.RoomClassificationService? _classification;
+    private readonly IWorldUsageStore? _usage;
     private bool _disposed;
     private readonly Wandur.Desktop.Terminal.ITranscriptDisplayFactory _displays;
     public ObservableCollection<SessionTab> Tabs { get; } = [];
@@ -50,6 +53,15 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     public event Action? SelectionChanged;
     /// <summary>Raised when any session's scripts added, changed or removed a docked panel.</summary>
     public event Action? ScriptPanelsChanged;
+    /// <summary>Raised after a session's connection has been counted, so the saved worlds list can reorder itself.</summary>
+    public event Action? UsageChanged;
+    /// <summary>The directory, when there is one: the saved worlds list finds its artwork through it.</summary>
+    public Wandur.Core.Discovery.WorldCatalog? Catalog => _catalog;
+    /// <summary>Where connections are counted, when the client has a database to count them in.</summary>
+    public IWorldUsageStore? Usage => _usage;
+    private WorldThumbnails? _thumbnails;
+    /// <summary>The saved worlds' small pictures, kept here so a rebuilt dock does not decode them again.</summary>
+    public WorldThumbnails? Thumbnails => _disposed || _catalog is null ? null : _thumbnails ??= new(_catalog);
     public bool IsBrowsing { get; private set; } = true;
     private ViewModels.WorldBrowserViewModel? _browser;
     internal ViewModels.WorldBrowserViewModel Browser(Wandur.Core.Discovery.WorldCatalog catalog)
@@ -63,9 +75,9 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
+    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null)
     {
-        _classification = classification; _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog;
+        _classification = classification; _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog; _usage = usage;
         _passwords = passwords;
         _maps = maps;
         _scriptRuntimes = scriptRuntimes;
@@ -106,6 +118,21 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         tab.Refresh();
         ApplyAppearance();
         Changed?.Invoke();
+        CountConnection(tab);
+    }
+
+    /// <summary>
+    /// One count per successful connection: the first connected status after an open or a reconnect, never the
+    /// open itself, and never the offline demo. A store that cannot be written keeps the session running.
+    /// </summary>
+    private void CountConnection(SessionTab tab)
+    {
+        if (!tab.Controller.IsConnected) { tab.ConnectionCounted = false; return; }
+        if (tab.ConnectionCounted || _usage is null || tab.Profile is not { } profile) return;
+        tab.ConnectionCounted = true;
+        try { _usage.RecordConnection(profile.Host, profile.Port); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Data.Common.DbException) { return; }
+        if (!_disposed) UsageChanged?.Invoke();
     }
 
     public void Select(SessionTab tab)
@@ -165,6 +192,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
             profile = updated;
         }
         tab.Profile = profile;
+        tab.ConnectionCounted = false;
         IsBrowsing = false;
         using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
         await tab.Controller.StartAsync(profile, entry?.SupportedScripts);
@@ -211,6 +239,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
         _browser?.Dispose();
+        _thumbnails?.Dispose();
         DisposeThemeImages();
         if (_catalog is not null) _catalog.Changed -= CatalogAppearanceChanged;
         await Task.WhenAll(Tabs.Select(async tab => await tab.Controller.DisposeAsync()));

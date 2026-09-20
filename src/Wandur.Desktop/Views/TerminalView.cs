@@ -44,6 +44,14 @@ public sealed class TerminalView : UserControl
     private readonly Panel _ghostHost = new() { Name = "CompletionGhostHost", IsHitTestVisible = false, ClipToBounds = true };
     private string? _suggestion;
     private string? _dismissedDraft;
+    // Focus rules: the composer takes focus when its session is activated (opened, or its tab chosen; the
+    // content view asks) as soon as the view is laid out and the box is enabled, unless typing is going on
+    // somewhere else; and a click on the transcript that selected nothing sends the keyboard to the composer,
+    // while a drag that selected text leaves it there for copying.
+    private const double ClickSlop = 4;
+    private bool _focusWanted;
+    private IInputElement? _focusAtWish;
+    private Point? _pressed;
 
     public TerminalView(WorkspaceController controller, Action<int>? editConfiguration = null)
     {
@@ -114,6 +122,10 @@ public sealed class TerminalView : UserControl
         };
         Grid.SetRow(_divider, 1); Grid.SetRow(_tail, 2);
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
+        // The transcript handles its own presses (selection) and the tail pane its own (back to the tail);
+        // both are seen here anyway, after them, which is where the click-versus-drag decision belongs.
+        output.AddHandler(PointerPressedEvent, TranscriptPressed, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+        output.AddHandler(PointerReleasedEvent, TranscriptReleased, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         var actions = new StackPanel { Name = "ComposerActions", Orientation = Orientation.Horizontal, Spacing = 4, Children = { _look, _quickCommands } };
         var entry = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 10 };
         entry.Children.Add(actions);
@@ -237,8 +249,80 @@ public sealed class TerminalView : UserControl
         } };
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll; Refresh(); }
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; base.OnDetachedFromVisualTree(e); }
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll;
+        Refresh();
+        if (_focusWanted) PostFocus();
+    }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _focusWanted = false; _pressed = null; _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; base.OnDetachedFromVisualTree(e); }
+
+    /// <summary>
+    /// The session was opened or its tab brought to the front: the next keys belong in the command box. The
+    /// wish is honoured after the next layout pass, so it can be made before the view is even attached.
+    /// </summary>
+    public void FocusComposer() { _focusWanted = true; PostFocus(); }
+
+    private void PostFocus()
+    {
+        _focusAtWish = FocusedElement();
+        Dispatcher.UIThread.Post(TryFocusComposer, DispatcherPriority.Loaded);
+    }
+
+    private IInputElement? FocusedElement() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+
+    /// <summary>
+    /// Runs after layout. A box that is disabled (not connected yet) cannot take focus, so the wish is kept and
+    /// tried again by <see cref="Refresh"/> when the session connects; one hidden behind the diagnostics tab
+    /// drops it. Focus that moved since the wish was made is not fought over, and a dialog, another window, or
+    /// an editor that already has the keyboard keeps it.
+    /// </summary>
+    private void TryFocusComposer()
+    {
+        if (!_focusWanted || !this.IsAttachedToVisualTree() || !_input.IsEnabled) return;
+        _focusWanted = false;
+        var focused = FocusedElement();
+        if (!ReferenceEquals(focused, _focusAtWish) || !_input.IsEffectivelyVisible || TypingElsewhere(focused)) return;
+        _input.Focus();
+    }
+
+    private bool TypingElsewhere(IInputElement? focused)
+    {
+        var top = TopLevel.GetTopLevel(this);
+        if (focused is null || ReferenceEquals(focused, _input)) return false;
+        if (focused is Visual visual && !ReferenceEquals(TopLevel.GetTopLevel(visual), top)) return true;
+        return focused is TextBox or AvaloniaEdit.Editing.TextArea;
+    }
+
+    private static bool IsChrome(object? source) =>
+        source is Visual visual && visual.GetSelfAndVisualAncestors().Any(v => v is Button or ScrollBar or GridSplitter);
+
+    private void TranscriptPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        _pressed = point.Properties.IsLeftButtonPressed && !IsChrome(e.Source) ? point.Position : null;
+    }
+
+    /// <summary>
+    /// The click-versus-drag rule: a left button released within 4 layout units of where it went down, that left
+    /// no selection in the transcript, is a click and focuses the composer. Anything else (a drag, a selection,
+    /// a right click, the scrollbar, the divider, a button) leaves focus where the reader put it.
+    /// </summary>
+    private void TranscriptReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_pressed is not { } start) return;
+        _pressed = null;
+        if (e.InitialPressMouseButton != MouseButton.Left) return;
+        var end = e.GetPosition(this);
+        if (Math.Abs(end.X - start.X) > ClickSlop || Math.Abs(end.Y - start.Y) > ClickSlop) return;
+        // The transcript finished its selection before this handler saw the release; anything it kept is the reader's.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!this.IsAttachedToVisualTree() || _controller.Display.HasSelection || !_input.IsEnabled || !_input.IsEffectivelyVisible) return;
+            _input.Focus();
+        }, DispatcherPriority.Input);
+    }
 
 
     private void Refresh()
@@ -251,6 +335,7 @@ public sealed class TerminalView : UserControl
         var live = _controller.IsConnected && !_controller.IsPrivate;
         foreach (var button in _liveButtons) button.IsEnabled = live;
         _input.IsEnabled = _controller.IsConnected;
+        if (_focusWanted && _input.IsEnabled) PostFocus();
         _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
         _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
         _resources.Update(_controller.GameState, _controller.IsConnected);

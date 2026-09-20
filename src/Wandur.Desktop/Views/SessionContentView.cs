@@ -12,6 +12,9 @@ public sealed class SessionContentView : UserControl
     private WorldBrowserView? _browser;
     private readonly WorldCatalog? _catalog;
     private readonly Action<WorkspaceController, int>? _editAutomation;
+    // An activation (a session opened, a tab chosen) is what sends the keyboard to the composer; a dock rebuild
+    // that merely shows the same view again is not.
+    private bool _activated;
 
     public SessionContentView(SessionWorkspace sessions, WorldCatalog? catalog = null, Action<WorkspaceController, int>? editAutomation = null)
     {
@@ -20,11 +23,14 @@ public sealed class SessionContentView : UserControl
         Refresh();
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); _sessions.Changed += Refresh; Refresh(); }
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _sessions.Changed -= Refresh; base.OnDetachedFromVisualTree(e); }
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); _sessions.Changed += Refresh; _sessions.SelectionChanged += Activated; Refresh(); }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _sessions.Changed -= Refresh; _sessions.SelectionChanged -= Activated; base.OnDetachedFromVisualTree(e); }
+    private void Activated() => _activated = true;
     private void Refresh()
     {
         SessionOpenTrace.Count("session content refresh");
+        var activated = _activated;
+        _activated = false;
         foreach (var removed in _views.Keys.Where(t => !_sessions.Tabs.Contains(t)).ToArray()) _views.Remove(removed);
         if ((_sessions.IsBrowsing || !_sessions.Active.Controller.HasSession) && _catalog is not null)
         {
@@ -40,5 +46,6 @@ public sealed class SessionContentView : UserControl
             _views.Add(_sessions.Active, view);
         }
         _content.Content = view;
+        if (activated) view.FocusComposer();
     }
 }
