@@ -7,10 +7,11 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class ScriptSessionTests
 {
-    /// <summary>A pack script boots a worker process while the world is still sending its first values;
-    /// what is published during that boot must reach the script once it runs, not vanish.</summary>
+    /// <summary>A pack script starts while the world is still sending its first values. The load and the events
+    /// share one ordered queue, so what is published while the load is pending is dispatched after the engine
+    /// exists and reaches the script, in order, and the seed goes out ahead of the load.</summary>
     [AvaloniaFact]
-    public async Task EventsPublishedWhileTheWorkerBootsAreDeliveredOnceTheScriptRuns()
+    public async Task EventsPublishedWhileTheScriptLoadsAreDeliveredOnceItRuns()
     {
         var factory = new RecordingScriptFactory { BlockLoad = true };
         var privateInput = false;
@@ -23,21 +24,20 @@ public sealed class ScriptSessionTests
         Assert.False(scripts.IsRunning);
         scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"4\"}"));
         scripts.Publish(new("msdp", "{\"variable\":\"HEALTH\",\"value\":\"1000\"}"));
-        // A long login replay, well past the 128 slots of the live queue, must not count as an overflow.
+        // A long login replay, well past what a single flush produces, is queued behind the load, not lost.
         for (var i = 0; i < 300; i++) scripts.Publish(new("msdp", "{\"variable\":\"VAR" + i + "\",\"value\":\"" + i + "\"}"));
         scripts.Publish(new("msdp", "{\"variable\":\"LEVELCOMBAT\",\"value\":\"5\"}"));
         factory.Runtime!.Loaded.SetResult(true);
         await run;
-        Assert.True(scripts.IsRunning);
-        await WaitFor(() => factory.Runtime.Events.Count(e => e.Kind == "msdp") == 302);
+        Assert.True(scripts.IsRunning, scripts.Error);
+        await WaitFor(() => factory.Runtime.Events.Count(e => e.Kind == "msdp") == 303);
         Assert.True(scripts.IsRunning, scripts.Error);
         Assert.Equal("state", factory.Runtime.Events[0].Kind);
-        // The repeated variable is delivered once, in its first position, with its latest value.
-        var combat = Assert.Single(factory.Runtime.Events, e => e.Kind == "msdp" && e.Text.Contains("LEVELCOMBAT", StringComparison.Ordinal));
-        Assert.Contains("\"5\"", combat.Text, StringComparison.Ordinal);
-        Assert.Equal(combat, factory.Runtime.Events.First(e => e.Kind == "msdp"));
+        var msdp = factory.Runtime.Events.Where(e => e.Kind == "msdp").ToArray();
+        Assert.Contains("\"4\"", msdp[0].Text, StringComparison.Ordinal);
+        Assert.Contains("\"5\"", msdp[^1].Text, StringComparison.Ordinal);
 
-        // A privacy change during the boot discards what was buffered: the host replays the cache once play is public.
+        // A privacy change while the load is pending invalidates what was queued: the host replays the cache once play is public.
         scripts.Stop();
         factory = new RecordingScriptFactory { BlockLoad = true };
         await using var second = new SessionScripts(factory, new MemoryScriptStore(), () => true, () => privateInput,
@@ -158,27 +158,40 @@ internal sealed class RecordingScriptFactory : IScriptRuntimeFactory
 {
     public bool BlockDispatch { get; init; }
     public bool BlockLoad { get; init; }
-    public RecordingScriptRuntime? Runtime { get; private set; }
-    public IScriptRuntime Create() => Runtime = new(BlockDispatch, BlockLoad);
+    public RecordingScriptHost? Runtime { get; private set; }
+    public int Created { get; private set; }
+    public ISessionScriptHost Create() { Created++; return Runtime = new(BlockDispatch, BlockLoad); }
 }
 
-internal sealed class RecordingScriptRuntime(bool blockDispatch, bool blockLoad = false) : IScriptRuntime
+/// <summary>Records what the host sends: every seed and every event once, however many scripts it was fanned out to.</summary>
+internal sealed class RecordingScriptHost(bool blockDispatch, bool blockLoad = false) : ISessionScriptHost
 {
     public List<ScriptEvent> Events { get; } = [];
+    public List<string> LoadedIds { get; } = [];
     public TaskCompletionSource<ScriptResult> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public TaskCompletionSource<bool> Loaded { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public bool IsRunning { get; private set; }
     public bool RestrictedSend { get; private set; }
-    public async Task<ScriptResult> LoadAsync(string source, CancellationToken cancellationToken = default, bool restrictedSend = false)
+    public event Action<string>? Failed { add { } remove { } }
+    public Task<IReadOnlyList<ScriptResult>> SeedAsync(string state, CancellationToken cancellationToken = default)
+    {
+        lock (Events) Events.Add(new("state", state));
+        return Task.FromResult<IReadOnlyList<ScriptResult>>([]);
+    }
+    public async Task<ScriptResult> LoadAsync(string id, string source, bool restrictedSend = false, CancellationToken cancellationToken = default)
     {
         if (blockLoad) await Loaded.Task;
-        IsRunning = true; RestrictedSend = restrictedSend; return new ScriptResult(false, []);
+        IsRunning = true; RestrictedSend = restrictedSend;
+        lock (Events) LoadedIds.Add(id);
+        return new ScriptResult(false, []) { Id = id };
     }
-    public Task<ScriptResult> DispatchAsync(ScriptEvent input, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ScriptResult>> DispatchAsync(IReadOnlyList<string> ids, ScriptEvent input, CancellationToken cancellationToken = default)
     {
         lock (Events) Events.Add(input);
-        return blockDispatch ? Release.Task : Task.FromResult(new ScriptResult(false, []));
+        var result = blockDispatch ? await Release.Task : new ScriptResult(false, []);
+        return ids.Select(id => result with { Id = id }).ToArray();
     }
+    public Task StopAsync(string id, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public void Stop() => IsRunning = false;
     public ValueTask DisposeAsync() { Stop(); return ValueTask.CompletedTask; }
 }

@@ -3,29 +3,29 @@ using Wandur.Core.Scripting;
 Console.InputEncoding = new System.Text.UTF8Encoding(false);
 Console.OutputEncoding = new System.Text.UTF8Encoding(false);
 
-// A controllable unresponsive child tests the parent's deadline independently of Jint's limits.
-var firstLine = await Console.In.ReadLineAsync();
-if (firstLine?.Contains("test-host-unresponsive", StringComparison.Ordinal) == true)
-{
-    Console.WriteLine("{\"Handled\":false,\"Actions\":[],\"Error\":null}");
-    await Console.Out.FlushAsync();
-    await Task.Delay(Timeout.Infinite);
-}
-else if (firstLine is not null)
-{
-    await ScriptWorker.RunAsync(new PrefixedReader(firstLine + "\n", Console.In), Console.Out);
-}
+// The real worker loop, behind a reader that tests can steer: a request carrying "test-host-unresponsive" is
+// never answered, which exercises the parent's deadline independently of Jint's limits, and one carrying
+// "test-host-crash" ends the process at once, which exercises crash recovery.
+await ScriptWorker.RunAsync(new HookedReader(Console.In), Console.Out);
 
-sealed class PrefixedReader(string prefix, TextReader rest) : TextReader
+sealed class HookedReader(TextReader inner) : TextReader
 {
+    private string _pending = "";
     private int _position;
 
-    public override ValueTask<int> ReadAsync(Memory<char> buffer, CancellationToken cancellationToken = default)
+    public override async ValueTask<int> ReadAsync(Memory<char> buffer, CancellationToken cancellationToken = default)
     {
-        if (_position >= prefix.Length) return rest.ReadAsync(buffer, cancellationToken);
-        var length = Math.Min(buffer.Length, prefix.Length - _position);
-        prefix.AsMemory(_position, length).CopyTo(buffer);
+        if (_position >= _pending.Length)
+        {
+            var line = await inner.ReadLineAsync(cancellationToken);
+            if (line is null) return 0;
+            if (line.Contains("test-host-unresponsive", StringComparison.Ordinal)) await Task.Delay(Timeout.Infinite, cancellationToken);
+            if (line.Contains("test-host-crash", StringComparison.Ordinal)) Environment.Exit(70);
+            _pending = line + "\n"; _position = 0;
+        }
+        var length = Math.Min(buffer.Length, _pending.Length - _position);
+        _pending.AsMemory(_position, length).CopyTo(buffer);
         _position += length;
-        return ValueTask.FromResult(length);
+        return length;
     }
 }

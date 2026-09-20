@@ -1162,6 +1162,9 @@ The offline demo is available from File.</value>
   <data name="ScriptWorkerFailed" xml:space="preserve">
     <value>The script worker stopped or did not respond.</value>
   </data>
+  <data name="ScriptWorkerRestartLimit" xml:space="preserve">
+    <value>The script worker stopped three times in five minutes and was not started again.</value>
+  </data>
   <data name="ScriptTrustHint" xml:space="preserve">
     <value>Run scripts you trust. Scripts can send game commands. They start only when you press Run.</value>
   </data>

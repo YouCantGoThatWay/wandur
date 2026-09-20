@@ -72,7 +72,8 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   end accepts, Escape hides, `ClientSettings.ComposerSuggestions` turns it off.
   See the Inline completion section of `docs/client-architecture.md`.
 - Last green run on main (September 19, after 061c31a): Core 475,
-  Desktop 315; `artifacts/macos/Wandur.app` rebuilt by
+  Desktop 315; on `refactor/session-worker`: Core 602, Desktop see the
+  branch's commit message; `artifacts/macos/Wandur.app` rebuilt by
   `scripts/package-macos.sh`. The discovery suite (25) now runs in
   `wandur-discovery`. No worktrees; tree clean.
 - Verification commands: `dotnet build Wandur.sln -c Release`, then
@@ -145,6 +146,24 @@ complete and recorded in `docs/verification.md`; it no longer needs action.
   payload arriving during login); what remains is in the script itself:
   `previous` keeps the last name so a same-named next opponent is not a new
   target, and a tab closed by hand retires the panel until the script restarts.
+- Script runtime (branch `refactor/session-worker`): one worker process per
+  session hosting one Jint engine per script, instead of one process per
+  script. `WorldScriptLibrary` owns a `SessionScriptWorker` (the process
+  client, the single ordered request queue and the restart policy); each
+  `SessionScripts` keeps its surface but holds only its script id.
+  `ISessionScriptHost` (Core) is the protocol client: `state`, `load <id>`,
+  `dispatch <ids> <event>`, `stop <id>`, `shutdown`, one JSON line each way,
+  results carry the script id and are validated per script; `ScriptEngineSet`
+  is the worker side and also backs the in-process test hosts. Loads and
+  events share the queue, so the boot backlog in `SessionScripts` is gone;
+  the seed goes out ahead of a load whenever the host cache changed. A
+  runaway callback (Jint limits per engine: 300 ms, 100000 statements, 64 MiB)
+  fails that script only. A dead process fails every running script and is
+  restarted with the enabled ones re-run, at most 3 times in 5 minutes, then
+  `ScriptWorkerRestartLimit` stays shown. Docs: the Scripting runtime section
+  of `docs/client-architecture.md`, `docs/scripting.md`. Tests:
+  `ScriptRuntimeTests` (Core), `SessionWorkerTests` (Desktop; the last test
+  runs the real `Wandur.dll --script-worker` and kills it).
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

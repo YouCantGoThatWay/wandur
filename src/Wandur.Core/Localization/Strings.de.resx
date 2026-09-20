@@ -1162,6 +1162,9 @@ Die Offline-Demo findest du unter Datei.</value>
   <data name="ScriptWorkerFailed" xml:space="preserve">
     <value>Der Skriptprozess wurde beendet oder hat nicht geantwortet.</value>
   </data>
+  <data name="ScriptWorkerRestartLimit" xml:space="preserve">
+    <value>Der Skriptprozess wurde dreimal in fünf Minuten beendet und nicht erneut gestartet.</value>
+  </data>
   <data name="ScriptTrustHint" xml:space="preserve">
     <value>Führe vertrauenswürdige Skripte aus. Skripte können Spielbefehle senden. Sie starten erst, wenn du auf Ausführen klickst.</value>
   </data>

@@ -10,7 +10,7 @@ Configure a new or existing world in any section, then choose **Save world** to 
 
 The active session has **Play** and **Diagnostics** footer tabs. Its **Scripts** menu lists hand-written scripts with individual enable switches and runtime status, a refresh icon to reload saved rules, and **Edit configuration…**. The separate **Macros** footer toggle switches enabled macros on or off for this connection without changing their saved defaults.
 
-Live enable switches affect only that open connection and do not change saved startup preferences. Editing or enabling definitions in configuration does not execute code there or change already-open connections. Choose **Reload saved rules** in a connection to replace its loaded definitions and apply saved enable preferences. This restarts its workers; it does not interrupt another connection. New connections load saved definitions and enable preferences normally.
+Live enable switches affect only that open connection and do not change saved startup preferences. Editing or enabling definitions in configuration does not execute code there or change already-open connections. Choose **Reload saved rules** in a connection to replace its loaded definitions and apply saved enable preferences. This restarts its scripts; it does not interrupt another connection. New connections load saved definitions and enable preferences normally.
 
 ## Macros: no code required
 
@@ -27,9 +27,9 @@ Use **+** to create a disabled macro, give it a name, select its condition, and 
 
 For example, choose **Text received → Contains**, enter `You are hungry`, and send `eat bread`. Adjust commands and text to your world.
 
-The forms store structured definitions alongside scripts in the world's SQLite library. They generate JavaScript internally and use the same isolated workers, command gateway, rate limits, and private-input pause behavior. Macros are listed separately from hand-written scripts. New macros start disabled. The configuration checkbox saves the startup preference; reload or open a new connection to run that saved rule. Switching views leaves enabled macros running; closing the session stops them. Runtime errors appear in the world configuration.
+The forms store structured definitions alongside scripts in the world's SQLite library. They generate JavaScript internally and use the same isolated engines, command gateway, rate limits, and private-input pause behavior. Macros are listed separately from hand-written scripts. New macros start disabled. The configuration checkbox saves the startup preference; reload or open a new connection to run that saved rule. Switching views leaves enabled macros running; closing the session stops them. Runtime errors appear in the world configuration.
 
-Definitions and saved enable preferences currently follow the same sharing rules as scripts below. Duplicate open connections have separate workers; a saved change does not replace another already-open connection's loaded definitions. Macros and scripts share the 64-entry library limit. Shortcuts do not run in editors or during private input. `Events.Key` is used internally by generated shortcut macros and receives the selected function-key name as `text`.
+Definitions and saved enable preferences currently follow the same sharing rules as scripts below. Duplicate open connections have separate worker processes; a saved change does not replace another already-open connection's loaded definitions. Macros and scripts share the 64-entry library limit. Shortcuts do not run in editors or during private input. `Events.Key` is used internally by generated shortcut macros and receives the selected function-key name as `text`.
 
 ## Workflow
 
@@ -39,7 +39,7 @@ Definitions and saved enable preferences currently follow the same sharing rules
 4. In the active connection’s **Scripts** menu, use the refresh icon (**Reload saved rules**) to adopt your changes.
 5. Use the live enable switch to start or stop a loaded rule for just that connection.
 
-New scripts and scripts migrated from the original single-script editor start disabled. Closing the connection stops every worker. A script error stops only its worker; correct and save its definition, then reload, or toggle its live switch off/on to retry. Private input and automatic login pause automation.
+New scripts and scripts migrated from the original single-script editor start disabled. Closing the connection stops every script and ends the session's worker process. A script error stops only that script's engine; correct and save its definition, then reload, or toggle its live switch off/on to retry. Private input and automatic login pause automation.
 
 Saved definitions are shared by world identity. Saving merges the edited rules into the on-disk library. Already-open connections retain their loaded definitions until explicitly reloaded. Deleting a rule from configuration requires an inline confirmation and removes its saved definition when you choose **Save world**; reload active connections to remove their previously loaded copy.
 
@@ -65,7 +65,7 @@ mud.on(Events.Gmcp, event => {
 });
 ```
 
-`mud.on(Events.Line, callback)` receives `{text}`. `mud.on(Events.Gmcp, callback)` receives `{package, data}`; `data` is parsed JSON, or `null` when the message contains only a package name. Malformed GMCP messages are ignored. Line subscribers run in registration order before regex triggers. Each script has its own globals and worker; sending a command does not create another command event or alias invocation.
+`mud.on(Events.Line, callback)` receives `{text}`. `mud.on(Events.Gmcp, callback)` receives `{package, data}`; `data` is parsed JSON, or `null` when the message contains only a package name. Malformed GMCP messages are ignored. Line subscribers run in registration order before regex triggers. Each script has its own globals and its own engine inside the session's worker process; sending a command does not create another command event or alias invocation.
 
 ### Events.Msdp
 
@@ -81,7 +81,7 @@ mud.on(Events.Msdp, event => {
 
 ## Current values: mud.state
 
-The worker keeps the latest value of everything a script has received, so a panel or a trigger can read a value without having cached it itself.
+Each engine keeps the latest value of everything its script has received, so a panel or a trigger can read a value without having cached it itself.
 
 ```js
 mud.state.get("gmcp.Char.Vitals.hp");   // the newest Char.Vitals hp, or undefined
@@ -93,7 +93,7 @@ A path is `gmcp.<Package>.<field>...` or `msdp.<VARIABLE>`. A GMCP package name 
 
 The cache is fed by the same privacy-gated events a script subscribes to, so nothing private can enter it. It holds at most 512 entries per protocol and 256 KiB per protocol; a value larger than 32 KiB, or an update that would exceed those bounds, is dropped and the previous value is kept.
 
-The client also keeps this cache on its own side for the whole session, including values that arrive during automatic login, before any script is running. When a script starts, and on every restart, that cache is sent to the worker before the first line of the script runs, so `mud.state.get` answers immediately and the usual pattern of subscribing with `mud.on(Events.Msdp, refresh)` and calling `refresh()` once at load shows values right away. Seeding fires no `Events.Gmcp` or `Events.Msdp` callbacks. A world sends a reported MSDP variable once and then only when it changes, which is why a script that started later would otherwise never see skill levels, money or ship telemetry. Values that arrive while automatic login owns the session reach scripts already running as ordinary `Events.Msdp` and `Events.Gmcp` events once it ends, and when a private interval ends (a password prompt, the Private toggle) the client asks the world again for every variable a script has read, since the answer that landed in the packet ending the interval was withheld.
+The client also keeps this cache on its own side for the whole session, including values that arrive during automatic login, before any script is running. When a script starts, and on every restart, that cache is sent to the session's worker ahead of the load whenever it has changed since the last seed, and every engine starts from it before the first line of its script runs, so `mud.state.get` answers immediately and the usual pattern of subscribing with `mud.on(Events.Msdp, refresh)` and calling `refresh()` once at load shows values right away. Seeding fires no `Events.Gmcp` or `Events.Msdp` callbacks. A world sends a reported MSDP variable once and then only when it changes, which is why a script that started later would otherwise never see skill levels, money or ship telemetry. Values that arrive while automatic login owns the session reach scripts already running as ordinary `Events.Msdp` and `Events.Gmcp` events once it ends, and when a private interval ends (a password prompt, the Private toggle) the client asks the world again for every variable a script has read, since the answer that landed in the packet ending the interval was withheld.
 
 Reading `msdp.<VARIABLE>` for a variable the cache does not hold also asks the world once to report it: the client sends an MSDP `REPORT` followed by `SEND` for that name, exactly as it does for mapped variables, and the answer arrives as an ordinary `Events.Msdp` event. A script may ask for up to 64 distinct variables; a name is 1 to 128 letters, digits or underscores and does not start with a digit. Names the world's mapping already reports are not asked for again, and a reconnect asks again.
 
@@ -214,15 +214,15 @@ Aliases and regex triggers accept a JavaScript `RegExp` or regex string. Their c
 
 Scripts receive only new completed server lines, not historical transcript or unterminated prompts. Manual private input bypasses aliases. Saved login credentials are never passed to scripts. Private input invalidates queued events and pending actions. Network data containing private text is conservatively excluded, including echo negotiations within one packet and fragmented GMCP messages.
 
-One isolated worker runs each script. Disabling, deleting or disconnecting stops it and discards pending actions. A command already on the network cannot be recalled. Failed callbacks discard their pending actions. Per-script errors and output appear when that script is selected. There are no filesystem, network, credential-vault, .NET object, browser, Node.js or npm APIs.
+Each script runs in its own engine inside the session's worker process; a runaway callback stops that script only. One worker process serves every script of a connection: it starts when the first script runs, ends when the connection closes or its world changes, and if it dies every running script is stopped with an error and started again on a fresh process, at most three times in five minutes. Disabling, deleting or disconnecting stops a script and discards its pending actions. A command already on the network cannot be recalled. Failed callbacks discard their pending actions. Per-script errors and output appear when that script is selected. There are no filesystem, network, credential-vault, .NET object, browser, Node.js or npm APIs.
 
-Run scripts you have reviewed. Worker isolation and execution limits reduce accidents; this is not a hardened operating-system sandbox for hostile code. Jint allocation limits apply per execution rather than to the total retained heap.
+Run scripts you have reviewed. Process isolation and per-callback execution limits reduce accidents; this is not a hardened operating-system sandbox for hostile code. Jint allocation limits apply per execution rather than to the total retained heap.
 
-Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 send and echo actions per event, 32 panel instructions per event, 8 panels and 64 widgets per panel, one accepted panel focus per second, 128 queued events per script, and a shared maximum of 20 sends per second and 200 per minute. `docs/scripting-reference.json` carries the same API and limits in machine-readable form, and a test keeps it in step with the engine. An unresponsive worker is killed after two seconds. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
+Limits include 64 scripts per world, a 4 MiB library file, 256 KiB source per script, 256 hooks, 32 send and echo actions per event, 32 panel instructions per event, 8 panels and 64 widgets per panel, one accepted panel focus per second, 1024 events waiting for the session's worker, and a shared maximum of 20 sends per second and 200 per minute. `docs/scripting-reference.json` carries the same API and limits in machine-readable form, and a test keeps it in step with the engine. Every callback is limited to 300 ms, 100000 statements, 64 MiB of allocation and a recursion depth of 64; a worker process that does not answer within two seconds (plus half a second for every further script in the request) is killed and restarted. A debugger, packages, keyboard macro bindings and asynchronous callbacks are not part of this version.
 
 ## Implementation
 
-`IWorldScriptLibraryStore` is injected through application DI. The application uses SQLite for saved libraries and retains legacy import support. `WorldScriptLibrary` owns the per-script `SessionScripts` coordinators. `ScriptLibraryViewModel` mediates the session’s Scripts page; views contain presentation code. Five resx languages are included: English, Spanish, French, German and Brazilian Portuguese.
+`IWorldScriptLibraryStore` is injected through application DI. The application uses SQLite for saved libraries and retains legacy import support. `WorldScriptLibrary` owns the per-script `SessionScripts` coordinators and the session's `SessionScriptWorker`, the client of the one worker process. `ScriptLibraryViewModel` mediates the session’s Scripts page; views contain presentation code. Five resx languages are included: English, Spanish, French, German and Brazilian Portuguese.
 
 Native preview verification runs on macOS. Windows/Linux native packaging still needs platform-specific verification.
 
