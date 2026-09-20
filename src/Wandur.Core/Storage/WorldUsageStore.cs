@@ -4,8 +4,11 @@ using Wandur.Core.Settings;
 
 namespace Wandur.Core.Storage;
 
-/// <summary>How often a saved world has been connected to, with every connection's time kept so the score can weigh recency.</summary>
-public sealed record WorldUsage(IReadOnlyList<DateTimeOffset> ConnectedAt)
+/// <summary>
+/// How often a saved world has been connected to, with every connection's time kept so the score can weigh recency,
+/// and the name of the character last played there (what the world reported, or the profile's login name).
+/// </summary>
+public sealed record WorldUsage(IReadOnlyList<DateTimeOffset> ConnectedAt, string? LastCharacter = null)
 {
     // The recency weights, in one place: a connection counts fully for 30 days, half for the next 60,
     // and a quarter after that, so a world played every week outranks one abandoned last spring.
@@ -62,6 +65,8 @@ public interface IWorldUsageStore
 {
     /// <summary>Counts one successful connection to the world at this address.</summary>
     void RecordConnection(string host, int port);
+    /// <summary>Remembers the character a session on the world at this address played as.</summary>
+    void RecordCharacter(string host, int port, string name);
     /// <summary>The usage of every saved world that has one, keyed by profile id.</summary>
     IReadOnlyDictionary<Guid, WorldUsage> Load();
 }
@@ -93,19 +98,49 @@ public sealed class SqliteWorldUsageStore(ClientDatabase database, TimeProvider?
         });
     }
 
+    public void RecordCharacter(string host, int port, string name)
+    {
+        name = name.Trim();
+        if (name.Length is 0 or > 256 || name.Any(char.IsControl)) return;
+        database.Write((connection, transaction) =>
+        {
+            var world = database.ResolveWorld(connection, transaction, $"{host}:{port}");
+            using var update = connection.CreateCommand(); update.Transaction = transaction;
+            update.CommandText = "UPDATE world_usage SET last_character=$name WHERE world_id=$world";
+            update.Parameters.AddWithValue("$world", world); update.Parameters.AddWithValue("$name", name);
+            if (update.ExecuteNonQuery() > 0) return true;
+            // A name learned before any connection was counted (a session that never got that far) still gets its row,
+            // with nothing counted: the connection log, not this summary, is what the usage order reads.
+            using var insert = connection.CreateCommand(); insert.Transaction = transaction;
+            insert.CommandText = "INSERT INTO world_usage(world_id,connections,last_connected_at,last_character) VALUES($world,0,$now,$name)";
+            insert.Parameters.AddWithValue("$world", world); insert.Parameters.AddWithValue("$name", name);
+            insert.Parameters.AddWithValue("$now", _time.GetUtcNow().ToString("O", CultureInfo.InvariantCulture));
+            insert.ExecuteNonQuery();
+            return true;
+        });
+    }
+
     public IReadOnlyDictionary<Guid, WorldUsage> Load() => database.Read(connection =>
     {
         var times = new Dictionary<Guid, List<DateTimeOffset>>();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT p.id, c.connected_at FROM profiles p JOIN world_connections c ON c.world_id = p.world_id";
-        using var rows = command.ExecuteReader();
-        while (rows.Read())
-        {
-            if (!Guid.TryParse(rows.GetString(0), out var id) ||
-                !DateTimeOffset.TryParseExact(rows.GetString(1), "O", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)) continue;
-            if (!times.TryGetValue(id, out var list)) times[id] = list = [];
-            list.Add(at);
-        }
-        return (IReadOnlyDictionary<Guid, WorldUsage>)times.ToDictionary(pair => pair.Key, pair => new WorldUsage(pair.Value));
+        using (var rows = command.ExecuteReader())
+            while (rows.Read())
+            {
+                if (!Guid.TryParse(rows.GetString(0), out var id) ||
+                    !DateTimeOffset.TryParseExact(rows.GetString(1), "O", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)) continue;
+                if (!times.TryGetValue(id, out var list)) times[id] = list = [];
+                list.Add(at);
+            }
+        var characters = new Dictionary<Guid, string>();
+        using var names = connection.CreateCommand();
+        names.CommandText = "SELECT p.id, u.last_character FROM profiles p JOIN world_usage u ON u.world_id = p.world_id WHERE u.last_character IS NOT NULL";
+        using (var rows = names.ExecuteReader())
+            while (rows.Read())
+                if (Guid.TryParse(rows.GetString(0), out var id) && rows.GetString(1) is { Length: > 0 } name) characters[id] = name;
+        var usage = times.ToDictionary(pair => pair.Key, pair => new WorldUsage(pair.Value, characters.GetValueOrDefault(pair.Key)));
+        foreach (var (id, name) in characters) usage.TryAdd(id, new WorldUsage([], name));
+        return (IReadOnlyDictionary<Guid, WorldUsage>)usage;
     });
 }

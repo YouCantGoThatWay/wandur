@@ -70,6 +70,15 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     /// <summary>Words this session has shown or sent, for inline completion. One per world: reset with the history.</summary>
     public Wandur.Core.Input.CompletionLearner Completions { get; private set; } = new();
     public string WorldName { get; private set; } = L.YourNextAdventure;
+    /// <summary>
+    /// Who this session plays as: the name the world reported through the mapping (identity "name" of the character,
+    /// kept for the connection once seen), else the profile's login name, else empty. Typed text never reaches it.
+    /// </summary>
+    public string CharacterName { get; private set; } = "";
+    /// <summary>The world, then the character when one is known: what a tab and the open sessions list show.</summary>
+    public string SessionLabel => CharacterName.Length == 0 ? WorldName : $"{WorldName} · {CharacterName}";
+    private string _profileUsername = "";
+    private string? _reportedCharacter;
     public string Endpoint { get; private set; } = L.ChooseASavedWorldOrTryTheOfflineDemo;
     public string Status { get; private set; } = L.ReadyToWander;
     public string? Notice { get; private set; }
@@ -83,6 +92,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     public int OutputVersion { get; private set; }
     public int CommandsSent { get; private set; }
     public event Action? Changed;
+    /// <summary>Raised when <see cref="CharacterName"/> changes; <see cref="Changed"/> follows.</summary>
+    public event Action? CharacterChanged;
     public event Action<ClientSettings>? SettingsSaved;
 
     public void SetManualPrivate(bool enabled) { _manualPrivate = enabled; RefreshScriptState(); Changed?.Invoke(); }
@@ -142,6 +153,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             var token = _connectionCancellation.Token;
             IsConnecting = true;
             WorldName = profile?.Name ?? "The Lantern & the Rain";
+            _profileUsername = profile?.Username.Trim() ?? ""; _reportedCharacter = null; RefreshCharacterName();
             Endpoint = profile is null ? L.OFFLINEDEMOASmallWorldOnYourOwnMachine : $"{profile.Host}:{profile.Port}  /  {profile.Encoding.ToUpperInvariant()}";
             Status = L.Connecting; Notice = null; CommandsSent = 0;
             _serverPrivate = _promptPrivate = _manualPrivate = false;
@@ -296,6 +308,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         if (dropped) ScriptLibrary.Stop();
         long currentEpoch, currentCacheEpoch;
         lock (_pendingLock) { currentEpoch = _scriptOutputEpoch; currentCacheEpoch = _cacheEpoch; }
+        var observed = false;
         foreach (var item in diagnostics.Where(item => ReferenceEquals(item.Session, _session)))
         {
             var payload = item.Epoch == currentEpoch && !IsPrivate && _login is null ? item.Message.Payload : null;
@@ -311,7 +324,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
                     // Cached while scripts get nothing: replayed to them once play is public.
                     if (ScriptState.RecordMsdp(variable, json) && payload is null) _replayMsdp.TryAdd(variable, true);
             Diagnostics.AppendContent(item.Message.ReceivedAt, item.Message.Option, item.Message.Content);
-            if (cachePublic) _protocolBindings?.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt);
+            if (cachePublic && _protocolBindings is not null) { _protocolBindings.Observe(item.Message.Option, item.Message.Content, item.Message.ReceivedAt); observed = true; }
             FeedAgentProtocol(item.Message.Option, payload);
             // Raw MSDP reaches scripts the same way GMCP does, one event per variable, never while private.
             if (payload is not null && item.Message.Option == 69)
@@ -336,8 +349,23 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             }
             else { ScriptLibrary.DiscardPartialLine(); if (chunk.Event is null) _channels.Reset(); }
         }
+        if (observed) RefreshCharacterName();
         Changed?.Invoke();
         if (_session is { } session) _ = TryAutoLoginAsync(session);
+    }
+
+    /// <summary>
+    /// The reported name wins over the profile's login name as soon as the world sends one (an account login that
+    /// picks a character, say), and a later report replaces it. The engine only ever sees public server values.
+    /// </summary>
+    private void RefreshCharacterName()
+    {
+        if (_protocolBindings?.State.Character.Identity.GetValueOrDefault("name")?.Value.Trim() is { Length: > 0 } reported)
+            _reportedCharacter = reported.Length > 100 ? reported[..100] : reported;
+        var name = _reportedCharacter ?? _profileUsername;
+        if (name == CharacterName) return;
+        CharacterName = name;
+        CharacterChanged?.Invoke();
     }
 
     public async Task<bool> SendAsync(string command)

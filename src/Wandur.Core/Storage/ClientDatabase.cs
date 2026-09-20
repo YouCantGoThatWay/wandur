@@ -126,13 +126,13 @@ public sealed class ClientDatabase(string path)
     {
         using var version = connection.CreateCommand(); version.CommandText = "PRAGMA user_version";
         var schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 5) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 6) throw new IOException(L.DatabaseVersionUnsupported);
         using var journal = connection.CreateCommand(); journal.CommandText = "PRAGMA journal_mode=WAL"; journal.ExecuteScalar();
         using var transaction = connection.BeginTransaction(deferred: false);
         // A second database instance may have migrated while this connection waited for the write lock.
         version.Transaction = transaction;
         schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 5) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 6) throw new IOException(L.DatabaseVersionUnsupported);
         using var schema = connection.CreateCommand(); schema.Transaction = transaction;
         schema.CommandText = """
             CREATE TABLE IF NOT EXISTS worlds(id TEXT PRIMARY KEY NOT NULL);
@@ -174,7 +174,13 @@ public sealed class ClientDatabase(string path)
             schema.ExecuteNonQuery();
         }
         // Version 5 adds the usage tables above; CREATE IF NOT EXISTS is the whole migration.
-        schema.CommandText = "PRAGMA user_version=5";
+        // Version 6 remembers the character last played on each world, beside its usage summary.
+        if (schemaVersion < 6)
+        {
+            schema.CommandText = "ALTER TABLE world_usage ADD COLUMN last_character TEXT";
+            schema.ExecuteNonQuery();
+        }
+        schema.CommandText = "PRAGMA user_version=6";
         schema.ExecuteNonQuery();
         transaction.Commit();
     }

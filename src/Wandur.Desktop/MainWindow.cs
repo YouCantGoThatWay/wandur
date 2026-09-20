@@ -86,6 +86,7 @@ public sealed class MainWindow : Window
         divider.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var connectionControls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(5, 0, 0, 0), Children = { connect, _disconnect } };
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Children = { _worldPicker, connectionControls, divider, browse } };
+        _toolbarStatus.Name = "SessionStatus";
         _toolbarStatus.VerticalAlignment = VerticalAlignment.Center;
         _toolbarStatus.HorizontalAlignment = HorizontalAlignment.Right;
         _toolbarStatus.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -269,11 +270,13 @@ public sealed class MainWindow : Window
             _worldPicker.ItemsSource = _profiles;
             _worldPicker.SelectedItem = _profiles.FirstOrDefault(p => p.Id == selected) ?? _profiles.FirstOrDefault();
         }
-        Title = Controller.HasSession ? $"{Controller.WorldName} — Wandur" : "Wandur";
+        // Character first: it is what tells two sessions on one world apart at a glance; then the world, then the app.
+        Title = !Controller.HasSession ? "Wandur" : Controller.CharacterName.Length == 0 ? $"{Controller.WorldName} · Wandur" : $"{Controller.CharacterName} · {Controller.WorldName} · Wandur";
         var connected = Sessions.Tabs.Count(t => t.Controller.IsConnected);
         var count = Sessions.Tabs.Count(t => t.Controller.HasSession);
         _status.Text = L.Format(count == 1 ? L.SessionsOne : L.SessionsMany, count, connected);
-        _toolbarStatus.Text = (Controller.IsConnected ? "●  " : "○  ") + Controller.Status;
+        // The session bar: world, character and connection state of the active session, in one muted line.
+        _toolbarStatus.Text = (Controller.IsConnected ? "●  " : "○  ") + (Controller.HasSession ? $"{Controller.SessionLabel}  ·  " : "") + Controller.Status;
         var disconnectTip = Controller.IsConnecting ? L.Cancel : L.DisconnectTheActiveSession;
         ToolTip.SetTip(_disconnect, disconnectTip);
         Avalonia.Automation.AutomationProperties.SetName(_disconnect, disconnectTip);

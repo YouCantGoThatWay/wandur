@@ -219,6 +219,15 @@ covers 20 two-fight variants).
   (corner radius 0 on the left, right, centre, panel and floating chrome, gaps
   unchanged, `DockChromeTests` asserts it) and puts the move cursor on the
   header's grip glyph with a plain arrow over the rest of the header.
+- Session character (branch `feature/session-character`): `WorkspaceController.CharacterName`
+  is the name the world reported through the mapping (identity `name` of the character, kept for
+  the connection once seen), else the profile's `Username`, else empty, with `CharacterChanged`
+  raised on a change, and it labels the tab and the open sessions row (`SessionLabel`, "Legends of
+  the Jedi · Talek"), the toolbar session bar (`SessionStatus`, "●  Legends of the Jedi · Talek  ·
+  Connected") and the window title ("Talek · Legends of the Jedi · Wandur", the app alone with no
+  session, no em dash). Schema version 6 adds `world_usage.last_character`, written by
+  `SessionWorkspace.RecordCharacter` once per name while connected and read back as
+  `WorldUsage.LastCharacter`, which the saved worlds row does not show yet.
 - Nothing else in flight. The repositories live under one workspace, `~/wandur`
   (a symlink to the external SSD): `wandur-client/` (this checkout),
   `wandur-sdk/`, `wandur-discovery/`, `wandur-site/`, `room-classifier/`, with

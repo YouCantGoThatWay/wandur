@@ -43,7 +43,7 @@ public sealed partial class WorkspaceNavigationViewModel(SessionWorkspace sessio
     private void Rename(object key)
     {
         if (key is not SessionTab tab) return;
-        RenameText = tab.CustomName ?? tab.Profile?.Username ?? "";
+        RenameText = tab.CustomName ?? tab.Controller.CharacterName;
         RenameTarget = tab;
     }
     [ObservableProperty] private WorkspaceNavigationEntry? _selected;
@@ -84,11 +84,11 @@ public sealed partial class WorkspaceNavigationViewModel(SessionWorkspace sessio
             var tabs = sessions.Tabs.Where(t => t.Controller.HasSession && !t.IsClosing).ToArray();
             foreach (var tab in tabs)
             {
-                var login = tab.Profile?.Username;
-                var siblings = tabs.Where(t => t.Controller.WorldName == tab.Controller.WorldName && t.Profile?.Username == login).ToArray();
-                var title = tab.CustomName ?? tab.Controller.WorldName +
-                    (!string.IsNullOrWhiteSpace(login) ? $" · {login}" : "") +
-                    (siblings.Length > 1 ? $" · {Array.IndexOf(siblings, tab) + 1}" : "");
+                // World first, since sessions group by world, then the character, which is what tells two apart;
+                // two sessions on one world as the same character (or as nobody yet) are numbered.
+                var label = tab.Controller.SessionLabel;
+                var siblings = tabs.Where(t => t.Controller.SessionLabel == label).ToArray();
+                var title = tab.CustomName ?? label + (siblings.Length > 1 ? $" · {Array.IndexOf(siblings, tab) + 1}" : "");
                 desired.Add((tab, title, tab.Endpoint, tab.Controller.IsConnected ? "●" : "○"));
                 foreach (var map in workspace.MapDocuments.Where(d => !d.IsClosed && d.Controller == tab.Controller))
                     desired.Add((map, L.MapEditor, "", ""));
