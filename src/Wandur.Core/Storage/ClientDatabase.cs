@@ -126,13 +126,13 @@ public sealed class ClientDatabase(string path)
     {
         using var version = connection.CreateCommand(); version.CommandText = "PRAGMA user_version";
         var schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 4) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 5) throw new IOException(L.DatabaseVersionUnsupported);
         using var journal = connection.CreateCommand(); journal.CommandText = "PRAGMA journal_mode=WAL"; journal.ExecuteScalar();
         using var transaction = connection.BeginTransaction(deferred: false);
         // A second database instance may have migrated while this connection waited for the write lock.
         version.Transaction = transaction;
         schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 4) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 5) throw new IOException(L.DatabaseVersionUnsupported);
         using var schema = connection.CreateCommand(); schema.Transaction = transaction;
         schema.CommandText = """
             CREATE TABLE IF NOT EXISTS worlds(id TEXT PRIMARY KEY NOT NULL);
@@ -158,7 +158,9 @@ public sealed class ClientDatabase(string path)
             CREATE TABLE IF NOT EXISTS map_room_aliases(world_id TEXT NOT NULL REFERENCES worlds(id),source_id TEXT NOT NULL,target_id TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(world_id,source_id));
             CREATE TABLE IF NOT EXISTS map_room_deletions(world_id TEXT NOT NULL REFERENCES worlds(id),room_id TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(world_id,room_id));
             CREATE TABLE IF NOT EXISTS map_link_deletions(world_id TEXT NOT NULL REFERENCES worlds(id),from_id TEXT NOT NULL,direction TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(world_id,from_id,direction));
-            
+            CREATE TABLE IF NOT EXISTS world_usage(world_id TEXT PRIMARY KEY NOT NULL REFERENCES worlds(id),connections INTEGER NOT NULL DEFAULT 0,last_connected_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS world_connections(id INTEGER PRIMARY KEY,world_id TEXT NOT NULL REFERENCES worlds(id),connected_at TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS world_connections_world ON world_connections(world_id);
             """;
         schema.ExecuteNonQuery();
         if (schemaVersion < 2)
@@ -171,7 +173,8 @@ public sealed class ClientDatabase(string path)
             schema.CommandText = "ALTER TABLE scripts ADD COLUMN pack_json TEXT; PRAGMA user_version=4;";
             schema.ExecuteNonQuery();
         }
-        schema.CommandText = "PRAGMA user_version=4";
+        // Version 5 adds the usage tables above; CREATE IF NOT EXISTS is the whole migration.
+        schema.CommandText = "PRAGMA user_version=5";
         schema.ExecuteNonQuery();
         transaction.Commit();
     }

@@ -144,11 +144,11 @@
     <Style Selector="ListBox.world-list ListBoxItem:focus-visible">
       <Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}" />
     </Style>
-    <!-- A docked panel is rounded on its outer edge only, so the side docks meet the centre flush. -->
+    <!-- Every dock is square (the converter's radius is 0); a side dock keeps the 4 px gap on its outer edge only, so it meets the centre flush. -->
     <Style Selector="dc|ToolControl /template/ Border#PART_Border" x:DataType="dm:IToolDock">
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=ContentCorner, FallbackValue='0,0,10,10'}" />
+      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=ContentCorner, FallbackValue='0'}" />
       <Setter Property="ClipToBounds" Value="True" />
       <Setter Property="Margin" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=ContentMargin, FallbackValue='4,0,4,4'}" />
     </Style>
@@ -156,27 +156,29 @@
       <Setter Property="BorderThickness" Value="0,0,0,1" />
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
       <Setter Property="Margin" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=HeaderMargin, FallbackValue='4,4,4,0'}" />
-      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=HeaderCorner, FallbackValue='10,10,0,0'}" />
+      <Setter Property="CornerRadius" Value="{Binding Alignment, Converter={x:Static conv:DockChromeConverter.Instance}, ConverterParameter=HeaderCorner, FallbackValue='0'}" />
       <Setter Property="ClipToBounds" Value="True" />
     </Style>
-    <!-- A floated panel has no neighbour to meet, so it keeps the symmetric chrome it always had. -->
+    <!-- A floated panel has no neighbour to meet, so it keeps its symmetric margins; square like the rest. -->
     <Style Selector="dc|ToolChromeControl:floating /template/ Border#PART_Border">
       <Setter Property="Margin" Value="8,12,8,0" />
-      <Setter Property="CornerRadius" Value="10,10,0,0" />
+      <Setter Property="CornerRadius" Value="0" />
     </Style>
     <Style Selector="dc|ToolChromeControl:floating dc|ToolControl /template/ Border#PART_Border">
       <Setter Property="Margin" Value="8,0,8,12" />
-      <Setter Property="CornerRadius" Value="0,0,10,10" />
+      <Setter Property="CornerRadius" Value="0" />
     </Style>
+    <!-- The whole header drags, but only the grip glyph shows the move cursor; the title and the space around it show a plain arrow. -->
     <Style Selector="dc|ToolChromeControl /template/ Grid#PART_Grip, dc|ToolChromeControl:active /template/ Grid#PART_Grip">
       <Setter Property="Background" Value="{DynamicResource DockHeaderBrush}" />
-      <Setter Property="Cursor" Value="SizeAll" />
-      <Setter Property="ToolTip.Tip" Value="Drag to move or undock this panel" />
+      <Setter Property="Cursor" Value="Arrow" />
     </Style>
     <Style Selector="dc|ToolChromeControl /template/ Grid#PART_Grid">
       <Setter Property="Width" Value="10" />
       <Setter Property="Height" Value="14" />
       <Setter Property="Margin" Value="6,0,8,0" />
+      <Setter Property="Cursor" Value="SizeAll" />
+      <Setter Property="ToolTip.Tip" Value="Drag to move or undock this panel" />
     </Style>
     <Style Selector="dc|ToolChromeControl /template/ Button">
       <Setter Property="Cursor" Value="Hand" />

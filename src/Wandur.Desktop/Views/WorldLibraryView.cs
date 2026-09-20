@@ -35,10 +35,17 @@ public sealed class WorldLibraryView : UserControl
             var endpoint = $"{profile.Host}:{profile.Port}" + (profile.UseTls ? " · TLS" : "");
             var details = Ui.Text(endpoint, 10, "muted");
             details.TextWrapping = TextWrapping.NoWrap; details.TextTrimming = TextTrimming.CharacterEllipsis;
-            var row = new StackPanel { Spacing = 3, Children = { name, details } };
+            var text = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Children = { name, details } };
+            // The picture sits on the left at a fixed size, so the two text lines keep the row height they had.
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 8, Children = { new WorldThumbnail(profile, sessions.Thumbnails), text } };
+            Grid.SetColumn(text, 1);
             ToolTip.SetTip(row, L.Format(L.DoubleClickToConnect, profile.Name, endpoint));
             return row;
         });
+        // A reorder waits while the pointer is over the list or a row menu is open, and lands when the pointer leaves.
+        var menuOpen = false;
+        _model.IsBusy = () => worlds.IsPointerOver || menuOpen;
+        worlds.PointerExited += (_, _) => { if (!menuOpen) _model.ApplyPendingOrder(); };
         worlds.ContainerPrepared += (_, args) =>
         {
             if (args.Container is not ListBoxItem item || item.Content is not ConnectionProfile profile) return;
@@ -50,7 +57,8 @@ public sealed class WorldLibraryView : UserControl
                     new MenuItem { [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.DeleteSavedWorld)), Name = "DeleteWorldMenu", Command = _model.DeleteProfileCommand, CommandParameter = profile }
                 }
             };
-            item.ContextMenu.Opening += (_, _) => _model.SelectedProfile = profile;
+            item.ContextMenu.Opening += (_, _) => { menuOpen = true; _model.SelectedProfile = profile; };
+            item.ContextMenu.Closed += (_, _) => { menuOpen = false; if (!worlds.IsPointerOver) _model.ApplyPendingOrder(); };
         };
         worlds.ContainerClearing += (_, args) =>
         {

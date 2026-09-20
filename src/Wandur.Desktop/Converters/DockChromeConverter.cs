@@ -6,16 +6,17 @@ using Dock.Model.Core;
 namespace Wandur.Desktop.Converters;
 
 /// <summary>
-/// Shapes the tool chrome from the dock's <see cref="Alignment"/> so a side panel is rounded only on
+/// Shapes the tool chrome from the dock's <see cref="Alignment"/> so a side panel keeps its gap only on
 /// its outer edge and meets the centre document flush. The converter parameter picks which part of the
-/// chrome is being shaped: the header strip on top or the content panel below it.
+/// chrome is being shaped: the header strip on top or the content panel below it. The corners are square
+/// everywhere (<see cref="Radius"/> is 0); the shape stays per edge so a radius can come back in one place.
 /// </summary>
 public sealed class DockChromeConverter : IValueConverter
 {
     public static readonly DockChromeConverter Instance = new();
 
-    /// <summary>Corner radius kept on the outer edge of a docked panel.</summary>
-    public const double Radius = 10;
+    /// <summary>Corner radius on the outer edge of a docked panel: 0, every dock is square.</summary>
+    public const double Radius = 0;
 
     /// <summary>Space left around a docked panel; between two panels a splitter adds the rest of the gap.</summary>
     public const double Edge = 4;

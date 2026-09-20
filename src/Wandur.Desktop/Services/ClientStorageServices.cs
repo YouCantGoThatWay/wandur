@@ -18,6 +18,7 @@ public static class ClientStorageServices
         services.AddSingleton<IWorldScriptLibraryStore>(provider => new SqliteWorldScriptLibraryStore(provider.GetRequiredService<ClientDatabase>(), Path.Combine(directory, "scripts")));
         services.AddSingleton<IAgentProfileStore, SqliteAgentProfileStore>();
         services.AddSingleton<IWorldKnowledgeStore, SqliteWorldKnowledgeStore>();
+        services.AddSingleton<IWorldUsageStore>(provider => new SqliteWorldUsageStore(provider.GetRequiredService<ClientDatabase>()));
         services.AddSingleton<IWorldCatalogCache>(provider => new SqliteWorldCatalogCache(provider.GetRequiredService<ClientDatabase>(), Path.Combine(directory, "directory.json")));
         services.AddSingleton<WorldCatalog>(provider => new WorldCatalog(provider.GetRequiredService<IWorldCatalogCache>()));
         return services;
