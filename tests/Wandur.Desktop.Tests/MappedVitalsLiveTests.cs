@@ -331,6 +331,169 @@ public sealed class MappedVitalsLiveTests
         }
     }
 
+    /// <summary>Two fights in one session, with the variants of what a world sends when the first ends (all three opponent
+    /// variables, only the name, or nothing) and of the wire order of the second fight's report (name first, or health
+    /// and its maximum before the name, which is the alphabetical order most MSDP tables use), against the same opponent
+    /// or a different one, and with a room change, a privacy blip or a mapping refresh between the fights. The opponent
+    /// card must show in the second fight in every one of them.</summary>
+    [AvaloniaTheory]
+    [InlineData("all", false, true, "none")]
+    [InlineData("all", true, true, "none")]
+    [InlineData("all", false, false, "none")]
+    [InlineData("all", true, false, "none")]
+    [InlineData("name", false, true, "none")]
+    [InlineData("name", true, true, "none")]
+    [InlineData("name", false, false, "none")]
+    [InlineData("name", true, false, "none")]
+    [InlineData("none", false, true, "none")]
+    [InlineData("none", true, true, "none")]
+    [InlineData("none", false, false, "none")]
+    [InlineData("none", true, false, "none")]
+    [InlineData("all", true, false, "room")]
+    [InlineData("none", true, false, "room")]
+    [InlineData("all", true, false, "echo")]
+    [InlineData("none", true, false, "echo")]
+    [InlineData("all", true, false, "catalog")]
+    [InlineData("none", true, false, "catalog")]
+    [InlineData("all", true, false, "silent")]
+    [InlineData("name", true, true, "silent")]
+    public async Task TheOpponentCardShowsInTheSecondFight(string fightEnd, bool healthFirst, bool sameName, string between)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-second-fight-" + Guid.NewGuid());
+        Directory.CreateDirectory(path);
+        using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var mapping = Mapping(port);
+        mapping = mapping with { Bindings = [.. mapping.Bindings, Bind("ROOMNAME", "character", "location", "room", "value", "text"), Bind("ROOMVNUM", "character", "location", "id", "value", "text")] };
+        var world = new WorldListing { Id = "mudverse:509", Name = "Legends of the Jedi", Host = "127.0.0.1", Port = port, ProtocolMapping = mapping };
+        string Snapshot() => JsonSerializer.Serialize(new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.UtcNow, worlds = new[] { world } }, ModelJson.Options);
+        var cache = Path.Combine(path, "directory.json");
+        File.WriteAllText(cache, Snapshot());
+        var store = new SettingsStore(Path.Combine(path, "settings.json"));
+        var profile = world.ToProfile() with { Username = "tester", AutoLogin = true };
+        using var http = new HttpClient(new CatalogHandler(Snapshot));
+        using var catalog = new WorldCatalog(cache, http: http);
+        var window = new MainWindow(new TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore(), catalog: catalog) { Width = 1200, Height = 800 };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["CHARACTERNAME"] = "Tester", ["HEALTH"] = "1000", ["HEALTHMAX"] = "1000", ["MOVEMENT"] = "1037", ["MOVEMENTMAX"] = "1040",
+            ["OPPONENTNAME"] = "", ["OPPONENTHEALTH"] = "0", ["OPPONENTHEALTHMAX"] = "0", ["ROOMNAME"] = "The Landing Pad", ["ROOMVNUM"] = "100", ["WORLDTIME"] = "1400"
+        };
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs();
+            await window.Controller.SaveWorldAsync(profile, "secret", true);
+            profile = Assert.Single(window.Controller.Settings.Profiles);
+            await window.Sessions.OpenAsync(profile);
+            using var server = await listener.AcceptTcpClientAsync(timeout.Token);
+            var stream = server.GetStream();
+            var sent = new Sent(stream, timeout.Token);
+            var controller = window.Controller;
+            async Task World(params byte[][] parts) { foreach (var part in parts) await stream.WriteAsync(part, timeout.Token); }
+            async Task WaitSent(string token) => await ScriptSessionTests.WaitFor(() => sent.Text.Contains(token, StringComparison.Ordinal));
+            async Task AnswerRequests()
+            {
+                if (sent.TakeListed()) await World(MsdpArray("REPORTABLE_VARIABLES", values.Keys));
+                foreach (var name in sent.TakeReported())
+                    if (values.TryGetValue(name, out var value)) await World(Msdp(name, value));
+            }
+            // A world sends a reported variable only when it changes.
+            async Task Change(string variable, string value) { if (values[variable] == value) return; values[variable] = value; await World(Msdp(variable, value)); }
+            ResourceBarsView? strip = null;
+            string[] OpponentCards() => Cards(strip!).Where(card => card.StartsWith("Opponent", StringComparison.Ordinal)).ToArray();
+            // A silent fight is reported by MSDP alone, with no transcript text in the same flush: the strip must re-render anyway.
+            var silent = false;
+            async Task Fight(string name, bool healthBeforeName, string enemy)
+            {
+                Assert.True(await controller.SendAsync("kill " + enemy));
+                await WaitSent("kill " + enemy);
+                if (!silent) await World(Text("You attack " + enemy + "!\r\n"));
+                if (healthBeforeName) { await Change("OPPONENTHEALTH", "100"); await Change("OPPONENTHEALTHMAX", "100"); await Change("OPPONENTNAME", name); }
+                else { await Change("OPPONENTNAME", name); await Change("OPPONENTHEALTHMAX", "100"); await Change("OPPONENTHEALTH", "100"); }
+                if (!silent) await World(Text("- Enemy: [ 100% ] -\r\n" + Prompt));
+                await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.GameState.Opponent.Identity.GetValueOrDefault("name")?.Value == name; });
+                await WaitForCard("Opponent · Health: 100 / 100");
+                if (!silent) await World(Text("You hit " + enemy + " hard.\r\n"));
+                await Change("OPPONENTHEALTH", "30");
+                if (!silent) await World(Text("- Enemy: [ 30% ] -\r\n" + Prompt));
+                await WaitForCard("Opponent · Health: 30 / 100");
+            }
+            async Task WaitForCard(string expected)
+            {
+                var until = DateTime.UtcNow.AddSeconds(3);
+                while (DateTime.UtcNow < until && !OpponentCards().SequenceEqual([expected])) { controller.FlushOutput(); Dispatcher.UIThread.RunJobs(); await Task.Delay(10); }
+                var health = controller.GameState.Opponent.Resources.GetValueOrDefault("health");
+                Assert.True(OpponentCards().SequenceEqual([expected]),
+                    $"expected [{expected}], strip shows [{string.Join(", ", OpponentCards())}]; GameState opponent health current={health?.Current?.Value.ToString() ?? "null"} maximum={health?.Maximum?.Value.ToString() ?? "null"}; name={controller.GameState.Opponent.Identity.GetValueOrDefault("name")?.Value ?? "null"}");
+            }
+
+            await World([255, 251, 69], [255, 251, 201], Text("\r\nWelcome to the galaxy.\r\n\r\nEnter your name, or type NEW: "));
+            await WaitSent("tester");
+            await WaitSent("\u0001LIST\u0002REPORTABLE_VARIABLES");
+            await AnswerRequests();
+            await WaitSent("\u0001REPORT");
+            await AnswerRequests();
+            await World([255, 251, 1], Text("\r\n(P)assword: "));
+            await WaitSent("secret");
+            await World([255, 252, 1], Text("\r\n(R)econnecting.\r\n"), Text("The Landing Pad\r\nA wide ferrocrete pad.\r\n\r\n" + Prompt));
+            await ScriptSessionTests.WaitFor(() => !controller.IsPrivate);
+            await ScriptSessionTests.WaitFor(() => { AnswerRequests().GetAwaiter().GetResult(); controller.FlushOutput(); return controller.GameState.Character.Resources.GetValueOrDefault("movement")?.Current?.Value == 1037; });
+            strip = Assert.Single(window.GetVisualDescendants().OfType<ResourceBarsView>());
+            await ScriptSessionTests.WaitFor(() => Cards(strip).Length == 2);
+
+            // Fight one, as every world reports it: the name first.
+            await Fight("A Vicious Womprat", false, "womprat");
+
+            // The fight ends. Some worlds clear the three opponent variables, some only the name, some nothing at all.
+            await World(Text("A vicious womprat is dead.\r\n" + Prompt));
+            if (fightEnd == "all") { await Change("OPPONENTHEALTH", "0"); await Change("OPPONENTHEALTHMAX", "0"); await Change("OPPONENTNAME", ""); }
+            else if (fightEnd == "name") await Change("OPPONENTNAME", "");
+            await World(Text(Prompt));
+            await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return fightEnd == "none" ? OpponentCards().Length == 1 : OpponentCards().Length == 0; });
+
+            switch (between)
+            {
+                case "room":
+                    Assert.True(await controller.SendAsync("north"));
+                    await WaitSent("north");
+                    await Change("ROOMNAME", "A Dusty Street"); await Change("ROOMVNUM", "101");
+                    await World(Text("A Dusty Street\r\nSand everywhere.\r\nExits: south\r\n" + Prompt));
+                    Assert.True(await controller.SendAsync("look"));
+                    await WaitSent("look");
+                    await World(Text("A Dusty Street\r\nSand everywhere.\r\nExits: south\r\n" + Prompt));
+                    await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.GameState.Character.Location.GetValueOrDefault("room")?.Value == "A Dusty Street"; });
+                    break;
+                case "echo":
+                    // A privacy blip: the world turns echo off and on again, which moves the privacy epochs and asks for a mapped refresh.
+                    await World([255, 251, 1], Text("\r\nConfirm: "));
+                    await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.IsPrivate; });
+                    await World([255, 252, 1], Text("\r\n" + Prompt));
+                    await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return !controller.IsPrivate; });
+                    await WaitSent("\u0001SEND");
+                    await ScriptSessionTests.WaitFor(() => { AnswerRequests().GetAwaiter().GetResult(); controller.FlushOutput(); return sent.TakeReported().Length == 0; });
+                    break;
+                case "catalog":
+                    await catalog.LoadAsync(force: true); Dispatcher.UIThread.RunJobs();
+                    await AnswerRequests();
+                    break;
+            }
+            await Change("WORLDTIME", "1401");
+            await ScriptSessionTests.WaitFor(() => { controller.FlushOutput(); return controller.GameState.World.Metrics.GetValueOrDefault("time")?.Number?.Value == 1401; });
+            Assert.Equal(new[] { "Health: 1000 / 1000", "Movement: 1037 / 1040" }, Cards(strip).Take(2));
+
+            // Fight two.
+            silent = between == "silent";
+            await Fight(sameName ? "A Vicious Womprat" : "A Stormtrooper", healthFirst, sameName ? "womprat" : "stormtrooper");
+        }
+        finally
+        {
+            await window.Sessions.DisposeAsync(); window.Close();
+            if (Directory.Exists(path)) Directory.Delete(path, true);
+        }
+    }
+
     [AvaloniaFact]
     public async Task MappedVitalsKeepFollowingTheWorldAfterAPackPanelShowsForAFight()
     {

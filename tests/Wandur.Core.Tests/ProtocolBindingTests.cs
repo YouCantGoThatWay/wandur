@@ -72,11 +72,14 @@ public sealed class ProtocolBindingTests
         Assert.Null(engine.State.Character.Resources["health"].Current);
     }
 
+    /// <summary>A new character name is a new lifetime: everything observed before it goes, whatever the packet's
+    /// property order. Another entity's name change keeps what was observed, because a world reports a variable only
+    /// when it changes, so a maximum it does not repeat for the next opponent is the same maximum.</summary>
     [Theory]
     [InlineData("character")]
     [InlineData("opponent")]
     [InlineData("vehicle")]
-    public void IdentityChangeClearsOldEntityBeforeApplyingSamePacket(string entity)
+    public void IdentityChangeResetsTheCharacterAndKeepsAnotherEntitysUnrepeatedObservations(string entity)
     {
         var engine = new ProtocolBindingEngine(Mapping(Binding("/hp", entity: entity), Binding("/max", member: "maximum", entity: entity),
             Binding("/name", "identity", "name", "value", entity, "text"), Binding("/room", "location", "name", "value", "world", "text")));
@@ -84,10 +87,51 @@ public sealed class ProtocolBindingTests
         Observe(engine, "Char.Vitals {\"hp\":25,\"name\":\"second\"}");
         var state = entity == "character" ? engine.State.Character : entity == "opponent" ? engine.State.Opponent : engine.State.Vehicle;
         Assert.Equal(25, state.Resources["health"].Current!.Value);
-        Assert.Null(state.Resources["health"].Maximum);
+        if (entity == "character") { Assert.Null(state.Resources["health"].Maximum); Assert.Empty(engine.State.World.Location); }
+        else { Assert.Equal(100, state.Resources["health"].Maximum!.Value); Assert.Equal("old", engine.State.World.Location["name"].Value); }
         Assert.Equal("second", state.Identity["name"].Value);
-        if (entity == "character") Assert.Empty(engine.State.World.Location);
         engine.Reset(); Assert.Empty(engine.State.Character.Identity); Assert.Empty(engine.State.Opponent.Identity); Assert.Empty(engine.State.Vehicle.Identity);
+    }
+
+    /// <summary>The reproduction of the second-fight report, one MSDP variable per packet: the first fight ends with the
+    /// name cleared, the second opponent's health arrives before its name, and its maximum is never sent again because it
+    /// did not change. The opponent is presented empty while its name is cleared and comes back whole with the next name.</summary>
+    [Fact]
+    public void AClearedOpponentNameHidesTheOpponentUntilTheNextNameAndKeepsWhatTheWorldDoesNotRepeat()
+    {
+        var engine = new ProtocolBindingEngine(Mapping(Binding("/OPPONENTHEALTH", entity: "opponent", protocol: "MSDP", package: "MSDP"),
+            Binding("/OPPONENTHEALTHMAX", member: "maximum", entity: "opponent", protocol: "MSDP", package: "MSDP"),
+            Binding("/OPPONENTNAME", "identity", "name", "value", "opponent", "text", "MSDP", "MSDP")));
+        void Msdp(string variable, string value) => Observe(engine, "\u0001" + variable + "\u0002" + value, option: 69);
+        Msdp("OPPONENTNAME", "A Vicious Womprat"); Msdp("OPPONENTHEALTHMAX", "100"); Msdp("OPPONENTHEALTH", "100"); Msdp("OPPONENTHEALTH", "30");
+        Assert.Equal(30, engine.State.Opponent.Resources["health"].Percentage);
+        // The fight ends: only the name is cleared. The opponent is gone from the state, the observations are not.
+        Msdp("OPPONENTNAME", "");
+        Assert.Empty(engine.State.Opponent.Resources); Assert.Empty(engine.State.Opponent.Identity);
+        // A same-named opponent: the world repeats neither the name's letters nor the maximum, only the health.
+        Msdp("OPPONENTHEALTH", "100"); Msdp("OPPONENTNAME", "A Vicious Womprat");
+        Assert.Equal(100, engine.State.Opponent.Resources["health"].Percentage);
+        Assert.Equal("A Vicious Womprat", engine.State.Opponent.Identity["name"].Value);
+        // A different opponent with the same maximum, its health before its name and nothing cleared in between.
+        Msdp("OPPONENTHEALTH", "80"); Msdp("OPPONENTNAME", "A Stormtrooper");
+        Assert.Equal(80, engine.State.Opponent.Resources["health"].Percentage);
+        Assert.Equal("A Stormtrooper", engine.State.Opponent.Identity["name"].Value);
+        // The three cleared in the alphabetical order most tables use, then a new fight with its maximum first.
+        Msdp("OPPONENTHEALTH", "0"); Msdp("OPPONENTHEALTHMAX", "0"); Msdp("OPPONENTNAME", "");
+        Assert.Empty(engine.State.Opponent.Resources);
+        Msdp("OPPONENTHEALTHMAX", "250"); Msdp("OPPONENTHEALTH", "250");
+        Assert.Empty(engine.State.Opponent.Resources);
+        Msdp("OPPONENTNAME", "A Wookiee");
+        Assert.Equal(100, engine.State.Opponent.Resources["health"].Percentage);
+        Assert.Equal(250, engine.State.Opponent.Resources["health"].Maximum!.Value);
+        // A mapping refresh with the same bindings keeps all of it; a reset clears the retained observations too.
+        Assert.False(engine.UpdateMapping(Mapping(Binding("/OPPONENTNAME", "identity", "name", "value", "opponent", "text", "MSDP", "MSDP"),
+            Binding("/OPPONENTHEALTHMAX", member: "maximum", entity: "opponent", protocol: "MSDP", package: "MSDP"),
+            Binding("/OPPONENTHEALTH", entity: "opponent", protocol: "MSDP", package: "MSDP"))));
+        Assert.Equal(250, engine.State.Opponent.Resources["health"].Maximum!.Value);
+        engine.Reset();
+        Msdp("OPPONENTNAME", "A Wookiee");
+        Assert.Empty(engine.State.Opponent.Resources);
     }
 
     [Fact]

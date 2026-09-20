@@ -12,12 +12,18 @@ public sealed class ProtocolBindingEngine
     private FieldBinding[] _bindings;
     private WorldMapping _mapping;
     public GameState State { get; private set; } = new();
+    // The live observations of the opponent, the vehicle and the world. A world reports a variable once and then only
+    // when it changes, so what it does not repeat for the next opponent is what did not change (its maximum health,
+    // say). These are therefore never discarded on an identity change: while the entity is away (its name or id
+    // cleared) the state presents it empty and the observations keep updating here, and the next name shows them again.
+    private readonly Dictionary<string, EntityState> _retained = new(StringComparer.Ordinal);
 
     public ProtocolBindingEngine(WorldMapping mapping)
     {
         if (!MappingValidation.IsValid(mapping)) throw new ArgumentException("Invalid protocol mapping.", nameof(mapping));
         _mapping = mapping;
         _bindings = [.. mapping.Bindings];
+        Reset();
     }
 
     /// <summary>Preserve observations only for an additive map with identical identity rules.
@@ -35,7 +41,11 @@ public sealed class ProtocolBindingEngine
         return true;
     }
 
-    public void Reset() => State = new();
+    public void Reset()
+    {
+        State = new();
+        _retained["opponent"] = State.Opponent; _retained["vehicle"] = State.Vehicle; _retained["world"] = State.World;
+    }
 
     // Call only after the session's privacy and epoch gates. This also rejects formatter redactions.
     public void Observe(byte option, ProtocolDiagnosticContent content, DateTimeOffset receivedAt)
@@ -51,21 +61,31 @@ public sealed class ProtocolBindingEngine
             foreach (var binding in _bindings)
                 if (binding.Source.Protocol == protocol && binding.Source.Package == package && TryResolve(document.RootElement, binding.Source.Path, out var value))
                     updates.Add((binding, value));
-            // Identity must be processed before vitals, regardless of map/packet property ordering.
-            var changed = updates.Where(u => u.Binding.Target.Category == "identity" && u.Binding.Target.Key is "name" or "id")
-                .Where(u => Entity(u.Binding.Target.Entity).Identity.TryGetValue(u.Binding.Target.Key, out var previous)
-                    && previous.Value != ReadText(u.Value)).Select(u => u.Binding.Target.Entity).Distinct().ToArray();
-            if (changed.Contains("character")) Reset();
-            else
-                foreach (var entity in changed)
-                    State = entity switch { "opponent" => State with { Opponent = new() }, "vehicle" => State with { Vehicle = new() }, "world" => State with { World = new() }, _ => State };
+            // Identity must be processed before vitals, regardless of map/packet property ordering. A new character
+            // name is a new lifetime. Another entity's name only decides whether it is shown: its observations stay,
+            // because a variable the world does not repeat is one that did not change, and with one variable per
+            // packet the new opponent's health may well arrive before its name.
+            var identity = updates.Where(u => u.Binding.Target.Category == "identity" && u.Binding.Target.Key is "name" or "id").ToArray();
+            if (identity.Any(u => u.Binding.Target.Entity == "character" && State.Character.Identity.TryGetValue(u.Binding.Target.Key, out var previous)
+                && previous.Value != ReadText(u.Value))) Reset();
+            foreach (var update in identity.Where(u => u.Binding.Target.Entity != "character")) Present(update.Binding.Target.Entity, ReadText(update.Value) is not null);
             foreach (var update in updates) Apply(update.Binding, update.Value, receivedAt);
         }
         catch (JsonException) { /* Malformed packets supply no observations. */ }
     }
 
     private EntityState Entity(string entity) => entity switch
-    { "character" => State.Character, "opponent" => State.Opponent, "vehicle" => State.Vehicle, _ => State.World };
+    { "character" => State.Character, "opponent" or "vehicle" => _retained[entity], _ => _retained["world"] };
+
+    /// <summary>Shows an entity's retained observations, or presents it empty while its name is cleared.</summary>
+    private void Present(string entity, bool shown)
+    {
+        var retained = Entity(entity);
+        var current = entity switch { "opponent" => State.Opponent, "vehicle" => State.Vehicle, _ => State.World };
+        if (ReferenceEquals(current, retained) == shown) return;
+        var presented = shown ? retained : new EntityState();
+        State = entity switch { "opponent" => State with { Opponent = presented }, "vehicle" => State with { Vehicle = presented }, _ => State with { World = presented } };
+    }
 
     private void Apply(FieldBinding binding, JsonElement value, DateTimeOffset now)
     {
