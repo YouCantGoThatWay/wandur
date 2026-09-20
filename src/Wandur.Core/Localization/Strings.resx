@@ -1840,4 +1840,37 @@ Stop after receiving one inventory listing.</value></data>
   <data name="DiagnosticsAllKinds" xml:space="preserve"><value>All</value></data>
   <data name="DiagnosticsMoreKinds" xml:space="preserve"><value>{0} more</value></data>
   <data name="DiagnosticsShownOfTotal" xml:space="preserve"><value>{0} of {1}</value></data>
+  <data name="TranscriptCopy" xml:space="preserve"><value>Copy</value></data>
+  <data name="MarkAsChannel" xml:space="preserve"><value>Mark as channel...</value></data>
+  <data name="TeachChannelTitle" xml:space="preserve"><value>Mark as channel</value></data>
+  <data name="TeachChannelHelp" xml:space="preserve"><value>Wandur guessed the shape of this line. Adjust the pieces or the rule, pick the channel, and check the preview before saving.</value></data>
+  <data name="TeachChannelExample" xml:space="preserve"><value>Example line</value></data>
+  <data name="TeachChannelHead" xml:space="preserve"><value>Head (before the speaker)</value></data>
+  <data name="TeachChannelSpeaker" xml:space="preserve"><value>Speaker pattern</value></data>
+  <data name="TeachChannelSeparator" xml:space="preserve"><value>Separator (between speaker and text)</value></data>
+  <data name="TeachChannelPattern" xml:space="preserve"><value>Rule (regular expression)</value></data>
+  <data name="TeachChannelChannel" xml:space="preserve"><value>Channel</value></data>
+  <data name="TeachChannelNewChannel" xml:space="preserve"><value>New channel...</value></data>
+  <data name="TeachChannelNewChannelName" xml:space="preserve"><value>Name of the new channel</value></data>
+  <data name="TeachChannelReply" xml:space="preserve"><value>Reply command</value></data>
+  <data name="TeachChannelPrivate" xml:space="preserve"><value>Private (answers one person)</value></data>
+  <data name="TeachChannelPreview" xml:space="preserve"><value>Preview over the last {0} transcript lines</value></data>
+  <data name="TeachChannelPreviewCount" xml:space="preserve"><value>{0} of {1} lines match</value></data>
+  <data name="TeachChannelPreviewNone" xml:space="preserve"><value>Nothing in the transcript matches this rule. Check the head and the separator.</value></data>
+  <data name="TeachChannelInvalidPattern" xml:space="preserve"><value>The rule is not a valid regular expression.</value></data>
+  <data name="TeachChannelNeedsName" xml:space="preserve"><value>Give the new channel a name.</value></data>
+  <data name="TeachChannelNoProfile" xml:space="preserve"><value>Open a saved world before teaching it channels.</value></data>
+  <data name="TeachChannelSave" xml:space="preserve"><value>Save rule</value></data>
+  <data name="TeachChannelNotAChannel" xml:space="preserve"><value>Not a channel</value></data>
+  <data name="TeachChannelNotAChannelHelp" xml:space="preserve"><value>This line is currently shown as {0}. Excluding it stops lines of this shape from being treated as a channel.</value></data>
+  <data name="TeachChannelSaved" xml:space="preserve"><value>Channel rule saved for {0}.</value></data>
+  <data name="ProfileChannelsSection" xml:space="preserve"><value>Channels</value></data>
+  <data name="ProfileChannelsHelp" xml:space="preserve"><value>Rules taught from the transcript. A world's own rules run before the shipped defaults for its codebase, and an exclusion stops a line from being a channel.</value></data>
+  <data name="ProfileChannelsEmpty" xml:space="preserve"><value>No rules yet. Right-click a channel line in the transcript and choose Mark as channel.</value></data>
+  <data name="ProfileChannelEnabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="ProfileChannelExclude" xml:space="preserve"><value>Exclusion</value></data>
+  <data name="ProfileChannelDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="ChannelRuleChannel" xml:space="preserve"><value>Channel</value></data>
+  <data name="ChannelRulePattern" xml:space="preserve"><value>Pattern</value></data>
+  <data name="ChannelRuleReply" xml:space="preserve"><value>Reply command</value></data>
 </root>

@@ -80,12 +80,35 @@ internal sealed class TranscriptTailPane : Border
         if (change.Property == IsVisibleProperty && IsVisible && _stale) Rebuild();
     }
 
+    /// <summary>A right click on a row of the live view asks for the same menu as the transcript above it.</summary>
+    public event Action<string>? MenuRequested;
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var properties = e.GetCurrentPoint(this).Properties;
+        if (properties.IsRightButtonPressed)
+        {
+            e.Handled = true;
+            if (LineAt(e.GetPosition(_rows).Y) is { } line) MenuRequested?.Invoke(line);
+            return;
+        }
+        if (!properties.IsLeftButtonPressed) return;
         e.Handled = true;
         _followTail();
+    }
+
+    /// <summary>The text of the row drawn at this height within the rows panel, or null between rows.</summary>
+    public string? LineAt(double y)
+    {
+        foreach (var block in _rows.Children.OfType<TextBlock>())
+        {
+            var bounds = block.Bounds;
+            if (y < bounds.Top || y >= bounds.Bottom) continue;
+            var text = string.Concat(block.Inlines!.OfType<Run>().Select(run => run.Text)).TrimEnd();
+            return text.Length == 0 ? null : text;
+        }
+        return null;
     }
 
     private void Appended(string text, bool local) => Invalidate();

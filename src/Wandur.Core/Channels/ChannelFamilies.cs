@@ -36,9 +36,12 @@ public static class ChannelFamilies
         return Generic;
     }
 
-    /// <summary>The rule set for a world: its own rules when it has any, else its family, else generic.</summary>
+    /// <summary>
+    /// The rule set for a world: its own rules first, then its family (or generic), so a rule taught on a
+    /// world wins over the shipped shape for the same line and an exclusion taught there wins over both.
+    /// </summary>
     public static ChannelRuleSet For(IReadOnlyList<ChannelRule>? worldRules, string? codebase)
-        => worldRules is { Count: > 0 } ? new ChannelRuleSet(worldRules) : Family(Match(codebase));
+        => worldRules is { Count: > 0 } ? new ChannelRuleSet([.. worldRules, .. Family(Match(codebase)).Rules]) : Family(Match(codebase));
 
     private static IReadOnlyDictionary<string, ChannelRuleSet> Load()
     {
@@ -64,9 +67,11 @@ public static class ChannelFamilies
                 continue;
             }
             if (entry.Channel is { Length: > 0 } channel && entry.Pattern is { Length: > 0 } pattern)
-                yield return new(channel, pattern, entry.ReplyCommand, entry.IsPrivate);
+                yield return new(channel, pattern, entry.ReplyCommand, entry.Private, entry.Exclude);
         }
     }
 
-    private sealed record FamilyEntry(string? Include, string? Channel, string? Pattern, string? ReplyCommand, bool IsPrivate);
+    /// <summary>One line of the shipped file, in the same JSON shape a profile and a channel pack use.</summary>
+    private sealed record FamilyEntry(string? Include, string? Channel, string? Pattern,
+        [property: JsonPropertyName("reply_command")] string? ReplyCommand, bool Private, bool Exclude);
 }

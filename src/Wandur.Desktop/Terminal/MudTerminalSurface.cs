@@ -48,6 +48,48 @@ internal sealed class MudTerminalSurface : Iciclecreek.Terminal.TerminalView
         base.OnKeyDown(e);
     }
 
+    /// <summary>A right click: the logical line under the pointer (wrapped rows joined) and the selection, if any.</summary>
+    public event Action<string?, string?>? MenuRequested;
+
+    /// <summary>
+    /// The library answers a right click by copying the selection or pasting the clipboard into the terminal,
+    /// which is not what a transcript wants. The click is taken here, before the library sees it, and turned
+    /// into a request for the transcript's own menu; the selection stays where the reader made it.
+    /// </summary>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        if (point.Properties.IsRightButtonPressed)
+        {
+            e.Handled = true;
+            var selection = Terminal.Selection.HasSelection ? Terminal.Selection.GetSelectionText() : null;
+            MenuRequested?.Invoke(LineAt(point.Position.Y), string.IsNullOrWhiteSpace(selection) ? null : selection);
+            return;
+        }
+        base.OnPointerPressed(e);
+    }
+
+    /// <summary>The text of the logical line drawn at this height, with wrapped continuations joined.</summary>
+    public string? LineAt(double y)
+    {
+        var height = CharHeight;
+        if (height <= 0) return null;
+        var buffer = Terminal.Buffer;
+        var row = buffer.ViewportY + Math.Clamp((int)(y / height), 0, Math.Max(0, Terminal.Rows - 1));
+        if (row < 0 || row >= buffer.Lines.Length) return null;
+        var start = row;
+        while (start > 0 && buffer.GetLine(start)?.IsWrapped == true) start--;
+        var text = new System.Text.StringBuilder();
+        for (var i = start; i < buffer.Lines.Length; i++)
+        {
+            var line = buffer.GetLine(i);
+            if (line is null || (i > start && !line.IsWrapped)) break;
+            text.Append(line.TranslateToString(true));
+        }
+        var result = text.ToString().TrimEnd();
+        return result.Length == 0 ? null : result;
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);

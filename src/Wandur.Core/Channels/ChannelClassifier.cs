@@ -24,10 +24,11 @@ public sealed class ChannelClassifier(ChannelRuleSet rules)
     private string? _structuredText;
     private DateTimeOffset _structuredAt;
 
-    public ChannelRuleSet Rules => rules;
+    /// <summary>The rules in force. A rule taught mid session replaces them without losing the line in flight.</summary>
+    public ChannelRuleSet Rules { get; set; } = rules;
 
     /// <summary>The agent feed and the panel agree on what chat is because both ask this.</summary>
-    public bool IsChannelLine(string plainLine) => rules.IsChannelLine(plainLine);
+    public bool IsChannelLine(string plainLine) => Rules.IsChannelLine(plainLine);
 
     /// <summary>Complete server lines only; a network chunk that ends mid line waits for the rest.</summary>
     public IReadOnlyList<ChannelLine> Feed(string text, DateTimeOffset timestamp)
@@ -71,7 +72,7 @@ public sealed class ChannelClassifier(ChannelRuleSet rules)
             _structuredText = null;
             if (string.Equals(duplicate, plain, StringComparison.Ordinal)) return ChannelLine.None;
         }
-        if (rules.Match(plain, timestamp) is { } message)
+        if (Rules.Match(plain, timestamp) is { } message)
         {
             _last = message with { Runs = Body(line.Runs, plain, message.Text) };
             return new(_last, false);

@@ -1840,4 +1840,37 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="DiagnosticsAllKinds" xml:space="preserve"><value>Todos</value></data>
   <data name="DiagnosticsMoreKinds" xml:space="preserve"><value>{0} más</value></data>
   <data name="DiagnosticsShownOfTotal" xml:space="preserve"><value>{0} de {1}</value></data>
+  <data name="TranscriptCopy" xml:space="preserve"><value>Copiar</value></data>
+  <data name="MarkAsChannel" xml:space="preserve"><value>Marcar como canal...</value></data>
+  <data name="TeachChannelTitle" xml:space="preserve"><value>Marcar como canal</value></data>
+  <data name="TeachChannelHelp" xml:space="preserve"><value>Wandur adivinó la forma de esta línea. Ajusta las partes o la regla, elige el canal y revisa la vista previa antes de guardar.</value></data>
+  <data name="TeachChannelExample" xml:space="preserve"><value>Línea de ejemplo</value></data>
+  <data name="TeachChannelHead" xml:space="preserve"><value>Cabecera (antes del hablante)</value></data>
+  <data name="TeachChannelSpeaker" xml:space="preserve"><value>Patrón del hablante</value></data>
+  <data name="TeachChannelSeparator" xml:space="preserve"><value>Separador (entre hablante y texto)</value></data>
+  <data name="TeachChannelPattern" xml:space="preserve"><value>Regla (expresión regular)</value></data>
+  <data name="TeachChannelChannel" xml:space="preserve"><value>Canal</value></data>
+  <data name="TeachChannelNewChannel" xml:space="preserve"><value>Nuevo canal...</value></data>
+  <data name="TeachChannelNewChannelName" xml:space="preserve"><value>Nombre del nuevo canal</value></data>
+  <data name="TeachChannelReply" xml:space="preserve"><value>Comando de respuesta</value></data>
+  <data name="TeachChannelPrivate" xml:space="preserve"><value>Privado (responde a una persona)</value></data>
+  <data name="TeachChannelPreview" xml:space="preserve"><value>Vista previa de las últimas {0} líneas de la transcripción</value></data>
+  <data name="TeachChannelPreviewCount" xml:space="preserve"><value>{0} de {1} líneas coinciden</value></data>
+  <data name="TeachChannelPreviewNone" xml:space="preserve"><value>Nada en la transcripción coincide con esta regla. Revisa la cabecera y el separador.</value></data>
+  <data name="TeachChannelInvalidPattern" xml:space="preserve"><value>La regla no es una expresión regular válida.</value></data>
+  <data name="TeachChannelNeedsName" xml:space="preserve"><value>Ponle un nombre al nuevo canal.</value></data>
+  <data name="TeachChannelNoProfile" xml:space="preserve"><value>Abre un mundo guardado antes de enseñarle canales.</value></data>
+  <data name="TeachChannelSave" xml:space="preserve"><value>Guardar regla</value></data>
+  <data name="TeachChannelNotAChannel" xml:space="preserve"><value>No es un canal</value></data>
+  <data name="TeachChannelNotAChannelHelp" xml:space="preserve"><value>Esta línea se muestra ahora como {0}. Excluirla evita que las líneas con esta forma se traten como canal.</value></data>
+  <data name="TeachChannelSaved" xml:space="preserve"><value>Regla de canal guardada para {0}.</value></data>
+  <data name="ProfileChannelsSection" xml:space="preserve"><value>Canales</value></data>
+  <data name="ProfileChannelsHelp" xml:space="preserve"><value>Reglas enseñadas desde la transcripción. Las reglas propias de un mundo se aplican antes que las predeterminadas de su base de código, y una exclusión impide que una línea sea un canal.</value></data>
+  <data name="ProfileChannelsEmpty" xml:space="preserve"><value>Aún no hay reglas. Haz clic derecho en una línea de canal de la transcripción y elige Marcar como canal.</value></data>
+  <data name="ProfileChannelEnabled" xml:space="preserve"><value>Activada</value></data>
+  <data name="ProfileChannelExclude" xml:space="preserve"><value>Exclusión</value></data>
+  <data name="ProfileChannelDelete" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="ChannelRuleChannel" xml:space="preserve"><value>Canal</value></data>
+  <data name="ChannelRulePattern" xml:space="preserve"><value>Patrón</value></data>
+  <data name="ChannelRuleReply" xml:space="preserve"><value>Comando de respuesta</value></data>
 </root>

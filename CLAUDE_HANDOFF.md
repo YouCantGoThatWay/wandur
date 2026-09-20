@@ -125,9 +125,15 @@ covers 20 two-fight variants).
   untouched; the agent's chat filter now comes from the same classifier. Rules
   live in `src/Wandur.Core/Channels` with family defaults in the embedded
   `families.json`, and a world profile can carry `Codebase` and `ChannelRules`
-  of its own, which is the shape a channel pack will deliver. Not yet done:
-  an editor for per-world rules, and collapsing channel lines inside the
-  transcript, which the owner put on hold. See the Channels section of
+  of its own, which is the shape a channel pack will deliver. Teaching
+  (branch `feature/teach-channels`): a right click on a transcript line offers
+  `Mark as channel...`, and `ChannelRuleProposer` guesses head, speaker,
+  separator and text into a rule the dialog previews over the last 200 lines
+  before it is saved onto the profile, where world rules run before the family
+  rules and an exclusion (`Not a channel`) wins over both. The world editor's
+  Channels section lists, toggles and deletes those rules; protocol channels
+  (GMCP) need none of this. Still not done: collapsing channel lines inside
+  the transcript, which the owner put on hold. See the Channels section of
   `docs/client-architecture.md`.
 - Script panels and packs (merged from `feature/script-panels`): scripts get
   `Events.Msdp`, `mud.state.get(path)` and `snapshot()`, and `mud.panel(id,

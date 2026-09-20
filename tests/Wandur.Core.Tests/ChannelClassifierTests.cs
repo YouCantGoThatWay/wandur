@@ -268,14 +268,71 @@ public sealed class ChannelClassifierTests
         => Assert.Equal(family, ChannelFamilies.Match(codebase));
 
     [Fact]
-    public void AWorldsOwnRulesReplaceTheFamilyDefaults()
+    public void AWorldsOwnRulesComeBeforeTheFamilyDefaults()
     {
         var own = new List<ChannelRule> { new("house", "House: (?<text>.*)$", "house") };
         var rules = ChannelFamilies.For(own, "SMAUG 1.4a");
-        Assert.Equal(1, rules.Count);
+        Assert.Equal(ChannelFamilies.Family("smaug").Count + 1, rules.Count);
+        Assert.Equal("house", rules.Rules[0].Channel);
         Assert.Equal("house", Classify(rules, "House: the door is open")!.Channel);
-        Assert.Null(Classify(rules, "[OOC] Aldric: hello"));
+        // The family still recognises what the world did not teach.
+        Assert.Equal("ooc", Classify(rules, "[OOC] Aldric: hello")!.Channel);
         Assert.True(ChannelFamilies.For([], "SMAUG 1.4a").Count > 1);
+    }
+
+    [Fact]
+    public void AWorldRuleBeatsTheFamilyRuleForTheSameLineAndAnExclusionBeatsBoth()
+    {
+        var taught = new ChannelRule("staff", "\\[OOC\\] (?<speaker>[A-Za-z]+): (?<text>.*)$", "ooc");
+        var rules = ChannelFamilies.For([taught], "SMAUG 1.4a");
+        Expect(rules, "[OOC] Aldric: hello", "staff", "Aldric", "hello");
+
+        // An exclusion anywhere in the set wins, whether the line was claimed by the world or the family.
+        var excluded = ChannelFamilies.For([taught, new("ooc", "\\[OOC\\] Aldric: ", Exclude: true), new("tell", "[A-Za-z]+ tells you 'the weather", Exclude: true)], "SMAUG 1.4a");
+        Assert.Null(Classify(excluded, "[OOC] Aldric: hello"));
+        Assert.Null(Classify(excluded, "Jorunn tells you 'the weather is fine'"));
+        Expect(excluded, "[OOC] Brenna: hello", "staff", "Brenna", "hello");
+        Expect(excluded, "Jorunn tells you 'bring the brass key'", "tell", "Jorunn", "bring the brass key");
+        Assert.Equal(["staff", "ooc", "tell"], excluded.Rules.Take(3).Select(r => r.Channel));
+        Assert.DoesNotContain("staff", ChannelFamilies.Family("smaug").Channels);
+        Assert.Contains("staff", excluded.Channels);
+
+        // A disabled rule stays on the list and does nothing.
+        var disabled = ChannelFamilies.For([taught with { Disabled = true }], "SMAUG 1.4a");
+        Expect(disabled, "[OOC] Aldric: hello", "ooc", "Aldric", "hello");
+        Assert.Contains(disabled.Rules, r => r.Channel == "staff" && r.Disabled);
+        Assert.DoesNotContain("staff", disabled.Channels);
+    }
+
+    [Fact]
+    public void ATaughtSpeakerLosesItsAccountMarkRoleTagAndBrackets()
+    {
+        var rules = new ChannelRuleSet([
+            new("ooc", "\\(OOC\\) (?<speaker>@?[A-Za-z]+(?: \\[[A-Za-z]+\\])?): (?<text>.*)$", "ooc"),
+            new("commnet", "CommNet [0-9]+ (?<speaker>\\[[^\\]]+\\])(?:\\( ?[^)]*? ?\\))?: (?<text>.*)$", "commnet")]);
+        Expect(rules, "(OOC) @Nield [IMM]: Now I'm hungry.", "ooc", "Nield", "Now I'm hungry.");
+        Expect(rules, "(OOC) Aldric: hello", "ooc", "Aldric", "hello");
+        Expect(rules, "CommNet 0 [A Human male]( warmly ): Well played everyone!", "commnet", "A Human male", "Well played everyone!");
+        Assert.Equal("Nield", ChannelRuleSet.CleanSpeaker("@Nield [IMM]"));
+        Assert.Equal("A Human male", ChannelRuleSet.CleanSpeaker("[A Human male]"));
+        Assert.Equal("Aldric", ChannelRuleSet.CleanSpeaker("Aldric"));
+    }
+
+    [Fact]
+    public void ARuleSerializesInTheShapeAChannelPackCarries()
+    {
+        var options = new System.Text.Json.JsonSerializerOptions { WriteIndented = false };
+        Assert.Equal("{\"channel\":\"ooc\",\"pattern\":\"\\\\(OOC\\\\) .*$\",\"reply_command\":\"ooc\"}",
+            System.Text.Json.JsonSerializer.Serialize(new ChannelRule("ooc", "\\(OOC\\) .*$", "ooc"), options));
+        Assert.Equal("{\"channel\":\"tell\",\"pattern\":\"x\",\"reply_command\":\"tell {speaker}\",\"private\":true,\"exclude\":true,\"disabled\":true}",
+            System.Text.Json.JsonSerializer.Serialize(new ChannelRule("tell", "x", "tell {speaker}", true, true, true), options));
+        var parsed = System.Text.Json.JsonSerializer.Deserialize<ChannelRule>("{\"channel\":\"chat\",\"pattern\":\"y\",\"reply_command\":\"chat\",\"private\":false,\"exclude\":true}");
+        Assert.Equal(new ChannelRule("chat", "y", "chat", false, true), parsed);
+        // The profile carries the same shape, so a pack's list drops straight onto a world.
+        var profile = new ConnectionProfile { Name = "Test", Host = "example.org", ChannelRules = [new("chat", "y", "chat", false, true)] };
+        var json = System.Text.Json.JsonSerializer.Serialize(profile);
+        Assert.Contains("\"ChannelRules\":[{\"channel\":\"chat\",\"pattern\":\"y\",\"reply_command\":\"chat\",\"exclude\":true}]", json);
+        Assert.Equal(profile.ChannelRules, System.Text.Json.JsonSerializer.Deserialize<ConnectionProfile>(json)!.ChannelRules);
     }
 
     [Fact]
