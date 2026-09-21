@@ -13,6 +13,16 @@
       <NativeMenuItem Header="{ReflectionBinding [Preferences], Source={x:Static loc:LocalizedText.Instance}}" Gesture="Meta+OemComma" Click="PreferencesClicked" />
     </NativeMenu>
   </NativeMenu.Menu>
+  <Application.Resources>
+    <!-- Three corner radii carry the whole UI: small for dense inline chrome, control for inputs and
+         buttons, card for containers and the dock chrome (DockChromeConverter.Radius matches Card).
+         ThemeService overrides these when a world theme supplies its own radius. -->
+    <CornerRadius x:Key="SmallCornerRadius">5</CornerRadius>
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="CardCornerRadius">10</CornerRadius>
+    <!-- How far disabled chrome dims towards its surface; ThemeService raises it on light presets. -->
+    <x:Double x:Key="DisabledOpacity">0.55</x:Double>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
@@ -68,7 +78,7 @@
       <Setter Property="BoxShadow" Value="0 0 0 2 #607F9CC0" />
     </Style>
     <Style Selector="Button.app-button:disabled">
-      <Setter Property="Opacity" Value="0.45" />
+      <Setter Property="Opacity" Value="{DynamicResource DisabledOpacity}" />
     </Style>
     <Style Selector="Button.app-button:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.app-button:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.app-button:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
@@ -95,6 +105,10 @@
       <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
       <Setter Property="Padding" Value="12,10" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <!-- Fluent derives these from palette brushes the control resolves once, so they kept the previous
+           theme's colour across a switch: the caret vanished entirely on a dark world. -->
+      <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource WorldSelectionBrush}" />
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
     </Style>
@@ -109,17 +123,31 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
-    <Style Selector="TextBox /template/ TextBlock#PART_Watermark, TextBox:focus /template/ TextBlock#PART_Watermark, TextBox:pointerover /template/ TextBlock#PART_Watermark, TextBox:disabled /template/ TextBlock#PART_Watermark">
+    <!-- Placeholders are not styled here. Fluent writes the foreground and a fixed 0.5 opacity straight
+         onto the template element, and a local value outranks every style setter, so a selector for
+         PART_Placeholder or PlaceholderTextBlock silently matches nothing. ThemeService reaches the colour
+         through the TextControlPlaceholderForeground and ComboBoxPlaceHolderForeground resource keys; the
+         opacity stays out of reach without retemplating TextBox and ComboBox. -->
+    <Style Selector="TextBox:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    </Style>
+    <Style Selector="ComboBox:disabled, ToggleButton:disabled, CheckBox:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="dc|ToolChromeControl /template/ Button">
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
     <Style Selector="ListBoxItem">
       <Setter Property="Padding" Value="10" />
-      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
     <Style Selector="ListBox.world-list ListBoxItem">
       <Setter Property="Padding" Value="10,8" />
       <Setter Property="MinHeight" Value="48" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <Setter Property="Background" Value="Transparent" />
@@ -193,7 +221,7 @@
       <Setter Property="Background" Value="{DynamicResource ButtonFaceBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonEdgeBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
     </Style>
     <Style Selector="dc|ToolChromeControl /template/ Button#PART_CloseButton:pointerover">
       <Setter Property="Background" Value="#934A47" />
@@ -211,11 +239,12 @@
       <Setter Property="ClipToBounds" Value="True" />
       <Setter Property="Margin" Value="0,4,0,4" />
     </Style>
+    <!-- Labelled toolbar pills: same density as the titlebar icon buttons, without chrome wells. -->
     <Style Selector="Button.app-button.toolbar-button">
       <Setter Property="MinHeight" Value="30" />
       <Setter Property="Padding" Value="11,5" />
       <Setter Property="FontSize" Value="12" />
-      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
     </Style>
     <Style Selector="TabStripItem.output-footer-tab">
       <Setter Property="MinHeight" Value="0" />
@@ -228,7 +257,7 @@
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1,0,1,1" />
-      <Setter Property="CornerRadius" Value="0,0,4,4" />
+      <Setter Property="CornerRadius" Value="0,0,5,5" />
       <Setter Property="Template">
         <ControlTemplate>
           <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
@@ -261,14 +290,14 @@
       <Setter Property="MinWidth" Value="0" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="6" />
-      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <Setter Property="Template">
         <ControlTemplate>
-          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+          <Border Name="ButtonSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
                   Padding="{TemplateBinding Padding}">
             <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
@@ -288,17 +317,20 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style Selector=":is(Button).command-bar-button:disabled">
-      <Setter Property="Opacity" Value="0.35" />
+      <Setter Property="Opacity" Value="{DynamicResource DisabledOpacity}" />
       <Setter Property="Background" Value="Transparent" />
     </Style>
+    <!-- The custom template keeps Fluent's PART_ContentPresenter name, so Fluent's own disabled rule still
+         claims the foreground and dims it a second time on top of DisabledOpacity. -->
     <Style Selector=":is(Button).command-bar-button:disabled /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pointerover /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pressed /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.command-bar-button:checked /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>
     <Style Selector="ComboBox.toolbar-world-picker">
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="CornerRadius" Value="{DynamicResource SmallCornerRadius}" />
     </Style>
     <Style Selector="Button.tab-close">
       <Setter Property="Width" Value="16" />

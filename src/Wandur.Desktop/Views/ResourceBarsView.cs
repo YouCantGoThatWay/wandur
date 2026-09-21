@@ -196,7 +196,8 @@ internal sealed class ResourceBar : Border
         var heading=new Grid {ColumnDefinitions=new ColumnDefinitions("*,Auto"),ColumnSpacing=8,Children={_label,_values}};
         Grid.SetColumn(_values,1);
         _bar.Bind(BackgroundProperty,new DynamicResourceExtension("LineBrush"));
-        Margin=new Thickness(4); Padding=new Thickness(9,6); CornerRadius=new CornerRadius(5);
+        Margin=new Thickness(4); Padding=new Thickness(9,6);
+        this.Bind(CornerRadiusProperty,new DynamicResourceExtension("SmallCornerRadius"));
         Child=new StackPanel {Spacing=5,Children={heading,_bar}};
         this.Bind(BackgroundProperty,new DynamicResourceExtension("PanelBrush"));
     }

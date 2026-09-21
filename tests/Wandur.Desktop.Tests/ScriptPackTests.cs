@@ -16,6 +16,7 @@ using L = Wandur.Core.Localization.Strings;
 
 namespace Wandur.Desktop.Tests;
 
+[Collection(UiLanguageCollection.Name)]
 public sealed class ScriptPackTests
 {
     private const string FirstVersion = "mud.panel('ship', { title: 'Ship' }).label('a', { text: 'v1' });";

@@ -9,6 +9,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
@@ -34,7 +35,8 @@ public sealed class MainWindow : Window
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly Border _notice;
     private readonly Border _toolbar;
-    private const double MacTitleBarHeight = 44;
+    private const double MacTitleBarHeight = 52;
+    private const double ToolbarHeight = 40;
     private readonly Button _disconnect;
     private readonly DesktopMenus _menus;
     private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 28, Height = 28, FontSize = 12, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
@@ -85,14 +87,18 @@ public sealed class MainWindow : Window
         var divider = new Border { Width = 1, Height = 16, Margin = new Thickness(7, 0) };
         divider.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var connectionControls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(5, 0, 0, 0), Children = { connect, _disconnect } };
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Children = { _worldPicker, connectionControls, divider, browse } };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { _worldPicker, connectionControls, divider, browse } };
         _toolbarStatus.Name = "SessionStatus";
         _toolbarStatus.VerticalAlignment = VerticalAlignment.Center;
-        _toolbarStatus.HorizontalAlignment = HorizontalAlignment.Right;
         _toolbarStatus.TextTrimming = TextTrimming.CharacterEllipsis;
         _toolbarStatus.TextWrapping = TextWrapping.NoWrap;
-        Grid.SetColumn(_toolbarStatus, 1);
-        _toolbar = new Border { Name = "MainToolbar", Padding = new Thickness(12, 5), BorderThickness = new Thickness(0, 0, 0, 1), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 20, Children = { actions, _toolbarStatus } } };
+        // The bar reads identity on the left and controls on the right; the live session state it used to
+        // hold on the right now sits beside the session counts in the footer, so status has one home.
+        var title = new TextBlock { Name = "AppTitle", Text = "Wandur", FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        title.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
+        var identity = new StackPanel { Name = "TitleBarIdentity", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { AppLogo(), title } };
+        Grid.SetColumn(actions, 2);
+        _toolbar = new Border { Name = "MainToolbar", Padding = new Thickness(12, 5), MinHeight = OperatingSystem.IsMacOS() ? MacTitleBarHeight : ToolbarHeight, BorderThickness = new Thickness(0, 0, 0, 1), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 20, Children = { identity, actions } } };
         _toolbar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         _toolbar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ChromeBrush"));
         _menus.Fallback.IsVisible = !OperatingSystem.IsMacOS();
@@ -118,7 +124,10 @@ public sealed class MainWindow : Window
         var statusRight = Ui.TextKey(nameof(L.CtrlTabSwitchSessionsDragPanelHeadersToArrange), 10, "muted");
         statusRight.HorizontalAlignment = HorizontalAlignment.Right;
         Grid.SetColumn(statusRight, 1);
-        var footer = new Border { Padding = new Thickness(12, 3), BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { _status, statusRight } } };
+        var footerSeparator = Ui.Text("·", 10); footerSeparator.Classes.Add("muted"); footerSeparator.VerticalAlignment = VerticalAlignment.Center;
+        _status.VerticalAlignment = VerticalAlignment.Center;
+        var footerLeft = new StackPanel { Name = "FooterStatus", Orientation = Orientation.Horizontal, Spacing = 8, Children = { _status, footerSeparator, _toolbarStatus } };
+        var footer = new Border { Padding = new Thickness(12, 3), BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { footerLeft, statusRight } } };
         footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(footer, 3); root.Children.Add(footer);
@@ -151,19 +160,28 @@ public sealed class MainWindow : Window
         e.Handled = true;
     }
 
+    // The app icon sits at the head of the toolbar row, which doubles as the titlebar on macOS.
+    private static Image AppLogo()
+    {
+        using var stream = AssetLoader.Open(new Uri("avares://Wandur/Assets/icon-256.png"));
+        var logo = new Image
+        {
+            Name = "AppLogo",
+            Source = Bitmap.DecodeToHeight(stream, 64),
+            Width = 26, Height = 26,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 9, 0),
+        };
+        RenderOptions.SetBitmapInterpolationMode(logo, BitmapInterpolationMode.HighQuality);
+        ToolTip.SetTip(logo, "Wandur");
+        return logo;
+    }
+
     private static Button ToolbarButton(string geometry, string name, string tip, bool filled = false)
     {
         var button = new Button { Name = name, HorizontalContentAlignment = HorizontalAlignment.Center };
         button.Classes.Add("command-bar-button");
-        var icon = new Avalonia.Controls.Shapes.Path
-        {
-            Data = StreamGeometry.Parse(geometry), Width = 15, Height = 15,
-            Stretch = Stretch.Uniform, StrokeThickness = filled ? 0 : 1.6,
-            StrokeLineCap = PenLineCap.Round, IsHitTestVisible = false
-        };
-        icon.Bind(filled ? Avalonia.Controls.Shapes.Shape.FillProperty : Avalonia.Controls.Shapes.Shape.StrokeProperty,
-            new Avalonia.Data.Binding(nameof(Foreground)) { Source = button });
-        button.Content = icon;
+        button.Content = Ui.ChromeGlyph(geometry, filled);
         button.Bind(ToolTip.TipProperty, LocalizedText.Binding(tip));
         button.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(tip));
         return button;

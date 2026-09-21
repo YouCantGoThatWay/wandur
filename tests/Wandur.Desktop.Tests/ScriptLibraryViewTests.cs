@@ -15,6 +15,7 @@ using Wandur.Core.Localization;
 
 namespace Wandur.Desktop.Tests;
 
+[Collection(UiLanguageCollection.Name)]
 public sealed class ScriptLibraryViewTests
 {
     [AvaloniaFact]

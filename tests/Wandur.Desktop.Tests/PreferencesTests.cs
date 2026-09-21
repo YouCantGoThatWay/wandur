@@ -16,6 +16,7 @@ using Wandur.Desktop.Views;
 
 namespace Wandur.Desktop.Tests;
 
+[Collection(UiLanguageCollection.Name)]
 public sealed class PreferencesTests
 {
     private sealed class Store : IClientSettingsStore

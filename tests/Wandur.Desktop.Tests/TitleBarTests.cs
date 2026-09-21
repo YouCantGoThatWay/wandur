@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -26,10 +27,28 @@ public sealed class TitleBarTests
             Assert.Same(icon, disconnect.Content);
             Assert.True(disconnect.IsEffectivelyEnabled);
 
+            var logo = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "AppLogo");
+            Assert.NotNull(logo.Source);
+
+            // Identity on the left, controls on the right, and the live session state down in the footer.
+            var identity = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "TitleBarIdentity");
+            var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle");
+            Assert.Equal("Wandur", title.Text);
+            Assert.Equal(FontWeight.SemiBold, title.FontWeight);
+            Assert.Contains(logo, identity.Children);
+            Assert.Equal(0, Grid.GetColumn(identity));
+            var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
+            var controls = picker.GetSelfAndVisualAncestors().OfType<StackPanel>().First(p => Grid.GetColumn(p) == 2);
+            Assert.NotSame(identity, controls);
+            var status = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SessionStatus");
+            Assert.Contains(status.GetSelfAndVisualAncestors().OfType<StackPanel>(), p => p.Name == "FooterStatus");
+
             var header = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "WindowHeader");
+            var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
+            Assert.True(toolbar.Bounds.Height >= 40);
             window.ToolbarVisible = false;
             window.UpdateLayout();
-            if (OperatingSystem.IsMacOS()) Assert.True(header.Bounds.Height >= 44);
+            if (OperatingSystem.IsMacOS()) Assert.True(header.Bounds.Height >= 52);
             else Assert.Equal(0, header.MinHeight);
             Assert.False(disconnect.IsEffectivelyVisible);
             Assert.True(window.Controller.IsConnected);

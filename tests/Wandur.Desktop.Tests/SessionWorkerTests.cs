@@ -6,6 +6,7 @@ using L = Wandur.Core.Localization.Strings;
 
 namespace Wandur.Desktop.Tests;
 
+[Collection(UiLanguageCollection.Name)]
 public sealed class SessionWorkerTests
 {
     private static MemoryScriptLibraryStore ThreeEnabledScripts(out Guid[] ids)

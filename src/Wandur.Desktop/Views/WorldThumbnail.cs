@@ -28,7 +28,7 @@ public sealed class WorldThumbnail : Border
         Name = "WorldThumbnail";
         Width = WorldThumbnails.Width; Height = WorldThumbnails.Height;
         MinWidth = Width; MinHeight = Height;
-        CornerRadius = new CornerRadius(4);
+        Bind(CornerRadiusProperty, new DynamicResourceExtension("SmallCornerRadius"));
         ClipToBounds = true;
         VerticalAlignment = VerticalAlignment.Center;
         Bind(BackgroundProperty, new DynamicResourceExtension("PanelBrush"));

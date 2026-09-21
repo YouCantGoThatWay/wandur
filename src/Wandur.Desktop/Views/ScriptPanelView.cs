@@ -229,8 +229,9 @@ public sealed class ScriptPanelView : UserControl
             {
                 var caption = Ui.Text("", 12);
                 var children = new StackPanel { Spacing = 6 };
-                var frame = new Border { Name = name, Padding = new Thickness(8, 6), CornerRadius = new CornerRadius(5), BorderThickness = new Thickness(1),
+                var frame = new Border { Name = name, Padding = new Thickness(8, 6), BorderThickness = new Thickness(1),
                     Child = new StackPanel { Spacing = 6, Children = { caption, children } } };
+                frame.Bind(Border.CornerRadiusProperty, new DynamicResourceExtension("SmallCornerRadius"));
                 frame.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
                 return new Widget("group", frame, properties =>
                 {

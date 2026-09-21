@@ -270,6 +270,18 @@ sent to the world.
   and it is installed.
 - Deferred minors from the terrain inference review are listed in
   `docs/verification.md`.
+- Parked idea (owner, 2026-09-20; not for now, ask before starting):
+  semantic search over a world's own help. Most MUDs ship thorough help
+  files; the gotcha is that in-game `help` is a basic keyword lookup, so a
+  new player who does not know the word cannot find the entry. Embed the help
+  corpus and let the client answer a plain question ("how do I talk to my
+  group", "where do I set my prompt") by vector search over the entries, then
+  show the world's own text. Sources: the stock help that ships with each
+  codebase family (Diku, ROM, Circle, SMAUG, LP, Evennia, the MUSH family),
+  embedded once per family, plus the world's live help harvested by the
+  client (`help index` and the entries it names) for the many worlds that
+  customise theirs. Embeddings are built offline and shipped like packs;
+  the query runs locally in the client. Not an LLM writing guides.
 
 ## Related repositories
 

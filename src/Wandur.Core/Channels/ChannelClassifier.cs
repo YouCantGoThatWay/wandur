@@ -104,7 +104,10 @@ public sealed class ChannelClassifier(ChannelRuleSet rules)
         {
             var from = Math.Max(start, position);
             var to = Math.Min(end, position + run.Text.Length);
-            if (to > from) slice.Add(new(run.Text[(from - position)..(to - position)], run.Style));
+            if (to > from)
+            {
+                slice.Add(new(run.Text[(from - position)..(to - position)], run.Style));
+            }
             position += run.Text.Length;
             if (position >= end) break;
         }

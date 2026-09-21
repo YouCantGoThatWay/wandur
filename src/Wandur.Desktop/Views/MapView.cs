@@ -131,9 +131,9 @@ public sealed partial class MapView : UserControl
             Name = "MapToolsPanel", IsVisible = false, Width = 300, MaxWidth = 360,
             HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(6),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
             Child = new ScrollViewer { Content = footer, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }
         };
+        tools.Bind(Border.CornerRadiusProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SmallCornerRadius"));
         tools.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));
         tools.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal,
@@ -269,9 +269,10 @@ public sealed partial class MapView : UserControl
         {
             Name = "MapSearchOtherFloorPanel", Padding = new Thickness(8), MaxWidth = 260,
             HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(8, 4, 0, 0), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6),
+            Margin = new Thickness(8, 4, 0, 0), BorderThickness = new Thickness(1),
             Child = new StackPanel { Spacing = 4, Children = { Ui.TextKey(nameof(L.MapRoomSearchOtherFloors), 10, "muted"), list } }
         };
+        panel.Bind(Border.CornerRadiusProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SmallCornerRadius"));
         panel.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));
         panel.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         panel.Bind(IsVisibleProperty, new Binding(nameof(Model.HasRoomSearchOtherFloorMatches)));

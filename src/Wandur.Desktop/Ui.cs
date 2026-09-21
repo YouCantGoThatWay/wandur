@@ -38,20 +38,47 @@ internal static class Ui
     }
 
     public static StackPanel Stack(params Control[] controls) => new StackPanel { Spacing = 12 }.WithChildren(controls);
-    public static T ToolbarIcon<T>(T button, string geometry, string tip) where T : Button
+    public static T ToolbarIcon<T>(T button, string geometry, string tip, bool inset = false) where T : Button
     {
         button.Classes.Add("command-bar-button");
-        var icon = new Avalonia.Controls.Shapes.Path
+        if (inset)
         {
-            Data = StreamGeometry.Parse(geometry), Width = 15, Height = 15, Stretch = Stretch.Uniform,
-            StrokeThickness = 1.5, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round,
-            IsHitTestVisible = false
-        };
-        icon.Bind(Avalonia.Controls.Shapes.Shape.StrokeProperty, new Avalonia.Data.Binding(nameof(button.Foreground)) { Source = button });
-        button.Content = icon;
+            button.Content = ChromeGlyph(geometry);
+        }
+        else
+        {
+            var icon = new Avalonia.Controls.Shapes.Path
+            {
+                Data = StreamGeometry.Parse(geometry), Width = 15, Height = 15, Stretch = Stretch.Uniform,
+                StrokeThickness = 1.5, StrokeLineCap = PenLineCap.Round, StrokeJoin = PenLineJoin.Round,
+                IsHitTestVisible = false
+            };
+            icon.Bind(Avalonia.Controls.Shapes.Shape.StrokeProperty, new Avalonia.Data.Binding(nameof(button.Foreground)) { Source = button });
+            button.Content = icon;
+        }
         ToolTip.SetTip(button, tip);
         Avalonia.Automation.AutomationProperties.SetName(button, tip);
         return button;
+    }
+
+    /// <summary>A flat toolbar glyph in the chrome icon colour (slightly darker than the titlebar).</summary>
+    public static Control ChromeGlyph(string geometry, bool filled = false, double size = 15)
+    {
+        var path = new Avalonia.Controls.Shapes.Path
+        {
+            Data = StreamGeometry.Parse(geometry),
+            Width = size,
+            Height = size,
+            Stretch = Stretch.Uniform,
+            StrokeThickness = filled ? 0 : 1.55,
+            StrokeLineCap = PenLineCap.Round,
+            StrokeJoin = PenLineJoin.Round,
+            IsHitTestVisible = false,
+        };
+        var brush = new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ToolbarIconBrush");
+        if (filled) path.Bind(Avalonia.Controls.Shapes.Shape.FillProperty, brush);
+        else path.Bind(Avalonia.Controls.Shapes.Shape.StrokeProperty, brush);
+        return path;
     }
 
     /// <summary>A filled glyph that follows the foreground of the control it sits in.</summary>
@@ -66,9 +93,9 @@ internal static class Ui
         return icon;
     }
 
-    public static T ToolbarIconKey<T>(T button, string geometry, string key) where T : Button
+    public static T ToolbarIconKey<T>(T button, string geometry, string key, bool inset = false) where T : Button
     {
-        ToolbarIcon(button, geometry, "");
+        ToolbarIcon(button, geometry, "", inset);
         button.Bind(ToolTip.TipProperty, LocalizedText.Binding(key));
         button.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(key));
         return button;
@@ -85,7 +112,7 @@ internal static class Ui
     private static StackPanel WithChildren(this StackPanel stack, IEnumerable<Control> controls) { foreach (var control in controls) stack.Children.Add(control); return stack; }
     public static Border Card(Control child, double padding = 16)
     {
-        var border = new Border { Child = child, Padding = new Thickness(padding), CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1) };
+        var border = new Border { Child = child, Padding = new Thickness(padding), BorderThickness = new Thickness(1) };
         border.Bind(Border.CornerRadiusProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("CardCornerRadius"));
         border.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         border.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));

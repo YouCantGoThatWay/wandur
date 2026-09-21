@@ -62,6 +62,12 @@ internal sealed class ThemeResources(Application app)
 public static class ThemeService
 {
     public static readonly string[] Names = UserTheme.PresetNames.ToArray();
+    /// <summary>Dense inline chrome: small buttons, thumbnails, tabs, inline frames.</summary>
+    public const double SmallRadius = 5;
+    /// <summary>Inputs, list rows and the primary buttons that sit inside a card.</summary>
+    public const double ControlRadius = 8;
+    /// <summary>How far disabled chrome is dimmed towards its surface. See DisabledOpacity.</summary>
+    public const double LightDisabledOpacity = 0.55, DarkDisabledOpacity = 0.45;
     /// <summary>Raised once per applied palette, for views that read brush colors rather than binding them.</summary>
     public static event Action? Applied;
     private static (Application App, string Theme, string? Foreground, string? Background, WorldTheme? World, UserTheme? Personal, UserTheme? AnsiTheme, IReadOnlyDictionary<string, Bitmap>? Images)? _lastAppearance;
@@ -69,6 +75,7 @@ public static class ThemeService
     internal static WorldTheme? AppliedWorldTheme => _lastAppearance?.World;
     private static ThemeResources? _resources;
     private static (string Accent, string Panel, string Text, string Muted, string Shell, string Line)? _lastFluentPalette;
+
     private static Color? _gripColor;
     /// <summary>Opacity of the transcript's selection highlight, which is drawn on top of the text.</summary>
     internal const byte TranscriptSelectionAlpha = 0x66;
@@ -90,8 +97,11 @@ public static class ThemeService
         if (_resources is null || !ReferenceEquals(_resources.App, app))
         { _resources = new(app); _lastFluentPalette = null; _gripColor = null; }
         var resources = _resources;
-        resources.Value("ControlCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? 8));
-        resources.Value("CardCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? 12));
+        // A world theme flattens the scale to its own radius, but it cannot make the dense inline
+        // chrome blobby, so the small token is capped at its default. Card tracks the dock chrome.
+        resources.Value("SmallCornerRadius", new CornerRadius(Math.Min(worldTheme?.CornerRadius ?? SmallRadius, SmallRadius)));
+        resources.Value("ControlCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? ControlRadius));
+        resources.Value("CardCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? Converters.DockChromeConverter.Radius));
         var presetTheme = UserTheme.FromPreset(settings.Theme);
         bool light = worldTheme is null ? presetTheme.IsLight : worldTheme.Variant == "light";
         // Avalonia ignores a repeated variant; the Fluent palettes are rebuilt only when they change.
@@ -102,6 +112,10 @@ public static class ThemeService
         if (worldTheme is { Colors: var colors })
             (shell, panel, terminal, text, muted, accent, line) =
                 (colors.Shell, colors.Panel, colors.Terminal, colors.Text, colors.Muted, colors.Accent, colors.Border);
+        // The Fluent palette is a one-way door: a control resolves its brushes once, and neither replacing
+        // the palette object nor recoloring it in place reaches the controls already on screen. Only
+        // Fluent's own variant defaults survive a switch, so a preset leaves them alone and the chrome that
+        // needs the palette's colors is styled from the application brushes below, which do update.
         var fluentPalette = worldTheme is null ? default((string, string, string, string, string, string)?) : (accent, panel, text, muted, shell, line);
         if (_lastFluentPalette != fluentPalette)
         {
@@ -135,6 +149,14 @@ public static class ThemeService
         Set("MapCanvasBrush", worldTheme?.Colors.Terminal ?? preset["MapBackground"]);
         Set("MapGridBrush", worldTheme?.Colors.Border ?? preset["MapGrid"]);
         Set("MutedBrush", muted); Set("AccentBrush", accent); Set("LineBrush", line);
+        // Dimming by opacity costs far more contrast over a light surface than a dark one: the same 0.35
+        // that still reads as text on Midnight washes out to pale grey on Daylight.
+        resources.Value("DisabledOpacity", light ? LightDisabledOpacity : DarkDisabledOpacity);
+        // Fluent draws every placeholder at a fixed half opacity it writes onto the template element, so no
+        // colour can reach 4.5:1 over a light surface. Pushing the text colour to the end of its own range
+        // buys back what is left: roughly 2.1:1 to 3.8:1 on Daylight.
+        resources.Color("TextControlPlaceholderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
+        resources.Color("ComboBoxPlaceHolderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
         Set("SecondaryAccentBrush", worldTheme?.Colors.AccentSecondary ?? accent);
         Set("EditorBackgroundBrush", worldTheme?.Colors.Terminal ?? preset["EditorBackground"]);
         Set("EditorTextBrush", worldTheme?.Colors.Text ?? preset["EditorText"]);
@@ -190,6 +212,9 @@ public static class ThemeService
             Set("MapCanvasBrush", overrides["MapBackground"]); Set("MapGridBrush", overrides["MapGrid"]);
             Set("EditorBackgroundBrush", overrides["EditorBackground"]); Set("EditorTextBrush", overrides["EditorText"]);
         }
+        // Titlebar icons: flat, a touch darker than ChromeBrush so they sit quietly on the bar.
+        var chrome = Color.Parse(personal?.Colors["Chrome"] ?? panel);
+        resources.Color("ToolbarIconBrush", Mix(chrome, Colors.Black, light ? .16 : .28));
         _lastAppearance = appearance;
         Applied?.Invoke();
     }

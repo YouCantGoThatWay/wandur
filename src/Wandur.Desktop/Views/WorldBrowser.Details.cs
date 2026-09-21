@@ -27,7 +27,8 @@ public sealed partial class WorldBrowserView
         foreach (var tag in tags.Where(t => !string.IsNullOrWhiteSpace(t)))
         {
             var badge = Ui.Card(Ui.Text(tag, 11), 8);
-            badge.Margin = new Thickness(0, 0, 6, 6); badge.CornerRadius = new CornerRadius(6);
+            badge.Margin = new Thickness(0, 0, 6, 6);
+            badge.Bind(Border.CornerRadiusProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SmallCornerRadius"));
             panel.Children.Add(badge);
         }
         return panel;

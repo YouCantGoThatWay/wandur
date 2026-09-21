@@ -32,7 +32,8 @@ public sealed partial class WorldBrowserView : UserControl
     private readonly StackPanel _details = new() { Spacing = 8 };
     private readonly Image _image = new() { Name = "DirectoryArtwork", Stretch = Stretch.Uniform, IsVisible = false };
     private readonly TextBlock _artStatus = Ui.TextKey(nameof(L.LoadingArtwork), 11, "muted");
-    private readonly TextBlock _artPlaceholder = new() { Text = L.LoadingArtwork, FontSize = 13, Opacity = .6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+    // Muted by colour rather than opacity: dimming text over a light panel costs more contrast than it looks.
+    private readonly TextBlock _artPlaceholder = new() { Text = L.LoadingArtwork, FontSize = 13, Classes = { "muted" }, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
     private readonly Border _artFrame;
     private readonly ScrollViewer _detailScroll;
     private readonly WrapPanel _listingActions = new() { Orientation = Orientation.Horizontal };
@@ -55,7 +56,7 @@ public sealed partial class WorldBrowserView : UserControl
         heading.FontWeight = FontWeight.SemiBold;
         heading.VerticalAlignment = VerticalAlignment.Center;
         _refresh = Ui.ToolbarIconKey(new Button { Name = "RefreshDirectory", Command = _model.RefreshCommand },
-            "M 13,5 A 5.5,5.5 0 1 0 13.2,10 M 13,1 V 5 H 9", nameof(L.RefreshDirectory));
+            "M 13,5 A 5.5,5.5 0 1 0 13.2,10 M 13,1 V 5 H 9", nameof(L.RefreshDirectory), inset: true);
         _refresh.VerticalAlignment = VerticalAlignment.Center;
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 20, Children = { heading, _refresh } };
         Grid.SetColumn(_refresh, 1);

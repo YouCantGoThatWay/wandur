@@ -13,6 +13,7 @@ using Wandur.Desktop.Views;
 
 namespace Wandur.Desktop.Tests;
 
+[Collection(UiLanguageCollection.Name)]
 public sealed class LocalizationViewTests
 {
     [AvaloniaTheory]

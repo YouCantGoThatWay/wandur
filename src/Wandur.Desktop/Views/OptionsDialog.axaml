@@ -85,7 +85,7 @@
             <CheckBox Name="AllowBlinkingText" Content="{ReflectionBinding [AllowBlinkingMudText], Source={x:Static loc:LocalizedText.Instance}}" IsChecked="{Binding AllowBlinkingText}" />
             <TextBlock Text="{ReflectionBinding [SessionTextSize], Source={x:Static loc:LocalizedText.Instance}}" />
             <NumericUpDown Value="{Binding FontSize}" Minimum="11" Maximum="28" Increment="1" FormatString="0" />
-            <Border Background="{DynamicResource TerminalBrush}" CornerRadius="8" Padding="16">
+            <Border Background="{DynamicResource TerminalBrush}" CornerRadius="{DynamicResource ControlCornerRadius}" Padding="16">
               <TextBlock Text="{ReflectionBinding [TheLanternCastsAWarmLightExitsNorthEast], Source={x:Static loc:LocalizedText.Instance}}" FontFamily="Menlo, Consolas, DejaVu Sans Mono" FontSize="{Binding PreviewFontSize}" Foreground="{DynamicResource TerminalTextBrush}" TextWrapping="Wrap" />
             </Border>
             <TextBlock Text="{ReflectionBinding [LiveViewWhileScrolledUp], Source={x:Static loc:LocalizedText.Instance}}" />

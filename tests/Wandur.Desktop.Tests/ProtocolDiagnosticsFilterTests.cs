@@ -17,6 +17,7 @@ using Wandur.Desktop.Views;
 namespace Wandur.Desktop.Tests;
 
 /// <summary>The Messages tab filters by the kinds seen (chips) and by text; both are a view over the same retained entries.</summary>
+[Collection(UiLanguageCollection.Name)]
 public sealed class ProtocolDiagnosticsFilterTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 19, 12, 0, 0, TimeSpan.Zero);
