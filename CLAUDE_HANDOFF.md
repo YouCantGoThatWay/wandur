@@ -1,6 +1,6 @@
 # Claude handoff: Wandur client
 
-Updated September 19, 2026. This file is the entry point for a fresh session.
+Updated September 21, 2026. This file is the entry point for a fresh session.
 Read it, then `docs/verification.md` for what has been verified and when.
 The September 18 handoff about Icesus resource bars and directory refresh is
 complete and recorded in `docs/verification.md`; it no longer needs action.
@@ -81,9 +81,10 @@ sent to the world.
   instead of 1.3 to 1.6 s; cause was login-prompt regex compilation for every
   saved world on every theme validation. `SessionOpenTrace` measures the path.
 - Directory default is `https://api.wandur.net` (commit b8dc243).
-- App icon (commit 79dd22e): amber gateway mark; master
-  `src/Wandur.Desktop/Assets/icon-1024.png`, `scripts/make-icons.sh` produces
-  the `.ico`, the 256 px window icon and the `.icns` used by the bundle.
+- App icon (lantern-path illustration): two purple peaks with a lit path winding
+  to a lantern; master at `src/Wandur.Desktop/Assets/icon-1024.png` derived from
+  the workspace logo at `../assets/logo.png` by `../assets/make-logo-variants.py`;
+  `scripts/make-icons.sh` produces the `.ico`, the 256 px window icon and the `.icns`.
 - World themes (commit b0a00e7, merged 2770a20): a catalog merge may add a
   theme but never remove one; the production directory carried no themes
   until the site's seeding step ran.
@@ -265,10 +266,8 @@ sent to the world.
   a priority router, declarative playbooks with a typed scratchpad, and
   schema-constrained decoding, sized for a local 12B model. Not yet written
   as a spec; ask the owner before starting.
-- App icon: the owner is choosing between candidates (a crystal gateway
-  illustration and a crystal W mark). The winner goes to
-  `src/Wandur.Desktop/Assets/icon-1024.png`; generate `.icns` and `.ico` at
-  build time and wire them into the bundle and the project.
+- App icon: the owner chose the lantern-path illustration on September 21, 2026
+  and it is installed.
 - Deferred minors from the terrain inference review are listed in
   `docs/verification.md`.
 
