@@ -225,6 +225,8 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         if (_disposed) return;
         // Prefer the theme already on the profile or in the cached directory so the shell paints correctly
         // before any network wait. A listed world still refreshes after the tab is on screen.
+        // Keep the caller's profile for TryCacheProfile: an early merge must still write enrichment to disk.
+        var requested = profile;
         Wandur.Core.Discovery.WorldListing? entry = null;
         if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } cached)
         {
@@ -242,12 +244,13 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         IsBrowsing = false;
         using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
 
-        await tab.Controller.StartAsync(opened, entry?.SupportedScripts, beforePack: CreateOpenPackRefresh(tab, profile, () => entry, listing => entry = listing, failed => themeCacheFailed = failed));
+        await tab.Controller.StartAsync(opened, entry?.SupportedScripts, beforePack: CreateOpenPackRefresh(tab, requested, profile, () => entry, listing => entry = listing, failed => themeCacheFailed = failed));
         if (themeCacheFailed && tab.Controller.Notice is null) tab.Controller.ShowNotice(L.WorldThemeCouldNotBeSaved);
     }
 
     private Func<Task<IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>?>>? CreateOpenPackRefresh(
         SessionTab tab,
+        ConnectionProfile? requested,
         ConnectionProfile? profile,
         Func<Wandur.Core.Discovery.WorldListing?> currentEntry,
         Action<Wandur.Core.Discovery.WorldListing> setEntry,
@@ -266,7 +269,8 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
             tab.Profile = updated;
             // Theme first so SaveSettings → ApplyAppearance does not briefly restore the personal preset.
             tab.Controller.ApplyCatalogProfile(updated);
-            if (TryCacheProfile(tab, profile, updated)) setThemeCacheFailed(true);
+            // Compare against the open request, not the already-merged in-memory profile.
+            if (requested is not null && TryCacheProfile(tab, requested, updated)) setThemeCacheFailed(true);
             ApplyAppearance();
             return listing.SupportedScripts;
         };
