@@ -148,16 +148,15 @@ sent to the world.
 - Script panels and packs (merged from `feature/script-panels`): scripts get
   `Events.Msdp`, `mud.state.get(path)` and `snapshot()`, and `mud.panel(id,
   {title, dock})` with gauge, label, text, list, table, button, toggle, input,
-  separator and group widgets rendered as docked tools (`Services/ScriptPanels.cs`,
-  `Views/ScriptPanelView.cs`, `WorkspaceFactory.ScriptPanels.cs`). A directory
+  separator and group widgets (`Services/ScriptPanels.cs`,
+  `Views/ScriptPanelView.cs`, `Views/ScriptPanelRailView.cs`). A directory
   listing may carry a `scripts` array; `WorldScriptLibrary.ApplyPack` installs
   and upgrades those by version, marks them as a pack, and runs them with a
   send policy (`mud.send` refused outside aliases and buttons until the user
-  turns the toggle on). Panels dock into a tool dock of their own, never as
-  tabs of the map or the world library: `panels-dock` between the map and the
-  channels on the right, `panels-left-dock` below the library on the left,
-  each created when the first panel on that side shows and removed with the
-  last (map 0.40, panels 0.35, channels 0.25; back to 0.58 / 0.42 without). `docs/scripting-reference.json` is the machine-readable
+  turns the toggle on). Non-bars panels render in a session rail beside the
+  transcript (branch `feature/script-panel-rail`; see
+  `docs/proposals/script-panel-rail.md`); Map and Channels stay shell docks.
+  `dock: "bars"` still puts gauges in the vitals strip. `docs/scripting-reference.json` is the machine-readable
   surface the discovery worker's `generate-scripts` command feeds to the model;
   `docs/scripting.md` is the human guide. First trial: Legends of the Jedi
   (`mudverse:509`), seven generated panels imported into the local site loop
@@ -177,7 +176,7 @@ sent to the world.
   After the LOTJ play test (branch `feature/panel-color`): widget text renders
   SMAUG/SWR color codes (`&R`, `&228`, `^b`, `&&`) and simple ANSI SGR through
   `Core/Terminal/MudColorCodes` and the transcript's palette brushes, titles are
-  stripped, `panel.focus()` / `show({ focus: true })` activate the tab at most
+  stripped, `panel.focus()` / `show({ focus: true })` activate the rail tab at most
   once per second per panel, `dock: "bars"` puts a panel's gauges in the vitals
   strip under the transcript (`ResourceBarsView.Panels`), and `mud.format(value)`
   turns MSDP tables into readable text. The engine refuses any widget other than

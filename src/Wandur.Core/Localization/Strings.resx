@@ -1825,6 +1825,8 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (copy)</value></data>
   <data name="ScriptPanelRejected" xml:space="preserve"><value>A panel instruction was rejected: {0}</value></data>
   <data name="ScriptPanelEmpty" xml:space="preserve"><value>This panel has no widgets yet.</value></data>
+  <data name="ScriptPanelRailCollapse" xml:space="preserve"><value>Collapse panels</value></data>
+  <data name="ScriptPanelRailExpand" xml:space="preserve"><value>Show panels</value></data>
   <data name="ScriptCompleteMsdp" xml:space="preserve"><value>Raw MSDP variable updates. Payload: variable: string; value: JSON. Requires server support.</value></data>
   <data name="ScriptCompleteState" xml:space="preserve"><value>The latest values received. state.get(path) reads gmcp.Char.Vitals.hp or msdp.SHIPHULL.</value></data>
   <data name="ScriptCompletePanel" xml:space="preserve"><value>Create or reuse a docked panel built from widget declarations.</value></data>

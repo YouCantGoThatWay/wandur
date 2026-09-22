@@ -860,6 +860,8 @@ public static class Strings
     public static string ScriptDuplicateName => Get(nameof(ScriptDuplicateName));
     public static string ScriptPanelRejected => Get(nameof(ScriptPanelRejected));
     public static string ScriptPanelEmpty => Get(nameof(ScriptPanelEmpty));
+    public static string ScriptPanelRailCollapse => Get(nameof(ScriptPanelRailCollapse));
+    public static string ScriptPanelRailExpand => Get(nameof(ScriptPanelRailExpand));
     public static string ScriptCompleteMsdp => Get(nameof(ScriptCompleteMsdp));
     public static string ScriptCompleteState => Get(nameof(ScriptCompleteState));
     public static string ScriptCompletePanel => Get(nameof(ScriptCompletePanel));

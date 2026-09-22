@@ -1825,6 +1825,8 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (copia)</value></data>
   <data name="ScriptPanelRejected" xml:space="preserve"><value>Se rechazó una instrucción de panel: {0}</value></data>
   <data name="ScriptPanelEmpty" xml:space="preserve"><value>Este panel aún no tiene elementos.</value></data>
+  <data name="ScriptPanelRailCollapse" xml:space="preserve"><value>Contraer paneles</value></data>
+  <data name="ScriptPanelRailExpand" xml:space="preserve"><value>Mostrar paneles</value></data>
   <data name="ScriptCompleteMsdp" xml:space="preserve"><value>Actualizaciones de variables MSDP. Datos: variable: string; value: JSON. Requiere soporte del servidor.</value></data>
   <data name="ScriptCompleteState" xml:space="preserve"><value>Los últimos valores recibidos. state.get(path) lee gmcp.Char.Vitals.hp o msdp.SHIPHULL.</value></data>
   <data name="ScriptCompletePanel" xml:space="preserve"><value>Crea o reutiliza un panel acoplado construido con declaraciones de elementos.</value></data>

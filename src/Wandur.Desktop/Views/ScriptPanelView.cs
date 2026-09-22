@@ -32,6 +32,7 @@ public sealed class ScriptPanelView : UserControl
     private readonly Dictionary<string, Widget> _widgets = new(StringComparer.Ordinal);
     private readonly List<IDisposable> _bindings = [];
     private bool _syncing;
+    private bool _detached;
 
     public ScriptPanelView(ScriptPanel panel)
     {
@@ -45,24 +46,35 @@ public sealed class ScriptPanelView : UserControl
         _empty.TextWrapping = TextWrapping.Wrap;
         var host = new Grid { Children = { _body, _empty } };
         var scroll = new ScrollViewer { Content = host, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var frame = new Border { Child = scroll };
-        frame.Bind(BackgroundProperty, new DynamicResourceExtension("ShellBrush"));
-        Content = frame;
+        // Transparent: the session rail (or any host) paints the chrome; an inner ShellBrush plate reads as a box-in-a-box.
+        Content = scroll;
+        // Stay subscribed for the view's lifetime so accordion collapse never misses widget updates.
+        _panel.Changed += Sync;
     }
 
     public ScriptPanel Panel => _panel;
 
+    /// <summary>Drops panel subscriptions when the rail retires this view.</summary>
+    public void Detach()
+    {
+        if (_detached) return;
+        _detached = true;
+        _panel.Changed -= Sync;
+        ThemeService.Applied -= Recolor;
+        foreach (var widget in _widgets.Values) widget.Detach?.Invoke();
+        _widgets.Clear();
+    }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _panel.Changed += Sync;
+        if (_detached) return;
         ThemeService.Applied += Recolor;
         Sync();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _panel.Changed -= Sync;
         ThemeService.Applied -= Recolor;
         base.OnDetachedFromVisualTree(e);
     }
@@ -70,6 +82,7 @@ public sealed class ScriptPanelView : UserControl
     /// <summary>A theme switch may hand out new palette brushes; styled runs are rebuilt from their text.</summary>
     private void Recolor()
     {
+        if (_detached) return;
         foreach (var declared in _panel.Widgets) Update(declared);
     }
 
@@ -77,6 +90,7 @@ public sealed class ScriptPanelView : UserControl
 
     private void Sync()
     {
+        if (_detached) return;
         foreach (var id in _widgets.Keys.Where(id => _panel.Widgets.All(widget => widget.Id != id)).ToArray())
         {
             _widgets[id].Detach?.Invoke();
@@ -92,7 +106,7 @@ public sealed class ScriptPanelView : UserControl
             if (!_widgets.ContainsKey(declared.Id))
             {
                 _widgets[declared.Id] = Build(declared);
-                declared.Changed += rebuilt => { if (rebuilt || declared.Kind == "group") Sync(); else Update(declared); };
+                declared.Changed += rebuilt => { if (_detached) return; if (rebuilt || declared.Kind == "group") Sync(); else Update(declared); };
             }
             Update(declared);
         }

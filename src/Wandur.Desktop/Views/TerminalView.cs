@@ -34,6 +34,23 @@ public sealed class TerminalView : UserControl
     private int? _dragTop;
     private readonly Border _welcome;
     private readonly ResourceBarsView _resources = new();
+    private readonly ScriptPanelRailView _panelRail = new()
+    {
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        VerticalAlignment = VerticalAlignment.Stretch,
+        MinHeight = 0
+    };
+    private readonly GridSplitter _panelRailDivider = new()
+    {
+        Name = "ScriptPanelRailDivider",
+        ResizeDirection = GridResizeDirection.Columns,
+        ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+        Width = 4,
+        MinWidth = 0,
+        VerticalAlignment = VerticalAlignment.Stretch,
+        IsVisible = false,
+        Cursor = new Cursor(StandardCursorType.SizeWestEast)
+    };
     private readonly TextBlock _footerHint = Ui.TextKey(nameof(L.CommandHistoryEnterSend), 11, "muted");
     private readonly ToggleButton _privateToggle = new() { Name = "PrivateInputToggle", Width = double.NaN, Height = 26, MinHeight = 0, Padding = new Thickness(6, 0), FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
     private bool _syncingPrivate;
@@ -58,7 +75,27 @@ public sealed class TerminalView : UserControl
     {
         _controller = controller;
         // Gauges of script panels declared with dock "bars" join the vitals strip under the transcript.
+        // Other panels (LOTJ Affects, Combat, Skills, …) join the session rail beside the transcript.
         _resources.Panels = controller.ScriptLibrary.Panels;
+        _panelRail.Panels = controller.ScriptLibrary.Panels;
+        void FitRail()
+        {
+            _panelRailDivider.IsVisible = _panelRail.IsVisible && !_panelRail.IsCollapsed;
+            if (!_panelRail.IsVisible)
+            {
+                _panelRail.WidthDefinition.MinWidth = 0;
+                _panelRail.WidthDefinition.Width = new GridLength(0);
+                return;
+            }
+            // Top restore control alone while folded; full accordion while open.
+            var folded = _panelRail.IsCollapsed;
+            _panelRail.WidthDefinition.MinWidth = folded ? ScriptPanelRailView.CollapsedWidth : 180;
+            _panelRail.WidthDefinition.Width = new GridLength(folded ? ScriptPanelRailView.CollapsedWidth : 260);
+        }
+        _panelRail.PropertyChanged += (_, args) => { if (args.Property == IsVisibleProperty) FitRail(); };
+        _panelRail.WidthChanged += FitRail;
+        FitRail();
+        _panelRailDivider.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         _latest = Ui.ButtonKey(nameof(L.LatestOutput), () => controller.Display.FollowTail());
         _latest.HorizontalAlignment = HorizontalAlignment.Right;
         _latest.VerticalAlignment = VerticalAlignment.Bottom;
@@ -139,7 +176,27 @@ public sealed class TerminalView : UserControl
         var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics, controller.ConsoleLog) { Name = "ProtocolDiagnostics" };
         diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
         output.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });
-        var terminalPane = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto"), Children = { output, _resources, composer } };
+        // Transcript and script rail share the top row; vitals and the composer span the full mud view
+        // underneath so Health / Movement never get squeezed out of the play column.
+        output.VerticalAlignment = VerticalAlignment.Stretch;
+        var mudRow = new Grid
+        {
+            VerticalAlignment = VerticalAlignment.Stretch,
+            ColumnDefinitions = new ColumnDefinitions
+            {
+                new ColumnDefinition(GridLength.Star) { MinWidth = 160 },
+                new ColumnDefinition(GridLength.Auto),
+                _panelRail.WidthDefinition
+            },
+            Children = { output, _panelRailDivider, _panelRail }
+        };
+        Grid.SetColumn(_panelRailDivider, 1);
+        Grid.SetColumn(_panelRail, 2);
+        var terminalPane = new Grid
+        {
+            RowDefinitions = new RowDefinitions("*,Auto,Auto"),
+            Children = { mudRow, _resources, composer }
+        };
         Grid.SetRow(_resources, 1);
         Grid.SetRow(composer, 2);
         terminalPane.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });

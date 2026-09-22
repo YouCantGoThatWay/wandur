@@ -9,7 +9,6 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using Dock.Model.Mvvm.Controls;
 using Wandur.Core.Protocol;
 using Wandur.Core.Scripting;
 using Wandur.Core.Settings;
@@ -74,16 +73,17 @@ public sealed class ScriptPanelColorFocusBarsTests
             var panels = window.Controller.ScriptLibrary.Panels.Panels;
             Assert.Equal(new[] { "combat", "cargo", "vitals" }, panels.Select(panel => panel.Id).ToArray());
 
-            // The bars panel has no tool; the dock tab title has lost its codes.
+            // The bars panel never appears in the rail; coded titles are stripped for the tab header.
             var workspace = window.Workspace;
-            var tools = workspace.ScriptPanelTools;
-            Assert.Equal(new[] { "A Vicious Womprat", "Cargo" }, tools.Select(tool => tool.Title).ToArray());
-            var dock = Assert.IsType<ToolDock>(workspace.RightPanelsDock);
-            Assert.Equal("panels-dock", dock.Id);
-            Assert.Same(tools[0], dock.ActiveDockable);
+            Assert.Empty(workspace.ScriptPanelTools);
+            Assert.Null(workspace.RightPanelsDock);
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.IsVisible);
+            Assert.Equal(new[] { "A Vicious Womprat", "Cargo" }, panels.Where(panel => !panel.IsBars).Select(panel => panel.Title).ToArray());
+            Assert.Same(panels[0], rail.SelectedPanel);
 
             // A coded label is two runs: the red palette brush, then the inherited default.
-            var combat = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>());
+            var combat = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>(), candidate => candidate.Panel.Id == "combat");
             var status = Assert.Single(combat.GetVisualDescendants().OfType<TextBlock>(), block => block.Name == "ScriptWidget_status");
             var runs = Runs(status);
             Assert.Equal(new[] { "Red", " plain" }, runs.Select(run => run.Text).ToArray());
@@ -114,21 +114,22 @@ public sealed class ScriptPanelColorFocusBarsTests
             // focus() brings the second panel's tab to the front; a second request within a second is dropped.
             var stopwatch = Stopwatch.StartNew();
             Assert.True(await window.Controller.SendAsync("focuscargo"));
-            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return ReferenceEquals(dock.ActiveDockable, tools[1]); });
+            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return ReferenceEquals(rail.SelectedPanel, panels[1]); });
             Assert.False(panels[1].FocusRequested);
-            workspace.SetActiveDockable(tools[0]);
-            Assert.Same(tools[0], dock.ActiveDockable);
+            rail.Select(panels[0]);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(panels[0], rail.SelectedPanel);
             Assert.True(await window.Controller.SendAsync("focuscargo"));
             await ScriptSessionTests.WaitFor(() => Count(script.Runtime.Log, "focused") == 2);
             Dispatcher.UIThread.RunJobs();
             var elapsed = stopwatch.Elapsed;
-            if (elapsed < ScriptPanelAction.FocusInterval) Assert.Same(tools[0], dock.ActiveDockable);
+            if (elapsed < ScriptPanelAction.FocusInterval) Assert.Same(panels[0], rail.SelectedPanel);
             else Assert.Fail("The second focus request ran " + elapsed + " after the first; the rate limit could not be observed.");
-            workspace.SetActiveDockable(tools[1]);
+            rail.Select(panels[1]);
             Dispatcher.UIThread.RunJobs();
 
             // The focused second panel shows its colored label, and the bars gauge sits under the transcript.
-            var cargo = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>());
+            var cargo = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>(), candidate => candidate.Panel.Id == "cargo");
             Assert.Same(panels[1], cargo.Panel);
             var hold = Assert.Single(cargo.GetVisualDescendants().OfType<TextBlock>(), block => block.Name == "ScriptWidget_hold");
             Assert.Equal(new[] { "Empty", " hold, ", "12", " credits, ", "stowed^" }, Runs(hold).Select(run => run.Text).ToArray());
@@ -147,10 +148,10 @@ public sealed class ScriptPanelColorFocusBarsTests
             Assert.True(await window.Controller.SendAsync("hidecargo"));
             await ScriptSessionTests.WaitFor(() => !panels[1].IsVisible);
             Dispatcher.UIThread.RunJobs();
-            Assert.Same(tools[0], dock.ActiveDockable);
+            Assert.Same(panels[0], rail.SelectedPanel);
             await Task.Delay(ScriptPanelAction.FocusInterval + TimeSpan.FromMilliseconds(100));
             Assert.True(await window.Controller.SendAsync("showfocus"));
-            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return panels[1].IsVisible && ReferenceEquals(dock.ActiveDockable, tools[1]); });
+            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return panels[1].IsVisible && ReferenceEquals(rail.SelectedPanel, panels[1]); });
 
             // hide() takes the bars out of the strip, which hides itself; show() puts them back; a second bars panel appends.
             Assert.True(await window.Controller.SendAsync("hidebars"));
@@ -167,7 +168,7 @@ public sealed class ScriptPanelColorFocusBarsTests
             await ScriptSessionTests.WaitFor(() => panels.Count == 4);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(new[] { "Force", "Hull" }, strip.ScriptCards.Select(card => card.Label.Inlines is { Count: > 0 } inlines ? string.Concat(inlines.OfType<Run>().Select(run => run.Text)) : card.Label.Text).ToArray());
-            Assert.Equal(2, workspace.ScriptPanelTools.Count);
+            Assert.Equal(2, panels.Count(panel => !panel.IsBars));
             Assert.True(await window.Controller.SendAsync("closebars"));
             await ScriptSessionTests.WaitFor(() => panels.Count == 3);
             Dispatcher.UIThread.RunJobs();
@@ -294,7 +295,7 @@ public sealed class ScriptPanelColorFocusBarsTests
             using var server = await listener.AcceptTcpClientAsync(timeout.Token);
             var stream = server.GetStream();
             var library = window.Controller.ScriptLibrary;
-            // Another pack panel may already hold the panels dock, next to the map and the channels.
+            // Another pack panel may already sit in the session rail beside the transcript.
             var ship = library.Items[0];
             if (otherPanel)
             {
@@ -311,12 +312,16 @@ public sealed class ScriptPanelColorFocusBarsTests
             Assert.NotNull(workspace.MapTool); Assert.NotNull(workspace.ChannelsTool);
             var panel = Assert.Single(library.Panels.Panels, candidate => candidate.Id == "opponent");
             Assert.False(panel.IsVisible);
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
             if (otherPanel)
             {
-                var shipTool = Assert.Single(workspace.ScriptPanelTools, tool => tool.Panel.Id == "ship");
-                Assert.Same(shipTool, Assert.IsType<ToolDock>(workspace.RightPanelsDock).ActiveDockable);
+                var shipPanel = Assert.Single(library.Panels.Panels, candidate => candidate.Id == "ship");
+                Assert.Same(shipPanel, rail.SelectedPanel);
             }
-            else Assert.Null(workspace.RightPanelsDock);
+            else
+            {
+                Assert.False(rail.IsVisible);
+            }
             Assert.False(workspace.IsScriptPanelVisible(panel));
 
             // The fight starts: the world reports the opponent's name and health in one MSDP payload.
@@ -339,13 +344,11 @@ public sealed class ScriptPanelColorFocusBarsTests
                 Assert.True(await window.Controller.SendAsync("look"));
             }
             await ScriptSessionTests.WaitFor(() => { window.Controller.FlushOutput(); return panel.IsVisible && workspace.IsScriptPanelVisible(panel); });
-            var dock = Assert.IsType<ToolDock>(workspace.RightPanelsDock);
-            Assert.Equal("panels-dock", dock.Id);
-            var tool = Assert.Single(workspace.ScriptPanelTools, candidate => ReferenceEquals(candidate.Panel, panel));
-            Assert.Same(dock, tool.Owner);
-            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return ReferenceEquals(dock.ActiveDockable, tool); });
+            Assert.True(rail.IsVisible);
+            Assert.Null(workspace.RightPanelsDock);
+            await ScriptSessionTests.WaitFor(() => { Dispatcher.UIThread.RunJobs(); return ReferenceEquals(rail.SelectedPanel, panel); });
             Assert.False(panel.FocusRequested);
-            Assert.Equal("Combat opponent", tool.Title);
+            Assert.Equal("Combat opponent", panel.Title);
             window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
 
             // The active tab renders the colored name without its codes, and the gauge is full.
@@ -355,7 +358,11 @@ public sealed class ScriptPanelColorFocusBarsTests
             Assert.Equal("A Vicious Womprat", string.Concat(runs.Select(run => run.Text)));
             Assert.True(runs[0].IsSet(TextElement.ForegroundProperty), "the xterm 228 code colors the name");
             var gauge = Assert.Single(view.GetVisualDescendants().OfType<ResourceBar>());
-            Assert.Equal(100, Assert.Single(gauge.GetVisualDescendants().OfType<ProgressBar>()).Value);
+            await ScriptSessionTests.WaitFor(() =>
+            {
+                Dispatcher.UIThread.RunJobs();
+                return Math.Abs(Assert.Single(gauge.GetVisualDescendants().OfType<ProgressBar>()).Value - 100) < 0.001;
+            });
         }
         finally
         {

@@ -66,7 +66,17 @@ public class TelnetParserTests
         var parser = new TelnetParser();
         Assert.Equal(new byte[] { 255, 251, 24 }, parser.Feed([255, 253, 24]).Reply);
         var reply = parser.Feed([255, 250, 24, 1, 255, 240]).Reply;
-        Assert.Equal(new byte[] { 255, 250, 24, 0 }.Concat(Encoding.ASCII.GetBytes("WANDUR")).Concat(new byte[] { 255, 240 }), reply);
+        Assert.Equal(new byte[] { 255, 250, 24, 0 }.Concat(Encoding.ASCII.GetBytes(ClientIdentity.TerminalType)).Concat(new byte[] { 255, 240 }), reply);
+    }
+
+    [Fact]
+    public void GmcpHelloNamesTheClientForWorldAdmins()
+    {
+        var parser = new TelnetParser();
+        var reply = Encoding.UTF8.GetString(parser.Feed([255, 251, 201]).Reply);
+        Assert.Contains(ClientIdentity.GmcpHelloBody, reply);
+        Assert.Contains("Wandur Mud Client (WMC)", reply);
+        Assert.Contains("www.wandur.net", reply);
     }
 
     [Fact]

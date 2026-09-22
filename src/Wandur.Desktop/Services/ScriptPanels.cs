@@ -22,7 +22,7 @@ public sealed class ScriptPanelWidget(string id, string kind, ScriptWidgetProper
     }
 }
 
-/// <summary>A panel one script declared, rendered by the client as a dockable tool.</summary>
+/// <summary>A panel one script declared, rendered by the client in the session rail (or the vitals strip for bars).</summary>
 public sealed class ScriptPanel(Guid scriptId, string id, string title, string dock)
 {
     private readonly List<ScriptPanelWidget> _widgets = [];
@@ -108,7 +108,7 @@ public sealed class ScriptPanel(Guid scriptId, string id, string title, string d
 public sealed class ScriptPanelHost
 {
     public ObservableCollection<ScriptPanel> Panels { get; } = [];
-    /// <summary>Raised when a panel was added, removed or changed. The workspace re-syncs its docked tools.</summary>
+    /// <summary>Raised when a panel was added, removed or changed. The session rail refreshes from this.</summary>
     public event Action? Changed;
     /// <summary>Delivers one widget callback to the script that owns the panel.</summary>
     internal Action<Guid, string>? Callback { get; set; }
@@ -137,10 +137,10 @@ public sealed class ScriptPanelHost
         else panel.Apply(action);
     }
 
-    // Dock tabs are plain text, so a title such as "&228A Vicious Womprat&D" loses its codes here.
+    // Rail tabs are plain text, so a title such as "&228A Vicious Womprat&D" loses its codes here.
     private static string Title(ScriptPanelAction action) => action.Title.Length > 0 ? MudColorCodes.Strip(action.Title) : action.Panel;
 
-    /// <summary>Retires one panel, for example because the user closed its docked tool.</summary>
+    /// <summary>Retires one panel, for example because the user closed its rail tab.</summary>
     public void Close(ScriptPanel panel)
     {
         if (!Panels.Remove(panel)) return;
