@@ -15,12 +15,19 @@ public sealed record WorldTheme
     public WorldThemeColors Colors { get; init; } = new();
     public string Surface { get; init; } = "standard";
     public WorldThemeImages Images { get; init; } = new();
+    /// <summary>Optional window chrome. Missing, malformed or unknown kinds are ignored; the palette still applies.</summary>
+    public WorldThemeFrame? Frame { get; init; }
     public bool IsValid => Version == 1 && Id is { Length: > 0 and <= 80 } &&
         Id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') &&
         Name is { Length: > 0 and <= 100 } && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl) && Variant is "dark" or "light" &&
         double.IsFinite(CornerRadius) && CornerRadius is >= 0 and <= 16 && Colors is not null &&
         Colors.Values.All(IsColor);
-    private static bool IsColor(string? value) => value is { Length: 7 } && value[0] == '#' && value.Skip(1).All(char.IsAsciiHexDigit);
+    internal static bool IsColor(string? value) => value is { Length: 7 } && value[0] == '#' && value.Skip(1).All(char.IsAsciiHexDigit);
+    internal static bool IsThemeUrl(string? url) => url is { Length: > 0 and <= 2048 } && !url.Any(char.IsControl) &&
+        !url.Contains('\\') && !url.StartsWith('/') &&
+        (Uri.TryCreate(url, UriKind.Absolute, out var absolute)
+            ? absolute.Scheme == "https" && absolute.UserInfo.Length == 0
+            : Uri.TryCreate(url, UriKind.Relative, out _) && !url.Split('/').Any(p => p is "." or ".."));
 }
 
 public sealed record WorldThemeImages
@@ -34,11 +41,54 @@ public sealed record WorldThemeImage
 {
     public string Url { get; init; } = "";
     public double Opacity { get; init; } = .12;
-    [JsonIgnore] public bool IsValid => Url is { Length: > 0 and <= 2048 } && !Url.Any(char.IsControl) &&
-        !Url.Contains('\\') && !Url.StartsWith('/') && double.IsFinite(Opacity) && Opacity is >= 0 and <= .35 &&
-        (Uri.TryCreate(Url, UriKind.Absolute, out var absolute)
-            ? absolute.Scheme == "https" && absolute.UserInfo.Length == 0
-            : Uri.TryCreate(Url, UriKind.Relative, out _) && !Url.Split('/').Any(p => p is "." or ".."));
+    [JsonIgnore] public bool IsValid => WorldTheme.IsThemeUrl(Url) && double.IsFinite(Opacity) && Opacity is >= 0 and <= .35;
+}
+
+/// <summary>Optional nine-slice window frame. Only <c>bezel</c> is understood in this spike.</summary>
+public sealed record WorldThemeFrame
+{
+    public string Kind { get; init; } = "";
+    public WorldThemeFrameInsets? Inset { get; init; }
+    public double? ContentRadius { get; init; }
+    public string? Accent { get; init; }
+    public string? Plaque { get; init; }
+    public WorldThemeFrameAssets? Assets { get; init; }
+    /// <summary>Client defaults when <see cref="Inset"/> is omitted for a bezel.</summary>
+    public static WorldThemeFrameInsets DefaultBezelInset { get; } = new() { Left = 28, Top = 36, Right = 28, Bottom = 32 };
+    [JsonIgnore] public bool IsValid => Kind == "bezel" &&
+        (Inset is null || Inset.IsInsetValid) &&
+        (ContentRadius is null || (double.IsFinite(ContentRadius.Value) && ContentRadius is >= 0 and <= 16)) &&
+        (Accent is null || WorldTheme.IsColor(Accent)) &&
+        (Plaque is null || (Plaque.Length <= 40 && !Plaque.Any(char.IsControl))) &&
+        Assets?.Border is { IsValid: true };
+    [JsonIgnore] public WorldThemeFrameInsets EffectiveInset => Inset ?? DefaultBezelInset;
+    public double EffectiveContentRadius(double themeCornerRadius) => ContentRadius ?? themeCornerRadius;
+}
+
+public sealed record WorldThemeFrameAssets
+{
+    public WorldThemeFrameBorder? Border { get; init; }
+}
+
+/// <summary>Nine-slice border bitmap. Opacity rules for tiled chrome do not apply; this is opaque window chrome.</summary>
+public sealed record WorldThemeFrameBorder
+{
+    public string Url { get; init; } = "";
+    public WorldThemeFrameInsets Slice { get; init; } = new();
+    [JsonIgnore] public bool IsValid => WorldTheme.IsThemeUrl(Url) && Slice.IsSliceValid;
+}
+
+public sealed record WorldThemeFrameInsets
+{
+    public double Left { get; init; }
+    public double Top { get; init; }
+    public double Right { get; init; }
+    public double Bottom { get; init; }
+    [JsonIgnore] public bool IsInsetValid => AllFinite(8, 96);
+    [JsonIgnore] public bool IsSliceValid => AllFinite(0, 256);
+    private bool AllFinite(double min, double max) =>
+        double.IsFinite(Left) && double.IsFinite(Top) && double.IsFinite(Right) && double.IsFinite(Bottom) &&
+        Left >= min && Left <= max && Top >= min && Top <= max && Right >= min && Right <= max && Bottom >= min && Bottom <= max;
 }
 
 public sealed record WorldThemeColors
@@ -72,7 +122,8 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
                 CornerRadius = root.GetProperty("corner_radius").GetDouble(),
                 Colors = root.GetProperty("colors").Deserialize<WorldThemeColors>(WireOptions) ?? new(),
                 Surface = root.TryGetProperty("surface", out var surface) && surface.ValueKind == JsonValueKind.String && surface.GetString() == "metallic" ? "metallic" : "standard",
-                Images = ReadImages(root)
+                Images = ReadImages(root),
+                Frame = ReadFrame(root)
             };
             return theme.IsValid ? theme : null;
         }
@@ -89,6 +140,46 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
         }
         return new() { Chrome = Read("chrome"), Shell = Read("shell") };
     }
+    private static WorldThemeFrame? ReadFrame(JsonElement root)
+    {
+        if (!root.TryGetProperty("frame", out var frame) || frame.ValueKind != JsonValueKind.Object) return null;
+        try
+        {
+            WorldThemeFrameInsets? inset = null;
+            if (frame.TryGetProperty("inset", out var insetEl) && insetEl.ValueKind == JsonValueKind.Object)
+                inset = insetEl.Deserialize<WorldThemeFrameInsets>(WireOptions);
+            double? contentRadius = null;
+            if (frame.TryGetProperty("content_radius", out var radiusEl) && radiusEl.ValueKind == JsonValueKind.Number)
+                contentRadius = radiusEl.GetDouble();
+            string? accent = null;
+            if (frame.TryGetProperty("accent", out var accentEl) && accentEl.ValueKind == JsonValueKind.String)
+                accent = accentEl.GetString();
+            string? plaque = null;
+            if (frame.TryGetProperty("plaque", out var plaqueEl) && plaqueEl.ValueKind == JsonValueKind.String)
+                plaque = plaqueEl.GetString();
+            WorldThemeFrameAssets? assets = null;
+            if (frame.TryGetProperty("assets", out var assetsEl) && assetsEl.ValueKind == JsonValueKind.Object)
+            {
+                WorldThemeFrameBorder? border = null;
+                if (assetsEl.TryGetProperty("border", out var borderEl) && borderEl.ValueKind == JsonValueKind.Object)
+                {
+                    var url = borderEl.TryGetProperty("url", out var urlEl) && urlEl.ValueKind == JsonValueKind.String ? urlEl.GetString() ?? "" : "";
+                    var slice = borderEl.TryGetProperty("slice", out var sliceEl) && sliceEl.ValueKind == JsonValueKind.Object
+                        ? sliceEl.Deserialize<WorldThemeFrameInsets>(WireOptions) ?? new()
+                        : new();
+                    border = new WorldThemeFrameBorder { Url = url, Slice = slice };
+                }
+                assets = new WorldThemeFrameAssets { Border = border };
+            }
+            var parsed = new WorldThemeFrame
+            {
+                Kind = frame.TryGetProperty("kind", out var kind) && kind.ValueKind == JsonValueKind.String ? kind.GetString() ?? "" : "",
+                Inset = inset, ContentRadius = contentRadius, Accent = accent, Plaque = plaque, Assets = assets
+            };
+            return parsed.IsValid ? parsed : null;
+        }
+        catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or OverflowException) { return null; }
+    }
     public override void Write(Utf8JsonWriter writer, WorldTheme value, JsonSerializerOptions options)
     {
         if (!value.IsValid) { writer.WriteNullValue(); return; }
@@ -102,6 +193,27 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
             writer.WritePropertyName("images"); writer.WriteStartObject();
             if (images.Chrome is { IsValid: true } chrome) { writer.WritePropertyName("chrome"); JsonSerializer.Serialize(writer, chrome, WireOptions); }
             if (images.Shell is { IsValid: true } shell) { writer.WritePropertyName("shell"); JsonSerializer.Serialize(writer, shell, WireOptions); }
+            writer.WriteEndObject();
+        }
+        if (value.Frame is { IsValid: true } frame)
+        {
+            writer.WritePropertyName("frame"); writer.WriteStartObject();
+            writer.WriteString("kind", frame.Kind);
+            if (frame.Inset is { } inset)
+            {
+                writer.WritePropertyName("inset"); JsonSerializer.Serialize(writer, inset, WireOptions);
+            }
+            if (frame.ContentRadius is { } radius) writer.WriteNumber("content_radius", radius);
+            if (frame.Accent is { } accent) writer.WriteString("accent", accent);
+            if (frame.Plaque is { } plaque) writer.WriteString("plaque", plaque);
+            if (frame.Assets?.Border is { IsValid: true } border)
+            {
+                writer.WritePropertyName("assets"); writer.WriteStartObject();
+                writer.WritePropertyName("border"); writer.WriteStartObject();
+                writer.WriteString("url", border.Url);
+                writer.WritePropertyName("slice"); JsonSerializer.Serialize(writer, border.Slice, WireOptions);
+                writer.WriteEndObject(); writer.WriteEndObject();
+            }
             writer.WriteEndObject();
         }
         writer.WriteEndObject();

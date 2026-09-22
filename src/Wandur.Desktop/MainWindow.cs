@@ -35,6 +35,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly Border _notice;
     private readonly Border _toolbar;
+    private readonly ThemeBezelHost _bezel;
     private const double MacTitleBarHeight = 52;
     private const double ToolbarHeight = 40;
     private readonly Button _disconnect;
@@ -131,10 +132,18 @@ public sealed class MainWindow : Window
         footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(footer, 3); root.Children.Add(footer);
-        Content = root;
+        // Clip the shell when a bezel sets content_radius; without a frame the radius stays zero.
+        var shell = new Border { Name = "ShellContent", Child = root, ClipToBounds = true };
+        _bezel = new ThemeBezelHost { Name = "ThemeBezel", Child = shell };
+        Content = _bezel;
+        ThemeService.Applied += OnThemeApplied;
         Sessions.Changed += Refresh;
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
-        Closed += (_, _) => Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
+        Closed += (_, _) =>
+        {
+            ThemeService.Applied -= OnThemeApplied;
+            Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
+        };
         Closing += OnClosing;
         _catalogRefreshTimer = new Avalonia.Threading.DispatcherTimer(WorldCatalog.RefreshInterval,
             Avalonia.Threading.DispatcherPriority.Background, async (_, _) => await RefreshCatalogAsync());
@@ -142,6 +151,8 @@ public sealed class MainWindow : Window
         Closed += (_, _) => _catalogRefreshTimer.Stop();
         Refresh();
     }
+
+    private void OnThemeApplied() => _bezel.ApplyFromTheme();
 
     private void UpdateTitleBarInsets()
     {

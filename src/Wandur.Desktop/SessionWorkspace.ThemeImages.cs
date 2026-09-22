@@ -17,11 +17,14 @@ public sealed partial class SessionWorkspace
         _imageRequest?.Cancel(); _imageRequest?.Dispose(); _imageRequest = null;
         var previous = _themeImages;
         _themeImages = null; _imageTheme = theme;
-        if (_catalog is not null && theme?.Images is { } images && (images.Chrome is { IsValid: true } || images.Shell is { IsValid: true }))
+        var needsImages = theme is not null && (
+            theme.Images.Chrome is { IsValid: true } || theme.Images.Shell is { IsValid: true } ||
+            theme.Frame is { IsValid: true, Assets.Border.IsValid: true });
+        if (_catalog is not null && needsImages)
         {
             var request = _imageRequest = new CancellationTokenSource();
             var token = request.Token;
-            Dispatcher.UIThread.Post(async () => await LoadThemeImagesAsync(theme, token));
+            Dispatcher.UIThread.Post(async () => await LoadThemeImagesAsync(theme!, token));
         }
         return previous;
     }
@@ -43,6 +46,23 @@ public sealed partial class SessionWorkspace
                     // a narrow, tall texture could otherwise allocate an enormous bitmap.
                     var width = (int)BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16, 4));
                     decoded[key] = Bitmap.DecodeToWidth(stream, Math.Min(width, 1024));
+                }
+                catch (Exception e) when (e is not OutOfMemoryException) { if (token.IsCancellationRequested) return; }
+            }
+            if (theme.Frame is { IsValid: true, Assets.Border: { IsValid: true } border })
+            {
+                try
+                {
+                    // Frame borders reuse the same URL and PNG rules as tiled chrome images.
+                    var image = new WorldThemeImage { Url = border.Url, Opacity = 0 };
+                    var bytes = await _catalog!.GetThemeImageAsync(image, token);
+                    if (bytes is not null)
+                    {
+                        using var stream = new MemoryStream(bytes);
+                        var width = (int)BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16, 4));
+                        // Bezels need full resolution for nine-slice corners; cap like chrome textures.
+                        decoded["frame-border"] = Bitmap.DecodeToWidth(stream, Math.Min(width, 2048));
+                    }
                 }
                 catch (Exception e) when (e is not OutOfMemoryException) { if (token.IsCancellationRequested) return; }
             }

@@ -73,6 +73,8 @@ public static class ThemeService
     private static (Application App, string Theme, string? Foreground, string? Background, WorldTheme? World, UserTheme? Personal, UserTheme? AnsiTheme, IReadOnlyDictionary<string, Bitmap>? Images)? _lastAppearance;
     /// <summary>The world theme currently on screen, for tests that assert what the palette came from.</summary>
     internal static WorldTheme? AppliedWorldTheme => _lastAppearance?.World;
+    /// <summary>Decoded theme bitmaps for the appearance on screen (chrome, shell, frame-border).</summary>
+    internal static IReadOnlyDictionary<string, Bitmap>? AppliedImages => _lastAppearance?.Images;
     private static ThemeResources? _resources;
     private static (string Accent, string Panel, string Text, string Muted, string Shell, string Line)? _lastFluentPalette;
 
