@@ -37,13 +37,13 @@ public sealed class ResourceBarsView : UserControl
         IsVisible=false;
         var scroll=new ScrollViewer {Content=_items,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility=ScrollBarVisibility.Auto,MaxHeight=136};
-        var frame=new Border {Padding=new Thickness(8,4),BorderThickness=new Thickness(0,1,0,0),Child=scroll};
+        var frame=new Border {Padding=new Thickness(0,4),BorderThickness=new Thickness(0,1,0,0),Child=scroll};
         frame.Bind(Border.BackgroundProperty,new DynamicResourceExtension("ShellBrush"));
         frame.Bind(Border.BorderBrushProperty,new DynamicResourceExtension("LineBrush"));
         Content=frame;
         // Gauge labels may carry color codes; they resolve to the palette brushes the transcript uses.
         TerminalPalette.Bind(this,_bindings);
-        SizeChanged+=(_,e)=>_items.Columns=Math.Clamp((int)(Math.Max(0,e.NewSize.Width-24)/220),1,4);
+        SizeChanged+=(_,e)=>_items.Columns=Math.Clamp((int)(Math.Max(0,e.NewSize.Width)/220),1,4);
     }
 
     /// <summary>The session's script panels. Those declared with dock "bars" show their gauges here, after the mapped vitals.</summary>
@@ -196,8 +196,8 @@ internal sealed class ResourceBar : Border
         var heading=new Grid {ColumnDefinitions=new ColumnDefinitions("*,Auto"),ColumnSpacing=8,Children={_label,_values}};
         Grid.SetColumn(_values,1);
         _bar.Bind(BackgroundProperty,new DynamicResourceExtension("LineBrush"));
-        Margin=new Thickness(4); Padding=new Thickness(9,6);
-        this.Bind(CornerRadiusProperty,new DynamicResourceExtension("SmallCornerRadius"));
+        // Flush to the strip edges so the card fill meets the play column (no floating inset).
+        Margin=new Thickness(0); Padding=new Thickness(10,6); CornerRadius=new CornerRadius(0);
         Child=new StackPanel {Spacing=5,Children={heading,_bar}};
         this.Bind(BackgroundProperty,new DynamicResourceExtension("PanelBrush"));
     }

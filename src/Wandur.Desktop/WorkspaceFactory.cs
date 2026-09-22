@@ -61,11 +61,11 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
         var left = _libraryDock = new ToolDock { Id = "left", Alignment = Alignment.Left, Proportion = 0.18, VisibleDockables = CreateList<IDockable>(library), ActiveDockable = library };
         var map = _mapDock = new ToolDock { Id = "map-dock", Alignment = Alignment.Right, Proportion = 0.58, VisibleDockables = CreateList<IDockable>(MapTool), ActiveDockable = MapTool };
         var channels = _channelsDock = new ToolDock { Id = "channels-dock", Alignment = Alignment.Right, Proportion = 0.42, VisibleDockables = CreateList<IDockable>(ChannelsTool), ActiveDockable = ChannelsTool };
-        // The map and the channels share the right edge, one above the other, both closable from the View menu. Script panels never
-        // join them as tabs: they get a dock of their own between the two (or below the world library on the left) while any is shown.
-        var right = _right = new ProportionalDock { Id = "right", Proportion = 0.23, Orientation = Dock.Model.Core.Orientation.Vertical, IsCollapsable = false,
+        // The map and the channels share the right edge, one above the other, both closable from the View menu.
+        // Script panels live in the session rail beside the transcript (see docs/proposals/script-panel-rail.md).
+        // Collapsable: when both tools are pinned or hidden, this column must disappear so the session fills the gap.
+        var right = _right = new ProportionalDock { Id = "right", Proportion = 0.23, Orientation = Dock.Model.Core.Orientation.Vertical, IsCollapsable = true,
             VisibleDockables = CreateList<IDockable>(map, new ProportionalDockSplitter(), channels), ActiveDockable = map };
-        sessions.ScriptPanelsChanged += SyncScriptPanels;
         var layout = _layout = new ProportionalDock { Id = "layout", Orientation = Dock.Model.Core.Orientation.Horizontal, VisibleDockables = CreateList<IDockable>(left, new ProportionalDockSplitter(), documents, new ProportionalDockSplitter(), right), ActiveDockable = documents };
         return new RootDock { Id = "root", IsCollapsable = false, VisibleDockables = CreateList<IDockable>(layout), ActiveDockable = layout, DefaultDockable = layout };
     }
@@ -88,6 +88,5 @@ public sealed partial class WorkspaceFactory(SessionWorkspace sessions, Action e
     {
         HostWindowLocator = new Dictionary<string, Func<IHostWindow?>> { ["DockWindow"] = () => new HostWindow() };
         base.InitLayout(layout);
-        SyncScriptPanels();
     }
 }

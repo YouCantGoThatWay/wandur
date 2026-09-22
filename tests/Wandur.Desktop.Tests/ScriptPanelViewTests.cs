@@ -12,7 +12,6 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Dock.Model.Controls;
 using Dock.Model.Core;
-using Dock.Model.Mvvm.Controls;
 using Wandur.Core.Settings;
 using Wandur.Desktop.Views;
 
@@ -60,8 +59,11 @@ public sealed class ScriptPanelViewTests
             Assert.True(script.Runtime.IsRunning, script.Runtime.Error);
             Dispatcher.UIThread.RunJobs();
 
-            var tool = Assert.Single(window.Workspace.ScriptPanelTools);
-            Assert.Equal("Ship", tool.Title);
+            var panel = Assert.Single(window.Controller.ScriptLibrary.Panels.Panels);
+            Assert.Equal("Ship", panel.Title);
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.IsVisible);
+            Assert.Same(panel, rail.SelectedPanel);
             var view = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>());
             var gauge = Assert.Single(view.GetVisualDescendants().OfType<ProgressBar>());
             Assert.Equal(10, gauge.Value);
@@ -96,26 +98,30 @@ public sealed class ScriptPanelViewTests
                 frame?.Save(Path.Combine(captures, "script-panel.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
 
-            // A theme switch recolors the panel through the same dynamic resources as the rest of the shell.
-            var shell = Assert.IsType<Border>(view.Content);
-            var before = Of(shell.Background);
+            // A theme switch recolors coded widget text through the same palette brushes the transcript uses.
+            var status = Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == "In orbit");
+            var before = Of(view.GetValue(Wandur.Desktop.Terminal.TerminalPalette.Colors[7]));
             window.Controller.SaveSettings(window.Controller.Settings with { Theme = "Paper" });
             Dispatcher.UIThread.RunJobs();
-            Assert.NotEqual(before, Of(shell.Background));
+            Assert.NotEqual(before, Of(view.GetValue(Wandur.Desktop.Terminal.TerminalPalette.Colors[7])));
+            Assert.Same(status, Assert.Single(view.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == "In orbit"));
 
             Assert.True(await window.Controller.SendAsync("hide"));
             await ScriptSessionTests.WaitFor(() => !window.Controller.ScriptLibrary.Panels.Panels[0].IsVisible);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(window.Workspace.IsScriptPanelVisible(tool.Panel));
+            Assert.False(window.Workspace.IsScriptPanelVisible(panel));
+            Assert.False(rail.IsVisible);
             Assert.True(await window.Controller.SendAsync("show"));
             await ScriptSessionTests.WaitFor(() => window.Controller.ScriptLibrary.Panels.Panels[0].IsVisible);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(window.Workspace.IsScriptPanelVisible(tool.Panel));
+            Assert.True(window.Workspace.IsScriptPanelVisible(panel));
+            Assert.True(rail.IsVisible);
 
             Assert.True(await window.Controller.SendAsync("close"));
             await ScriptSessionTests.WaitFor(() => window.Controller.ScriptLibrary.Panels.Panels.Count == 0);
             Dispatcher.UIThread.RunJobs();
             Assert.Empty(window.Workspace.ScriptPanelTools);
+            Assert.False(rail.IsVisible);
             Assert.Empty(window.GetVisualDescendants().OfType<ScriptPanelView>());
         }
         finally
@@ -145,13 +151,16 @@ public sealed class ScriptPanelViewTests
             script.Runtime.Source = "mud.panel('left', { title: 'Cargo', dock: 'left' }).text('log', { text: 'empty' });";
             await script.Runtime.RunAsync();
             Dispatcher.UIThread.RunJobs();
-            var tool = Assert.Single(window.Workspace.ScriptPanelTools);
-            Assert.Equal("Cargo", tool.Title);
-            Assert.Equal("left", tool.Panel.Dock);
+            var panel = Assert.Single(window.Controller.ScriptLibrary.Panels.Panels);
+            Assert.Equal("Cargo", panel.Title);
+            Assert.Equal("left", panel.Dock);
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.Shows(panel));
             script.Runtime.Stop();
             Dispatcher.UIThread.RunJobs();
             Assert.Empty(window.Controller.ScriptLibrary.Panels.Panels);
             Assert.Empty(window.Workspace.ScriptPanelTools);
+            Assert.False(rail.IsVisible);
         }
         finally
         {
@@ -199,20 +208,23 @@ public sealed class ScriptPanelViewTests
             Assert.True(script.Runtime.IsRunning, script.Runtime.Error);
             Dispatcher.UIThread.RunJobs();
             var panels = window.Controller.ScriptLibrary.Panels.Panels;
+            var shipPanel = panels[0];
+            var cargoPanel = panels[1];
 
-            // Two right panels are two tabs of a panels dock that sits between the map and the channels, the first declared one active.
+            // Two right panels are two tabs in the session rail beside the transcript; the first declared one is selected.
             var workspace = window.Workspace;
-            var tools = workspace.ScriptPanelTools;
-            Assert.Equal(new[] { "Ship", "Cargo" }, tools.Select(tool => tool.Title).ToArray());
-            var dock = Assert.IsType<ToolDock>(workspace.RightPanelsDock);
-            Assert.Equal("panels-dock", dock.Id);
-            Assert.Equal(Alignment.Right, dock.Alignment);
-            Assert.Equal(new IDockable[] { tools[0], tools[1] }, dock.VisibleDockables!);
-            Assert.Same(tools[0], dock.ActiveDockable);
-            var right = Assert.IsAssignableFrom<IProportionalDock>(dock.Owner);
+            Assert.Empty(workspace.ScriptPanelTools);
+            Assert.Null(workspace.RightPanelsDock);
+            Assert.Equal(new[] { "Ship", "Cargo" }, panels.Select(panel => panel.Title).ToArray());
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.IsVisible);
+            Assert.True(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
+            Assert.Same(shipPanel, rail.SelectedPanel);
+            var right = Assert.IsAssignableFrom<IProportionalDock>(workspace.MapTool!.Owner!.Owner);
             Assert.Equal("right", right.Id);
-            Assert.Equal(new[] { "map-dock", "splitter", "panels-dock", "splitter", "channels-dock" }, Shape(right));
-            Assert.Equal(new[] { 0.40, 0.35, 0.25 }, Shares(right));
+            Assert.Equal(new[] { "map-dock", "splitter", "channels-dock" }, Shape(right));
+            Assert.Equal(new[] { 0.58, 0.42 }, Shares(right));
             var mapDock = Assert.IsAssignableFrom<IToolDock>(workspace.MapTool!.Owner);
             Assert.Equal(new IDockable[] { workspace.MapTool }, mapDock.VisibleDockables!);
             var library = Assert.IsAssignableFrom<IToolDock>(workspace.WorldsTool!.Owner);
@@ -220,9 +232,10 @@ public sealed class ScriptPanelViewTests
             var layout = Assert.IsAssignableFrom<IProportionalDock>(library.Owner);
             Assert.Equal("layout", layout.Id);
             Assert.Null(workspace.LeftPanelsDock);
-            // A tool dock renders its active tab only, so the one panel view on screen is the first declared panel.
-            var shown = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>());
+            // The open accordion section shows the first declared panel; others stay in the tree collapsed.
+            var shown = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelView>(), candidate => ReferenceEquals(candidate.Panel, shipPanel));
             Assert.Contains(shown.GetVisualDescendants().OfType<TextBlock>(), block => block.Text == "In orbit");
+            Assert.Same(shipPanel, rail.SelectedPanel);
 
             window.UpdateLayout();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
@@ -233,67 +246,71 @@ public sealed class ScriptPanelViewTests
                 frame?.Save(Path.Combine(captures, "panel-dock.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
 
-            // Hiding takes a panel out of the dock; showing it again returns it to its declared place, ahead of the later panel.
+            // Hiding takes a panel out of the rail; showing it again returns it to its declared place, ahead of the later panel.
             Assert.True(await window.Controller.SendAsync("hideship"));
             await ScriptSessionTests.WaitFor(() => !panels[0].IsVisible);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(workspace.IsScriptPanelVisible(tools[0].Panel));
-            Assert.Equal(new IDockable[] { tools[1] }, dock.VisibleDockables!);
+            Assert.False(workspace.IsScriptPanelVisible(shipPanel));
+            Assert.False(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
+            Assert.Same(cargoPanel, rail.SelectedPanel);
             Assert.True(await window.Controller.SendAsync("showship"));
-            await ScriptSessionTests.WaitFor(() => panels[0].IsVisible);
+            await ScriptSessionTests.WaitFor(() => shipPanel.IsVisible);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(workspace.IsScriptPanelVisible(tools[0].Panel));
-            Assert.Equal(new IDockable[] { tools[0], tools[1] }, dock.VisibleDockables!);
+            Assert.True(workspace.IsScriptPanelVisible(shipPanel));
+            Assert.True(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
 
-            // A left panel turns the left edge into a column with the world library above the panels.
+            // A left-declared panel still lives in the same rail beside the transcript; the world library dock is unchanged.
             Assert.True(await window.Controller.SendAsync("opennav"));
             await ScriptSessionTests.WaitFor(() => panels.Count == 3);
             Dispatcher.UIThread.RunJobs();
-            var leftDock = Assert.IsType<ToolDock>(workspace.LeftPanelsDock);
-            Assert.Equal("panels-left-dock", leftDock.Id);
-            Assert.Equal(Alignment.Left, leftDock.Alignment);
-            Assert.Equal("Nav", Assert.Single(leftDock.VisibleDockables!).Title);
-            var column = Assert.IsAssignableFrom<IProportionalDock>(leftDock.Owner);
-            Assert.Equal(Dock.Model.Core.Orientation.Vertical, column.Orientation);
-            Assert.Equal(new[] { "left", "splitter", "panels-left-dock" }, Shape(column));
-            Assert.Equal(new[] { 0.55, 0.45 }, Shares(column));
-            Assert.Equal(0.18, column.Proportion);
-            Assert.Same(column, workspace.WorldsTool.Owner!.Owner);
-            Assert.Same(column, layout.VisibleDockables![0]);
-            Assert.Equal(new[] { "left-column", "splitter", "documents", "splitter", "right" }, Shape(layout));
-
-            // Closing the only left panel restores the plain left dock.
-            Assert.True(await window.Controller.SendAsync("closenav"));
-            await ScriptSessionTests.WaitFor(() => panels.Count == 2);
-            Dispatcher.UIThread.RunJobs();
             Assert.Null(workspace.LeftPanelsDock);
+            var nav = panels[2];
+            Assert.True(rail.Shows(nav));
             Assert.Same(library, workspace.WorldsTool.Owner);
             Assert.Same(layout, library.Owner);
             Assert.Equal(new[] { "left", "splitter", "documents", "splitter", "right" }, Shape(layout));
             Assert.Equal(0.18, library.Proportion);
 
-            // The layout can be rebuilt while the panels stay declared: the new workspace shows them in a fresh panels dock.
+            // Closing the nav panel leaves the two right panels in the rail.
+            Assert.True(await window.Controller.SendAsync("closenav"));
+            await ScriptSessionTests.WaitFor(() => panels.Count == 2);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Null(workspace.LeftPanelsDock);
+            Assert.False(rail.Shows(nav));
+            Assert.True(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
+
+            // The layout can be rebuilt while the panels stay declared: the new session still shows them in the rail.
             window.ResetLayout();
             Dispatcher.UIThread.RunJobs();
             Assert.NotSame(workspace, window.Workspace);
             Assert.Null(workspace.RightPanelsDock);
             workspace = window.Workspace;
-            Assert.Equal(new[] { "Ship", "Cargo" }, workspace.ScriptPanelTools.Select(tool => tool.Title).ToArray());
-            dock = Assert.IsType<ToolDock>(workspace.RightPanelsDock);
-            Assert.Equal(2, dock.VisibleDockables!.Count);
-            right = Assert.IsAssignableFrom<IProportionalDock>(dock.Owner);
-            Assert.Equal(new[] { "map-dock", "splitter", "panels-dock", "splitter", "channels-dock" }, Shape(right));
+            Assert.Null(workspace.RightPanelsDock);
+            Assert.Equal(new[] { "Ship", "Cargo" }, window.Controller.ScriptLibrary.Panels.Panels.Select(panel => panel.Title).ToArray());
+            rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.IsVisible);
+            Assert.True(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
+            right = Assert.IsAssignableFrom<IProportionalDock>(workspace.MapTool!.Owner!.Owner);
+            Assert.Equal(new[] { "map-dock", "splitter", "channels-dock" }, Shape(right));
 
-            // The script closes one panel; the user closes the other from its tab, which retires it. The dock leaves with the last one.
+            // The script closes one panel; the user closes the other from its tab. The rail hides with the last one.
             Assert.True(await window.Controller.SendAsync("closeship"));
             await ScriptSessionTests.WaitFor(() => panels.Count == 1);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("Cargo", Assert.Single(dock.VisibleDockables!).Title);
-            workspace.CloseDockable(Assert.Single(workspace.ScriptPanelTools));
+            Assert.False(rail.Shows(shipPanel));
+            Assert.True(rail.Shows(cargoPanel));
+            Assert.Same(cargoPanel, rail.SelectedPanel);
+            window.Controller.ScriptLibrary.Panels.Close(cargoPanel);
             Dispatcher.UIThread.RunJobs();
+            await ScriptSessionTests.WaitFor(() => panels.Count == 0);
             Assert.Empty(panels);
             Assert.Empty(workspace.ScriptPanelTools);
             Assert.Null(workspace.RightPanelsDock);
+            Assert.False(rail.IsVisible);
             Assert.Equal(new[] { "map-dock", "splitter", "channels-dock" }, Shape(right));
             Assert.Equal(new[] { 0.58, 0.42 }, Shares(right));
             Assert.Empty(window.GetVisualDescendants().OfType<ScriptPanelView>());

@@ -87,6 +87,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         _scriptLibraryStore = scriptLibraryStore;
         Active = CreateTab();
         Tabs.Add(Active);
+        ApplyAppearance();
         if (_catalog is not null) _catalog.Changed += CatalogAppearanceChanged;
     }
 
@@ -102,6 +103,51 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
             ApplyAppearance();
         };
         return tab;
+    }
+
+    /// <summary>Opens into a blank tab with the world theme already staged, so Select never paints the personal preset first.</summary>
+    private SessionTab AcquireOpenTab(ConnectionProfile? profile)
+    {
+        var theme = profile?.Theme is { IsValid: true } value ? value : null;
+        if (!(Active.Controller.HasSession || Active.IsClosing))
+        {
+            Active.Controller.StageWorldTheme(theme);
+            ApplyAppearance();
+            return Active;
+        }
+        var tab = CreateTab();
+        Tabs.Add(tab);
+        tab.Controller.StageWorldTheme(theme);
+        Active = tab;
+        IsBrowsing = false;
+        ApplyAppearance();
+        tab.HasActivity = false;
+        tab.Refresh();
+        return tab;
+    }
+
+    private static ConnectionProfile MergeCatalogListing(ConnectionProfile profile, Wandur.Core.Discovery.WorldListing listing) =>
+        profile with
+        {
+            // A listing that carries no theme says nothing about this world's appearance, so the saved theme remains.
+            Theme = listing.Theme ?? profile.Theme,
+            Codebase = listing.Features.Codebase is { Length: > 0 and <= 100 } codebase && !codebase.Any(char.IsControl) ? codebase : profile.Codebase,
+            ProtocolMapping = listing.MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) ?? profile.GetProtocolMapping()
+        };
+
+    private bool TryCacheProfile(SessionTab tab, ConnectionProfile original, ConnectionProfile updated)
+    {
+        if (updated == original || !tab.Controller.Settings.Profiles.Any(p => p.Id == original.Id)) return false;
+        try
+        {
+            tab.Controller.SaveSettings(tab.Controller.Settings with
+                { Profiles = tab.Controller.Settings.Profiles.Select(p => p.Id == original.Id ? updated : p).ToList() });
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Data.Common.DbException)
+        {
+            return true;
+        }
     }
 
     private void OnChanged(SessionTab tab)
@@ -177,45 +223,53 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     public async Task OpenAsync(ConnectionProfile? profile = null)
     {
         if (_disposed) return;
-        // Reuse only a blank tab. Disconnected transcripts remain available until closed.
-        SessionTab tab;
-        using (SessionOpenTrace.Measure("tab + controller")) tab = Active.Controller.HasSession || Active.IsClosing ? NewTab() : Active;
-        ApplyAppearance();
-        var themeCacheFailed = false;
-        // A listed world takes the directory's current scripts, theme and mapping, not a copy up to five minutes old.
-        if (profile is not null && _catalog is not null)
-            using (SessionOpenTrace.Measure("catalog refresh")) await _catalog.RefreshBeforeOpenAsync(profile.Host, profile.Port, profile.UseTls);
-        if (_disposed) return;
+        // Prefer the theme already on the profile or in the cached directory so the shell paints correctly
+        // before any network wait. A listed world still refreshes after the tab is on screen.
         Wandur.Core.Discovery.WorldListing? entry = null;
-        using (SessionOpenTrace.Measure("catalog theme lookup"))
-        if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } listing)
+        if (profile is not null && _catalog?.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is { } cached)
         {
-            entry = listing;
-            // A missing/corrupt optional catalog map must not evict the last valid endpoint-bound copy,
-            // and neither must a listing that carries no theme: a directory that has stopped supplying
-            // one says nothing about this world's appearance, and the saved theme is what opens offline.
-            var updated = profile with { Theme = listing.Theme ?? profile.Theme,
-                Codebase = listing.Features.Codebase is { Length: > 0 and <= 100 } codebase && !codebase.Any(char.IsControl) ? codebase : profile.Codebase,
-                ProtocolMapping = listing.MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) ?? profile.GetProtocolMapping() };
-            if (updated != profile && tab.Controller.Settings.Profiles.Any(p => p.Id == profile.Id))
-            {
-                try
-                {
-                    tab.Controller.SaveSettings(tab.Controller.Settings with
-                        { Profiles = tab.Controller.Settings.Profiles.Select(p => p.Id == profile.Id ? updated : p).ToList() });
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Data.Common.DbException)
-                { themeCacheFailed = true; }
-            }
-            profile = updated;
+            entry = cached;
+            profile = MergeCatalogListing(profile, cached);
         }
-        tab.Profile = profile;
+
+        SessionTab tab;
+        using (SessionOpenTrace.Measure("tab + controller")) tab = AcquireOpenTab(profile);
+        var themeCacheFailed = false;
+        var opened = profile;
+        tab.Profile = opened;
         tab.ConnectionCounted = false;
         tab.RecordedCharacter = null;
         IsBrowsing = false;
         using (SessionOpenTrace.Measure("select + dock")) SelectionChanged?.Invoke();
-        await tab.Controller.StartAsync(profile, entry?.SupportedScripts);
+
+        await tab.Controller.StartAsync(opened, entry?.SupportedScripts, beforePack: CreateOpenPackRefresh(tab, profile, () => entry, listing => entry = listing, failed => themeCacheFailed = failed));
         if (themeCacheFailed && tab.Controller.Notice is null) tab.Controller.ShowNotice(L.WorldThemeCouldNotBeSaved);
+    }
+
+    private Func<Task<IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>?>>? CreateOpenPackRefresh(
+        SessionTab tab,
+        ConnectionProfile? profile,
+        Func<Wandur.Core.Discovery.WorldListing?> currentEntry,
+        Action<Wandur.Core.Discovery.WorldListing> setEntry,
+        Action<bool> setThemeCacheFailed)
+    {
+        if (profile is null || _catalog is null) return null;
+        var catalog = _catalog;
+        return async () =>
+        {
+            await catalog.RefreshBeforeOpenAsync(profile.Host, profile.Port, profile.UseTls);
+            if (_disposed) return null;
+            if (catalog.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is not { } listing)
+                return currentEntry()?.SupportedScripts;
+            setEntry(listing);
+            var updated = MergeCatalogListing(profile, listing);
+            tab.Profile = updated;
+            // Theme first so SaveSettings → ApplyAppearance does not briefly restore the personal preset.
+            tab.Controller.ApplyCatalogProfile(updated);
+            if (TryCacheProfile(tab, profile, updated)) setThemeCacheFailed(true);
+            ApplyAppearance();
+            return listing.SupportedScripts;
+        };
     }
 
     public async Task CloseAsync(SessionTab tab)

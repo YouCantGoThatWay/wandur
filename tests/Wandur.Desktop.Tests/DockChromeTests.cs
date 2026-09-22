@@ -11,6 +11,7 @@ using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Wandur.Core.Settings;
+using Wandur.Desktop.Views;
 
 namespace Wandur.Desktop.Tests;
 
@@ -120,36 +121,37 @@ public sealed class DockChromeTests
             AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
 
             var document = ChromeBorder<DocumentControl>(window, _ => true);
-            var panelsHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Right, "panels-dock"));
-            var panelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "panels-dock"));
-            var leftPanelsHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
-            var leftPanelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
             var mapContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "map-dock"));
             var channelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "channels-dock"));
+            var libraryHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Left, "left"));
             var libraryContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Left, "left"));
+            var mapHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Right, "map-dock"));
+            var channelsHeader = ChromeBorder<ToolChromeControl>(window, control => AlignedTo(control, Alignment.Right, "channels-dock"));
 
-            // A panels dock is rounded on the outer edge it shares with its neighbours and squared towards the centre, like them.
-            Assert.Equal(new CornerRadius(0, 10, 0, 0), panelsHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 10, 0), panelsContent.CornerRadius);
-            Assert.Equal(new CornerRadius(10, 0, 0, 0), leftPanelsHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 0, 10), leftPanelsContent.CornerRadius);
+            // Script panels no longer get a dock: they live in the session rail beside the transcript.
+            var rail = Assert.Single(window.GetVisualDescendants().OfType<ScriptPanelRailView>());
+            Assert.True(rail.IsVisible);
+            Assert.Equal(2, window.Controller.ScriptLibrary.Panels.Panels.Count(panel => !panel.IsBars));
+            Assert.Null(window.Workspace.RightPanelsDock);
+            Assert.Null(window.Workspace.LeftPanelsDock);
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<ToolControl>(), control => AlignedTo(control, Alignment.Right, "panels-dock"));
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<ToolControl>(), control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
+
             Assert.Equal(new CornerRadius(0), document.CornerRadius);
+            Assert.Equal(new CornerRadius(10, 0, 0, 0), libraryHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, 10), libraryContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), mapHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), mapContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 10, 0, 0), channelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 10, 0), channelsContent.CornerRadius);
 
             var centre = Frame(document, window);
             var map = Frame(mapContent, window);
-            var panels = Frame(panelsContent, window);
             var channels = Frame(channelsContent, window);
-            Assert.Equal(map.Left, panels.Left);
-            Assert.Equal(map.Right, panels.Right);
-            Assert.True(panels.Top >= map.Bottom, "the panels sit below the map");
-            Assert.True(channels.Top >= panels.Bottom, "the channels sit below the panels");
-            Assert.InRange(panels.Left - centre.Right, 0, 6);
+            Assert.True(channels.Top >= map.Bottom, "the channels sit below the map on the right edge");
+            Assert.InRange(map.Left - centre.Right, 0, 6);
             var library = Frame(libraryContent, window);
-            var leftPanels = Frame(leftPanelsContent, window);
-            Assert.Equal(library.Left, leftPanels.Left);
-            Assert.Equal(library.Right, leftPanels.Right);
-            Assert.True(leftPanels.Top >= library.Bottom, "the left panels sit below the world library");
-            Assert.InRange(centre.Left - leftPanels.Right, 0, 6);
+            Assert.InRange(centre.Left - library.Right, 0, 6);
             if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } directory)
             {
                 using var frame = window.CaptureRenderedFrame();
@@ -162,5 +164,69 @@ public sealed class DockChromeTests
             await window.Sessions.DisposeAsync(); window.Close();
             if (Directory.Exists(path)) Directory.Delete(path, true);
         }
+    }
+
+    private static string[] LayoutShape(IDock dock) =>
+        dock.VisibleDockables!.Select(item => item is IProportionalDockSplitter ? "splitter" : item.Id ?? "?").ToArray();
+
+    /// <summary>
+    /// Pinning or hiding both right-edge tools must collapse the right column so the session document
+    /// expands into that width. Leaving <c>IsCollapsable=false</c> on the right proportional dock left a
+    /// grey empty strip beside the transcript.
+    /// </summary>
+    [AvaloniaFact]
+    public void HidingMapAndChannelsCollapsesTheRightColumn()
+    {
+        var window = CreateWindow();
+        try
+        {
+            var library = Assert.IsAssignableFrom<IToolDock>(window.Workspace.WorldsTool!.Owner);
+            var layout = Assert.IsAssignableFrom<IProportionalDock>(library.Owner);
+            Assert.Equal(new[] { "left", "splitter", "documents", "splitter", "right" }, LayoutShape(layout));
+            Assert.True(window.IsMapVisible);
+            Assert.True(window.IsChannelsVisible);
+
+            window.ToggleMap();
+            window.ToggleChannels();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+
+            Assert.False(window.IsMapVisible);
+            Assert.False(window.IsChannelsVisible);
+            Assert.Equal(new[] { "left", "splitter", "documents" }, LayoutShape(layout));
+            Assert.DoesNotContain(layout.VisibleDockables!, item => item.Id == "right");
+
+            // Restoring either tool brings the right column back.
+            window.ToggleMap();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(window.IsMapVisible);
+            Assert.Contains(layout.VisibleDockables!, item => item.Id == "right");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PinningMapAndChannelsCollapsesTheRightColumn()
+    {
+        var window = CreateWindow();
+        try
+        {
+            var map = window.Workspace.MapTool!;
+            var channels = window.Workspace.ChannelsTool!;
+            var library = Assert.IsAssignableFrom<IToolDock>(window.Workspace.WorldsTool!.Owner);
+            var layout = Assert.IsAssignableFrom<IProportionalDock>(library.Owner);
+            Assert.Contains(layout.VisibleDockables!, item => item.Id == "right");
+
+            window.Workspace.PinDockable(map);
+            window.Workspace.PinDockable(channels);
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(2);
+
+            Assert.True(window.Workspace.IsDockablePinned(map));
+            Assert.True(window.Workspace.IsDockablePinned(channels));
+            Assert.Equal(new[] { "left", "splitter", "documents" }, LayoutShape(layout));
+            Assert.DoesNotContain(layout.VisibleDockables!, item => item.Id == "right");
+        }
+        finally { window.Close(); }
     }
 }

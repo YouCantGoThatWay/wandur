@@ -52,7 +52,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         using (SessionOpenTrace.Measure("settings load")) loaded = store.Load();
         Settings = loaded.Settings;
         Display.ApplySettings(Settings);
-        ThemeService.Apply(Settings);
+        // Pass WorldTheme (null until staged) so a lone controller still paints, and an opening
+        // tab that already staged a world theme is not overwritten by the personal preset.
+        ThemeService.Apply(Settings, WorldTheme);
         if (loaded.Warning is not null) Notice = loaded.Warning;
         _outputTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => { FlushOutput(); ReplayCachedState(); SaveMap(); ScriptLibrary.Tick(); });
         _outputTimer.Start();
@@ -119,24 +121,31 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         SettingsSaved?.Invoke(settings);
     }
 
+    /// <summary>Remembers the world theme before the session announces itself, so the shell never paints the personal preset first.</summary>
+    internal void StageWorldTheme(Wandur.Core.Discovery.WorldTheme? theme) =>
+        WorldTheme = theme is { IsValid: true } ? theme : null;
+
     internal void ApplySettings(ClientSettings settings)
     {
         Settings = settings;
         RefreshChannelRules();
         Display.ApplySettings(settings);
-        ThemeService.Apply(settings);
+        ThemeService.Apply(settings, WorldTheme);
         TerminalVersion++;
         Changed?.Invoke();
         // Turning classification off stops work already in flight; turning it on picks up what was missed.
         if (Settings.ClassifyRoomsLocally) ScheduleInference(); else CancelInference();
     }
 
-    public async Task StartAsync(ConnectionProfile? profile = null, IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>? packScripts = null)
+    public async Task StartAsync(ConnectionProfile? profile = null, IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>? packScripts = null,
+        Func<Task<IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>?>>? beforePack = null)
     {
         if (_disposed) return;
         if (_startPending || IsConnecting || IsConnected) { ShowNotice(L.DisconnectFromTheCurrentWorldBeforeStartingAnotherSession); return; }
         _startPending = true;
         IsConnecting = true;
+        // Stage before the first Changed so ApplyAppearance never briefly restores the personal theme.
+        WorldTheme = profile?.Theme is { IsValid: true } theme ? theme : null;
         Changed?.Invoke();
         await _lifecycle.WaitAsync();
         try
@@ -149,7 +158,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             _mappingRefreshPending = false;
             _protocolBindings = profile?.GetProtocolMapping() is { } mapping ? new Wandur.Core.Protocol.ProtocolBindingEngine(mapping) : null;
             ConfigureChannels(profile);
-            WorldTheme = profile?.Theme is { IsValid: true } theme ? theme : null;
+            WorldTheme = profile?.Theme is { IsValid: true } openTheme ? openTheme : null;
             _connectionCancellation = new();
             var token = _connectionCancellation.Token;
             IsConnecting = true;
@@ -159,8 +168,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             Status = L.Connecting; Notice = null; CommandsSent = 0;
             _serverPrivate = _promptPrivate = _manualPrivate = false;
             // Clearing the transcript announces the session, which is what puts the tab on screen with
-            // its connecting status. Everything this world needs from storage is read after that, so a
-            // slow map, script library or agent profile cannot hold the new tab back.
+            // its connecting status. A directory refresh may still run after that, before packs attach,
+            // so a slow catalog cannot hold the new tab back.
             using (SessionOpenTrace.Measure("transcript reset")) { History = new(); Completions = new(); ClearTranscript(); _promptTerminal.Clear(); }
             using (SessionOpenTrace.Measure("mapping start")) StartMapping(profile, session);
             using (SessionOpenTrace.Measure("script library"))
@@ -168,6 +177,12 @@ public sealed partial class WorkspaceController : IAsyncDisposable
                 var worldKey = profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}";
                 ResetScriptState(worldKey);
                 ScriptLibrary.Configure(worldKey, WorldName);
+                if (beforePack is not null)
+                {
+                    IReadOnlyList<Wandur.Core.Discovery.WorldScriptListing>? refreshed;
+                    using (SessionOpenTrace.Measure("catalog refresh")) refreshed = await beforePack();
+                    if (refreshed is not null) packScripts = refreshed;
+                }
                 ScriptLibrary.ApplyPack(packScripts ?? []);
             }
             using (SessionOpenTrace.Measure("agent profile"))

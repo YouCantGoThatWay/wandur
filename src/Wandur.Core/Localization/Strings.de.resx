@@ -1825,6 +1825,8 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="ScriptDuplicateName" xml:space="preserve"><value>{0} (Kopie)</value></data>
   <data name="ScriptPanelRejected" xml:space="preserve"><value>Eine Panel-Anweisung wurde abgelehnt: {0}</value></data>
   <data name="ScriptPanelEmpty" xml:space="preserve"><value>Dieses Panel enthält noch keine Elemente.</value></data>
+  <data name="ScriptPanelRailCollapse" xml:space="preserve"><value>Paneele einklappen</value></data>
+  <data name="ScriptPanelRailExpand" xml:space="preserve"><value>Paneele anzeigen</value></data>
   <data name="ScriptCompleteMsdp" xml:space="preserve"><value>MSDP-Variablenaktualisierungen. Daten: variable: string; value: JSON. Erfordert Serverunterstützung.</value></data>
   <data name="ScriptCompleteState" xml:space="preserve"><value>Die zuletzt empfangenen Werte. state.get(path) liest gmcp.Char.Vitals.hp oder msdp.SHIPHULL.</value></data>
   <data name="ScriptCompletePanel" xml:space="preserve"><value>Erstellt ein angedocktes Panel aus Elementdeklarationen oder verwendet es erneut.</value></data>
