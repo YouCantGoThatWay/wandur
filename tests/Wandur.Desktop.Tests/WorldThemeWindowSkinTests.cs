@@ -15,22 +15,22 @@ public sealed class WorldThemeWindowSkinTests
     [Fact]
     public void RightFlareAnchorsIndependentOfDocks()
     {
-        var bounds = ThemeOrnamentLayer.AnchorBounds("bottom-right", new SkinSize(120, 64), new Size(1380, 900));
-        Assert.Equal(new Rect(1260, 836, 120, 64), bounds);
-        var left = ThemeOrnamentLayer.AnchorBounds("bottom-left", new SkinSize(120, 64), new Size(1380, 900));
-        Assert.Equal(new Rect(0, 836, 120, 64), left);
-        var header = ThemeOrnamentLayer.AnchorBounds("top-center", new SkinSize(320, 64), new Size(1380, 900));
-        Assert.Equal(new Rect(530, 0, 320, 64), header);
+        var bounds = ThemeOrnamentLayer.AnchorBounds("bottom-right", new SkinSize(100, 64), new Size(1380, 900));
+        Assert.Equal(new Rect(1280, 836, 100, 64), bounds);
+        var left = ThemeOrnamentLayer.AnchorBounds("bottom-left", new SkinSize(100, 64), new Size(1380, 900));
+        Assert.Equal(new Rect(0, 836, 100, 64), left);
+        var header = ThemeOrnamentLayer.AnchorBounds("top-center", new SkinSize(212, 56), new Size(1380, 900));
+        Assert.Equal(new Rect(584, 0, 212, 56), header);
     }
 
     [Fact]
     public void BottomFlareIntrusionFitsFooterClearance()
     {
-        // Measured: flare 64, inset.bottom 24 → 40 DIP intrusion; footer min_height 40.
-        const double flareHeight = 64, insetBottom = 24, minHeight = 40;
+        // Measured polish: flare 64, inset.bottom 20 → 44 DIP intrusion; footer min_height 44.
+        const double flareHeight = 64, insetBottom = 20, minHeight = 44;
         Assert.True(flareHeight <= insetBottom + minHeight);
-        // Horizontal: width 120, side inset 16 → need clearance >= 108.
-        Assert.Equal(108, Math.Max(0, 120 - 16) + 4);
+        // Horizontal: width 100, side inset 16 → need clearance >= 90.
+        Assert.Equal(90, Math.Max(0, 100 - 16) + 6);
     }
 
     [AvaloniaFact]
@@ -41,9 +41,9 @@ public sealed class WorldThemeWindowSkinTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
         handler.Map("imperial-bezel", TestPng.Rgba(96, 96));
 
         await using var harness = await OpenAsync(theme, handler);
@@ -53,7 +53,7 @@ public sealed class WorldThemeWindowSkinTests
         var bezel = harness.Window.GetVisualDescendants().OfType<ThemeBezelHost>().Single(h => h.Name == "ThemeBezel");
         var ornaments = harness.Window.GetVisualDescendants().OfType<ThemeOrnamentLayer>().Single(h => h.Name == "ThemeOrnaments");
         Assert.NotNull(windowSkin.BorderBitmap);
-        Assert.Equal(new Thickness(16, 38, 16, 24), windowSkin.Inset);
+        Assert.Equal(new Thickness(16, 56, 16, 20), windowSkin.Inset);
         Assert.Null(bezel.BorderBitmap);
         Assert.Equal(default, bezel.Inset);
         Assert.False(ornaments.IsHitTestVisible);
@@ -68,9 +68,9 @@ public sealed class WorldThemeWindowSkinTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await OpenAsync(theme, handler);
         await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.OverlayKey("left-flare")) == true);

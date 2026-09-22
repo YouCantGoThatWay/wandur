@@ -113,6 +113,24 @@
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
     </Style>
+    <Style Selector="TextBox.terminal-field">
+      <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TerminalTextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource TranscriptSelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="TextBox.terminal-field:focus, TextBox.terminal-field:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-field:pointerover /template/ Border#PART_BorderElement, TextBox.terminal-field:focus /template/ Border#PART_BorderElement, TextBox.terminal-field:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-field:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    </Style>
     <Style Selector="TextBox:focus, TextBox:pointerover">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>

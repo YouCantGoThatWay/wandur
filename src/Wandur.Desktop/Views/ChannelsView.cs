@@ -47,6 +47,10 @@ public sealed class ChannelsView : UserControl
         reply.Bind(TextBox.PlaceholderTextProperty, new Binding(nameof(model.ReplyHint)));
         reply.Bind(IsEnabledProperty, new Binding(nameof(model.CanReply)));
         reply.Bind(Avalonia.Automation.AutomationProperties.NameProperty, new Binding(nameof(model.ReplyHint)));
+        ThemeService.SyncTerminalField(reply);
+        ThemeService.Applied += SyncReplyField;
+        DetachedFromVisualTree += (_, _) => ThemeService.Applied -= SyncReplyField;
+        void SyncReplyField() => ThemeService.SyncTerminalField(reply);
         reply.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None) return;
@@ -62,7 +66,7 @@ public sealed class ChannelsView : UserControl
             Name = "ChannelReplyBar", Padding = new Thickness(8, 6), BorderThickness = new Thickness(0, 1, 0, 0),
             Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 6, Children = { reply, send } }
         };
-        replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("ShellBrush"));
+        replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("TerminalBrush"));
         replyRow.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
         var header = Ui.Toolbar(tabs, "ChannelsToolbar");
         Grid.SetRow(note, 1); Grid.SetRow(messages, 2); Grid.SetRow(replyRow, 3);

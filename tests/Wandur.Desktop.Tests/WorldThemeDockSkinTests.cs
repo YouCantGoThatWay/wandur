@@ -24,9 +24,9 @@ public sealed class WorldThemeDockSkinTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await OpenAsync(theme, handler);
         await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.PanelDefaultKey) == true);
@@ -60,9 +60,9 @@ public sealed class WorldThemeDockSkinTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await OpenAsync(theme, handler);
         await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.PanelDefaultKey) == true);

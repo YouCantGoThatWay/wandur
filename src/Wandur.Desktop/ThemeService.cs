@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Wandur.Core.Settings;
@@ -134,12 +135,16 @@ public static class ThemeService
         }
         void Set(string key, string color) => resources.Color(key, color);
         var background = settings.Background ?? terminal;
+        var terminalText = settings.Foreground ?? worldTheme?.Colors.TerminalText ?? text;
+        // ANSI and terminal-adjacent chrome follow the surface the glyphs sit on, not the outer shell
+        // variant: a light industrial frame can still host a dark transcript.
+        var terminalLight = UserTheme.IsLightBackground(background);
         // A preset's sixteen colors are chosen for its own terminal background. A world theme or a custom
         // background color can invert that lightness, and the preset palette would then be illegible, so
         // the colors come from a preset that suits the background actually in use. A custom theme keeps
         // the colors its editor shows, including over a world theme.
         var readable = UserTheme.PaletteForBackground(background);
-        var presetPalette = UserTheme.IsLightBackground(preset["Terminal"]) == UserTheme.IsLightBackground(background)
+        var presetPalette = UserTheme.IsLightBackground(preset["Terminal"]) == terminalLight
             ? presetTheme.AnsiColors : null;
         for (var i = 0; i < Wandur.Core.Terminal.AnsiPalette.Defaults.Count; i++)
             Set($"AnsiColor{i}Brush", ansiTheme is not null
@@ -147,18 +152,24 @@ public static class ThemeService
                 : presetPalette?.GetValueOrDefault(i) ?? readable[i]);
         Set("ShellBrush", shell); Set("PanelBrush", panel); Set("TextBrush", text);
         Set("TerminalBrush", background);
-        Set("TerminalTextBrush", settings.Foreground ?? worldTheme?.Colors.TerminalText ?? text);
+        Set("TerminalTextBrush", terminalText);
         Set("MapCanvasBrush", worldTheme?.Colors.Terminal ?? preset["MapBackground"]);
         Set("MapGridBrush", worldTheme?.Colors.Border ?? preset["MapGrid"]);
         Set("MutedBrush", muted); Set("AccentBrush", accent); Set("LineBrush", line);
         // Dimming by opacity costs far more contrast over a light surface than a dark one: the same 0.35
-        // that still reads as text on Midnight washes out to pale grey on Daylight.
+        // that still reads as text on Midnight washes out to pale grey on Daylight. Shell chrome follows
+        // the outer variant; terminal fields use the terminal surface via TerminalDisabledOpacity.
         resources.Value("DisabledOpacity", light ? LightDisabledOpacity : DarkDisabledOpacity);
+        // Prefer a higher floor for terminal-field disabled opacity so contrast probes still pass on dark transcripts.
+        resources.Value("TerminalDisabledOpacity", terminalLight ? LightDisabledOpacity : 0.72);
         // Fluent draws every placeholder at a fixed half opacity it writes onto the template element, so no
         // colour can reach 4.5:1 over a light surface. Pushing the text colour to the end of its own range
-        // buys back what is left: roughly 2.1:1 to 3.8:1 on Daylight.
+        // buys back what is left: roughly 2.1:1 to 3.8:1 on Daylight. Shell inputs keep the chrome
+        // placeholder; terminal fields override with TerminalPlaceholderForeground locally.
         resources.Color("TextControlPlaceholderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
         resources.Color("ComboBoxPlaceHolderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
+        resources.Color("TerminalPlaceholderForeground",
+            Mix(Color.Parse(terminalText), terminalLight ? Colors.Black : Colors.White, .55));
         Set("SecondaryAccentBrush", worldTheme?.Colors.AccentSecondary ?? accent);
         Set("EditorBackgroundBrush", worldTheme?.Colors.Terminal ?? preset["EditorBackground"]);
         Set("EditorTextBrush", worldTheme?.Colors.Text ?? preset["EditorText"]);
@@ -198,7 +209,11 @@ public static class ThemeService
         resources.Value("DockDocumentContentBorderThickness", new Thickness(0));
         if (!app.Resources.ContainsKey("DockDocumentControlTabStripVisible")) app.Resources["DockDocumentControlTabStripVisible"] = false;
         resources.Value("DockDocumentTabStripSeparatorVisible", false);
-        resources.Value("DockToolChromeHeaderMargin", new Thickness(12, 9, 6, 9));
+        resources.Value("DockToolChromeHeaderMargin", new Thickness(
+            worldTheme?.Skin?.Panels?.Default is not null ? 8 : 12,
+            worldTheme?.Skin?.Panels?.Default is not null ? 6 : 9,
+            worldTheme?.Skin?.Panels?.Default is not null ? 6 : 6,
+            worldTheme?.Skin?.Panels?.Default is not null ? 6 : 9));
         resources.Value("DockToolChromeTitleMargin", new Thickness(0));
         resources.Value("DockChromeButtonWidth", 24d);
         resources.Value("DockChromeButtonHeight", 24d);
@@ -235,5 +250,20 @@ public static class ThemeService
                     Geometry = new EllipseGeometry(new Rect(column * 5, row * 5, 2, 2))
                 });
         resources.Brush("DockChromeGripBrush", new DrawingBrush { Drawing = grip, Stretch = Stretch.Uniform });
+    }
+
+    /// <summary>
+    /// Command and channel reply boxes sit on <see cref="TerminalBrush"/>, so their caret, text and
+    /// Fluent placeholder must follow the terminal surface rather than the outer shell chrome.
+    /// </summary>
+    internal static void SyncTerminalField(TextBox box)
+    {
+        box.Classes.Add("terminal-field");
+        if (Application.Current?.Resources.TryGetValue("TerminalPlaceholderForeground", out var brush) == true)
+            box.Resources["TextControlPlaceholderForeground"] = brush!;
+        // Fluent multiplies disabled chrome by DisabledOpacity; terminal fields need a milder factor
+        // so placeholders and glyphs stay readable on dark transcript surfaces.
+        if (Application.Current?.Resources.TryGetValue("TerminalDisabledOpacity", out var opacity) == true)
+            box.Resources["DisabledOpacity"] = opacity!;
     }
 }

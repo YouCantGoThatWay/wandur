@@ -8,13 +8,13 @@
   "colors": {
     "shell": "#E8ECF0",
     "panel": "#F2F5F8",
-    "terminal": "#FFFFFF",
+    "terminal": "#101820",
     "text": "#1A2330",
     "muted": "#5A6A7A",
     "accent": "#2AA8D8",
     "accent_secondary": "#28799B",
     "border": "#B8C4D0",
-    "terminal_text": "#15202B"
+    "terminal_text": "#DCE6EE"
   },
   "frame": {
     "kind": "bezel",
@@ -54,16 +54,16 @@
         },
         "thickness": {
           "left": 16,
-          "top": 38,
+          "top": 56,
           "right": 16,
-          "bottom": 24
+          "bottom": 20
         }
       },
       "inset": {
         "left": 16,
-        "top": 38,
+        "top": 56,
         "right": 16,
-        "bottom": 24
+        "bottom": 20
       },
       "overlays": [
         {
@@ -71,8 +71,8 @@
           "url": "themes/industrial-v2/header.png",
           "anchor": "top-center",
           "size": {
-            "width": 320,
-            "height": 64
+            "width": 212,
+            "height": 56
           }
         },
         {
@@ -80,7 +80,7 @@
           "url": "themes/industrial-v2/corner-left.png",
           "anchor": "bottom-left",
           "size": {
-            "width": 120,
+            "width": 100,
             "height": 64
           }
         },
@@ -89,15 +89,15 @@
           "url": "themes/industrial-v2/corner-right.png",
           "anchor": "bottom-right",
           "size": {
-            "width": 120,
+            "width": 100,
             "height": 64
           }
         }
       ],
       "footer_clearance": {
-        "left": 108,
-        "right": 108,
-        "min_height": 40
+        "left": 90,
+        "right": 90,
+        "min_height": 44
       },
       "compact_below": {
         "width": 1200,
@@ -119,19 +119,19 @@
             "bottom": 41
           },
           "thickness": {
-            "left": 21,
-            "top": 40,
-            "right": 21,
-            "bottom": 20
+            "left": 16,
+            "top": 36,
+            "right": 16,
+            "bottom": 16
           }
         },
         "inset": {
-          "left": 21,
-          "top": 8,
-          "right": 21,
-          "bottom": 20
+          "left": 20,
+          "top": 14,
+          "right": 20,
+          "bottom": 18
         },
-        "header_height": 32
+        "header_height": 28
       }
     }
   }

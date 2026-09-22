@@ -22,9 +22,9 @@ public sealed class WorldThemeSkinResourceTests
         var handler = new SkinHandler();
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await SkinHarness.OpenAsync(theme, handler);
         await harness.WaitForKey(ThemeSkinResources.WindowBorderKey);
@@ -47,9 +47,9 @@ public sealed class WorldThemeSkinResourceTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(64, 64)); // wrong vs 512x384
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
         // Legacy fallback still present on the theme.
         handler.Map("imperial-bezel", TestPng.Rgba(96, 96));
 
@@ -75,9 +75,9 @@ public sealed class WorldThemeSkinResourceTests
         var handler = new SkinHandler();
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(10, 10)); // bad aspect vs 320x64
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(10, 10)); // bad aspect vs destination
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await SkinHarness.OpenAsync(theme, handler);
         await harness.WaitForKey(ThemeSkinResources.WindowBorderKey);
@@ -95,9 +95,9 @@ public sealed class WorldThemeSkinResourceTests
         var handler = new SkinHandler { DelayMs = 80 };
         handler.Map("window-border.png", TestPng.Rgba(512, 384));
         handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(320, 64));
-        handler.Map("corner-left.png", TestPng.Rgba(240, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(240, 128));
+        handler.Map("header.png", TestPng.Rgba(212, 56));
+        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
+        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
 
         await using var harness = await SkinHarness.OpenAsync(industrial, handler);
         // Switch to palette-only before industrial images finish.

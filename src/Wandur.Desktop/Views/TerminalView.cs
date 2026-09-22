@@ -128,6 +128,9 @@ public sealed class TerminalView : UserControl
             if (controller.Pages.IsPlay && args.KeyModifiers == KeyModifiers.None && args.Key >= Key.F1 && args.Key <= Key.F12)
                 args.Handled = controller.ScriptLibrary.HandleShortcut(args.Key.ToString());
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        ThemeService.SyncTerminalField(_input);
+        ThemeService.Applied += SyncCommandField;
+        DetachedFromVisualTree += (_, _) => ThemeService.Applied -= SyncCommandField;
         _input.KeyDown += async (_, args) =>
         {
             if (args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None) { args.Handled = true; await Send(); }
@@ -153,7 +156,7 @@ public sealed class TerminalView : UserControl
         };
         var display = controller.Display.View;
         if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
-        display.Margin = new Thickness(8, 4, 4, 4);
+        display.Margin = new Thickness(4, 2, 2, 2);
         var output = new Grid
         {
             RowDefinitions = new RowDefinitions { _transcriptRow, new RowDefinition(GridLength.Auto), _liveRow },
@@ -427,6 +430,8 @@ public sealed class TerminalView : UserControl
         }, DispatcherPriority.Input);
     }
 
+
+    private void SyncCommandField() => ThemeService.SyncTerminalField(_input);
 
     private void Refresh()
     {
