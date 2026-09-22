@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets/icon-256.png" />
+    <AvaloniaResource Include="Styles/ThemeDockSkin.axaml" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wandur.Core/Wandur.Core.csproj" />

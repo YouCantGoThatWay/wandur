@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "id": "wandur-industrial-v2",
+  "name": "Industrial silver",
+  "variant": "light",
+  "corner_radius": 2,
+  "surface": "metallic",
+  "colors": {
+    "shell": "#E8ECF0",
+    "panel": "#F2F5F8",
+    "terminal": "#FFFFFF",
+    "text": "#1A2330",
+    "muted": "#5A6A7A",
+    "accent": "#2AA8D8",
+    "accent_secondary": "#28799B",
+    "border": "#B8C4D0",
+    "terminal_text": "#15202B"
+  },
+  "frame": {
+    "kind": "bezel",
+    "inset": {
+      "left": 28,
+      "top": 36,
+      "right": 28,
+      "bottom": 32
+    },
+    "content_radius": 0,
+    "assets": {
+      "border": {
+        "url": "themes/imperial-bezel/border.png",
+        "slice": {
+          "left": 48,
+          "top": 56,
+          "right": 48,
+          "bottom": 48
+        }
+      }
+    }
+  },
+  "skin": {
+    "version": 1,
+    "window": {
+      "border": {
+        "url": "themes/industrial-v2/window-border.png",
+        "source_size": {
+          "width": 512,
+          "height": 384
+        },
+        "slice": {
+          "left": 31,
+          "top": 75,
+          "right": 31,
+          "bottom": 48
+        },
+        "thickness": {
+          "left": 16,
+          "top": 38,
+          "right": 16,
+          "bottom": 24
+        }
+      },
+      "inset": {
+        "left": 16,
+        "top": 38,
+        "right": 16,
+        "bottom": 24
+      },
+      "overlays": [
+        {
+          "id": "header",
+          "url": "themes/industrial-v2/header.png",
+          "anchor": "top-center",
+          "size": {
+            "width": 320,
+            "height": 64
+          }
+        },
+        {
+          "id": "left-flare",
+          "url": "themes/industrial-v2/corner-left.png",
+          "anchor": "bottom-left",
+          "size": {
+            "width": 120,
+            "height": 64
+          }
+        },
+        {
+          "id": "right-flare",
+          "url": "themes/industrial-v2/corner-right.png",
+          "anchor": "bottom-right",
+          "size": {
+            "width": 120,
+            "height": 64
+          }
+        }
+      ],
+      "footer_clearance": {
+        "left": 108,
+        "right": 108,
+        "min_height": 40
+      },
+      "compact_below": {
+        "width": 1200,
+        "height": 760
+      }
+    },
+    "panels": {
+      "default": {
+        "border": {
+          "url": "themes/industrial-v2/dock-panel.png",
+          "source_size": {
+            "width": 512,
+            "height": 1024
+          },
+          "slice": {
+            "left": 42,
+            "top": 79,
+            "right": 42,
+            "bottom": 41
+          },
+          "thickness": {
+            "left": 21,
+            "top": 40,
+            "right": 21,
+            "bottom": 20
+          }
+        },
+        "inset": {
+          "left": 21,
+          "top": 8,
+          "right": 21,
+          "bottom": 20
+        },
+        "header_height": 32
+      }
+    }
+  }
+}

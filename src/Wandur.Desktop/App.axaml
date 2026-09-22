@@ -28,6 +28,7 @@
     <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <dock:DockFluentTheme />
+    <StyleInclude Source="avares://Wandur/Styles/ThemeDockSkin.axaml" />
     <Style Selector="Window">
       <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
       <Setter Property="FontSize" Value="13" />

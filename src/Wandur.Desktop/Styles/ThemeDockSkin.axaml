@@ -1,0 +1,55 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dc="clr-namespace:Dock.Avalonia.Controls;assembly=Dock.Avalonia"
+        xmlns:dmc="clr-namespace:Dock.Model.Controls;assembly=Dock.Model"
+        xmlns:local="using:Wandur.Desktop"
+        x:CompileBindings="False">
+
+  <!-- Wrap each ToolDock's chrome+body in the panel skin host. PART names and DataContext stay intact. -->
+  <Styles.Resources>
+    <ControlTheme x:Key="{x:Type dc:ToolDockControl}" TargetType="dc:ToolDockControl" x:DataType="dmc:IToolDock">
+      <Setter Property="(AutomationProperties.AutomationId)" Value="{Binding Id}" />
+      <Setter Property="(AutomationProperties.Name)" Value="{Binding Title}" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="MinWidth" Value="{Binding MinWidth}" />
+      <Setter Property="MaxWidth" Value="{Binding MaxWidth}" />
+      <Setter Property="MinHeight" Value="{Binding MinHeight}" />
+      <Setter Property="MaxHeight" Value="{Binding MaxHeight}" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <local:ThemeDockSkinHost Name="PART_DockSkin">
+            <dc:DockableControl Name="PART_DockableControl"
+                                TrackingMode="Visible"
+                                Background="{TemplateBinding Background}"
+                                DockProperties.IsDropArea="True"
+                                DockProperties.IsDockTarget="True">
+              <dc:ToolChromeControl IsActive="{Binding IsActive}"
+                                    IsVisible="{Binding !!VisibleDockables.Count}">
+                <dc:ToolControl />
+              </dc:ToolChromeControl>
+            </dc:DockableControl>
+          </local:ThemeDockSkinHost>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <!-- Suppress plain chrome surfaces only while the panel skin bitmap is active. -->
+  <Style Selector="local|ThemeDockSkinHost[IsSkinActive=True] dc|ToolChromeControl /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="local|ThemeDockSkinHost[IsSkinActive=True] dc|ToolChromeControl /template/ Grid#PART_Grip">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="local|ThemeDockSkinHost[IsSkinActive=True] dc|ToolControl /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+</Styles>

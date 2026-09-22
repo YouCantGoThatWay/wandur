@@ -17,6 +17,8 @@ public sealed record WorldTheme
     public WorldThemeImages Images { get; init; } = new();
     /// <summary>Optional window chrome. Missing, malformed or unknown kinds are ignored; the palette still applies.</summary>
     public WorldThemeFrame? Frame { get; init; }
+    /// <summary>Optional modular skin. Missing, malformed or unknown versions are ignored; the palette still applies.</summary>
+    public WorldThemeSkin? Skin { get; init; }
     public bool IsValid => Version == 1 && Id is { Length: > 0 and <= 80 } &&
         Id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.') &&
         Name is { Length: > 0 and <= 100 } && !string.IsNullOrWhiteSpace(Name) && !Name.Any(char.IsControl) && Variant is "dark" or "light" &&
@@ -123,7 +125,8 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
                 Colors = root.GetProperty("colors").Deserialize<WorldThemeColors>(WireOptions) ?? new(),
                 Surface = root.TryGetProperty("surface", out var surface) && surface.ValueKind == JsonValueKind.String && surface.GetString() == "metallic" ? "metallic" : "standard",
                 Images = ReadImages(root),
-                Frame = ReadFrame(root)
+                Frame = ReadFrame(root),
+                Skin = ReadSkin(root)
             };
             return theme.IsValid ? theme : null;
         }
@@ -180,6 +183,12 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
         }
         catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or OverflowException) { return null; }
     }
+    private static WorldThemeSkin? ReadSkin(JsonElement root)
+    {
+        if (!root.TryGetProperty("skin", out var skin) || skin.ValueKind != JsonValueKind.Object) return null;
+        try { return WorldThemeSkinJson.Read(skin); }
+        catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException or OverflowException) { return null; }
+    }
     public override void Write(Utf8JsonWriter writer, WorldTheme value, JsonSerializerOptions options)
     {
         if (!value.IsValid) { writer.WriteNullValue(); return; }
@@ -215,6 +224,11 @@ public sealed class WorldThemeConverter : JsonConverter<WorldTheme>
                 writer.WriteEndObject(); writer.WriteEndObject();
             }
             writer.WriteEndObject();
+        }
+        if (value.Skin is { HasContent: true } skin)
+        {
+            writer.WritePropertyName("skin");
+            WorldThemeSkinJson.Write(writer, skin);
         }
         writer.WriteEndObject();
     }

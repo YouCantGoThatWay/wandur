@@ -35,7 +35,12 @@ public sealed class MainWindow : Window
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly Border _notice;
     private readonly Border _toolbar;
+    private readonly Border _footer;
+    private readonly TextBlock _footerHint;
     private readonly ThemeBezelHost _bezel;
+    private readonly ThemeWindowSkinHost _windowSkin;
+    private readonly ThemeOrnamentLayer _ornaments;
+    private Thickness _footerBasePadding = new(12, 3);
     private const double MacTitleBarHeight = 52;
     private const double ToolbarHeight = 40;
     private readonly Button _disconnect;
@@ -124,24 +129,32 @@ public sealed class MainWindow : Window
         _noticeText.VerticalAlignment = VerticalAlignment.Center;
         var statusRight = Ui.TextKey(nameof(L.CtrlTabSwitchSessionsDragPanelHeadersToArrange), 10, "muted");
         statusRight.HorizontalAlignment = HorizontalAlignment.Right;
+        _footerHint = statusRight;
         Grid.SetColumn(statusRight, 1);
         var footerSeparator = Ui.Text("·", 10); footerSeparator.Classes.Add("muted"); footerSeparator.VerticalAlignment = VerticalAlignment.Center;
         _status.VerticalAlignment = VerticalAlignment.Center;
         var footerLeft = new StackPanel { Name = "FooterStatus", Orientation = Orientation.Horizontal, Spacing = 8, Children = { _status, footerSeparator, _toolbarStatus } };
-        var footer = new Border { Padding = new Thickness(12, 3), BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { footerLeft, statusRight } } };
-        footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        _footer = new Border { Name = "WindowFooter", Padding = _footerBasePadding, BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { footerLeft, statusRight } } };
+        _footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
-        root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(footer, 3); root.Children.Add(footer);
+        root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(_footer, 3); root.Children.Add(_footer);
         // Clip the shell when a bezel sets content_radius; without a frame the radius stays zero.
         var shell = new Border { Name = "ShellContent", Child = root, ClipToBounds = true };
         _bezel = new ThemeBezelHost { Name = "ThemeBezel", Child = shell };
-        Content = _bezel;
+        _windowSkin = new ThemeWindowSkinHost { Name = "ThemeWindowSkin", Child = _bezel };
+        _ornaments = new ThemeOrnamentLayer { Name = "ThemeOrnaments" };
+        _ornaments.ClearanceChanged += ApplyFooterClearance;
+        var chrome = new Grid { Name = "ThemeChrome" };
+        chrome.Children.Add(_windowSkin);
+        chrome.Children.Add(_ornaments);
+        Content = chrome;
         ThemeService.Applied += OnThemeApplied;
         Sessions.Changed += Refresh;
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
         Closed += (_, _) =>
         {
             ThemeService.Applied -= OnThemeApplied;
+            _ornaments.ClearanceChanged -= ApplyFooterClearance;
             Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
         };
         Closing += OnClosing;
@@ -152,7 +165,27 @@ public sealed class MainWindow : Window
         Refresh();
     }
 
-    private void OnThemeApplied() => _bezel.ApplyFromTheme();
+    private void OnThemeApplied()
+    {
+        _windowSkin.ApplyFromTheme();
+        _bezel.ApplyFromTheme();
+        _ornaments.ApplyFromTheme();
+        ApplyFooterClearance();
+    }
+
+    private void ApplyFooterClearance()
+    {
+        var clearance = _ornaments.EffectiveFooterClearance;
+        _footer.Padding = new Thickness(
+            _footerBasePadding.Left + clearance.Left,
+            _footerBasePadding.Top,
+            _footerBasePadding.Right + clearance.Right,
+            _footerBasePadding.Bottom);
+        _footer.MinHeight = clearance.MinHeight > 0
+            ? Math.Max(0, clearance.MinHeight + _footerBasePadding.Top + _footerBasePadding.Bottom)
+            : 0;
+        _footerHint.IsVisible = clearance.Left == 0 && clearance.Right == 0;
+    }
 
     private void UpdateTitleBarInsets()
     {

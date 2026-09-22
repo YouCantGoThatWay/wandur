@@ -35,7 +35,7 @@ public sealed partial class SessionWorkspace
         var theme = settings.UseWorldThemes ? Active.Controller.WorldTheme : null;
         var oldImages = PrepareThemeImages(theme);
         ThemeService.Apply(settings, theme, _themeImages);
-        if (oldImages is not null) foreach (var bitmap in oldImages.Values) bitmap.Dispose();
+        if (oldImages is not null) foreach (var bitmap in oldImages.Values.Distinct()) bitmap.Dispose();
     }
 
     private void RefreshCatalogProfiles()
