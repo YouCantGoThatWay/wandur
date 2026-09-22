@@ -116,7 +116,7 @@ public sealed partial class WorldBrowserViewModel : ObservableObject, IDisposabl
         var id = SelectedWorld?.Id;
         var matches = _catalog.Search(Query.Search)
             .Where(w => Query.Connection switch { 1 => w.CanConnect, 2 => w.WebOnly, _ => true })
-            .Where(w => !Query.OnlineOnly || w.Availability.Online == true && !w.Availability.Archived)
+            .Where(w => !Query.OnlineOnly || w.Availability.Online == true && w.Availability.Archived != true)
             .Where(MatchesAdvanced);
         var results = SortResults(matches).ToArray();
         SelectedWorld = results.FirstOrDefault(w => w.Id == id) ?? results.FirstOrDefault();

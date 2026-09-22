@@ -256,6 +256,27 @@ public sealed class WorldCatalogTests : IDisposable
         Assert.Equal(12.5m, Assert.Single(reopened.Worlds).Population.AverageCount);
     }
 
+    [Fact]
+    public async Task NativeDirectoryAcceptsNullArchivedAsNotArchived()
+    {
+        var json = """
+            {"format":"wandur.directory","schema_version":2,"fetched_at":"2026-09-15T20:00:00Z",
+             "worlds":[{"id":"legends-of-the-jedi","name":"LOTJ","host":"legendsofthejedi.com","port":4000,
+               "source":{"provider":"mudverse","name":"MUDVerse","record_id":"509"},
+               "availability":{"online":true,"archived":null,"checked_at":"2026-09-15T20:00:00Z"},
+               "population":{},"features":{},"tags":[],"banner_url":null,"generated_artwork_path":null}]}
+            """;
+        using var http = new HttpClient(new Handler(_ => new(HttpStatusCode.OK) { Content = new StringContent(json) }));
+        using var catalog = new WorldCatalog(CachePath, http: http);
+        await catalog.LoadAsync();
+        Assert.Null(catalog.Warning);
+        var world = Assert.Single(catalog.Worlds);
+        Assert.Null(world.Availability.Archived);
+        Assert.Equal("", world.BannerUrl);
+        Assert.Equal("", world.GeneratedArtworkPath);
+        Assert.Equal("Last reported online", world.StatusText);
+    }
+
     [Theory]
     [InlineData("{\"schema_version\":99,\"format\":\"wandur.directory\",\"worlds\":[]}")]
     [InlineData("{\"schema_version\":2,\"format\":\"wandur.directory\",\"fetched_at\":\"2026-09-15T20:00:00Z\",\"worlds\":[{\"id\":\"one\",\"name\":\"First\"},{\"id\":\"one\",\"name\":\"Second\"}]}")]

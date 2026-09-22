@@ -56,10 +56,10 @@ public sealed record WorldListing
     [JsonIgnore] public string SearchTags => string.Join(" ", new[] { Features.Theme, Features.Kind, Features.Language,
         Features.Location, Features.Codebase, Features.Roleplaying, Features.PlayerKilling, Features.WorldSize,
         Features.DevelopmentStatus, Population.ReportedRange }.Concat(Tags));
-    [JsonIgnore] public string StatusText => Availability.Archived ? L.ArchivedListing : Availability.Online switch
-    {
+    [JsonIgnore] public string StatusText => Availability.Archived == true ? L.ArchivedListing : Availability.Online switch
+        {
         true => L.LastReportedOnline, false => L.NotConfirmedOnline, _ => L.AvailabilityUnknown
-    };
+        };
     [JsonIgnore] public string PopulationSummary => Population.AverageCount is { } average
         ? L.Format(L.PlayersOnAverage, average.ToString("0.#", CultureInfo.CurrentCulture))
         : Population.ReportedRange is { Length: > 0 } range ? L.Format(L.PlayersListedRange, range)
@@ -139,7 +139,8 @@ public sealed record WorldSource
 public sealed record WorldAvailability
 {
     public bool? Online { get; init; }
-    public bool Archived { get; init; }
+    /// <summary>Null on the wire means not archived; the directory often omits a definite false.</summary>
+    public bool? Archived { get; init; }
     public string ArchiveReason { get; init; } = "";
     public DateTimeOffset? CheckedAt { get; init; }
     public DateTimeOffset? LastOnlineAt { get; init; }
