@@ -71,6 +71,7 @@ public sealed class MainWindow : Window
     private bool _skinTitleActive;
     /// <summary>A toolbar move is queued for after layout; one at a time, and it reads the state when it runs.</summary>
     private bool _toolbarMovePending;
+    private bool _titleChromePending;
     private Window? _dialog;
     private readonly IProfileAutomationFactory _profileAutomationFactory;
     private readonly IAgentClientServices? _agents;
@@ -177,7 +178,7 @@ public sealed class MainWindow : Window
         _windowSkin = new ThemeWindowSkinHost { Name = "ThemeWindowSkin", Child = _bezel };
         _ornaments = new ThemeOrnamentLayer { Name = "ThemeOrnaments" };
         _ornaments.ClearanceChanged += ApplyFooterClearance;
-        _ornaments.ClearanceChanged += ApplyTitleChrome;
+        _ornaments.ClearanceChanged += RequestTitleChromeUpdate;
         // Transparent hit targets over the metal header / plaque so decorative bitmaps (IsHitTestVisible
         // false) never swallow drags, while toolbar buttons below the inset keep their normal hits.
         _metalDrag = new Border
@@ -199,12 +200,12 @@ public sealed class MainWindow : Window
         chrome.Children.Add(_metalDrag);
         chrome.Children.Add(_ornaments);
         chrome.Children.Add(_plaqueTitleHost);
-        chrome.SizeChanged += (_, _) => ApplyTitleChrome();
+        chrome.SizeChanged += (_, _) => RequestTitleChromeUpdate();
         Content = chrome;
         PropertyChanged += (_, e) =>
         {
             if (e.Property == WindowStateProperty || e.Property == WindowDecorationMarginProperty)
-                ApplyTitleChrome();
+                RequestTitleChromeUpdate();
         };
         ThemeService.Applied += OnThemeApplied;
         // The theme in force was usually applied before this window existed to hear about it, so pick it up
@@ -217,7 +218,7 @@ public sealed class MainWindow : Window
         {
             ThemeService.Applied -= OnThemeApplied;
             _ornaments.ClearanceChanged -= ApplyFooterClearance;
-            _ornaments.ClearanceChanged -= ApplyTitleChrome;
+            _ornaments.ClearanceChanged -= RequestTitleChromeUpdate;
             Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
         };
         Closing += OnClosing;
@@ -447,6 +448,19 @@ public sealed class MainWindow : Window
         _toolbar.Padding = new Thickness(0);
     }
 
+    private void RequestTitleChromeUpdate()
+    {
+        if (_titleChromePending || _closed) return;
+        _titleChromePending = true;
+        // Native margin callbacks can occur inside a property setter. Coalesce their notifications
+        // onto a later dispatcher pass instead of nesting another title layout on that call stack.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _titleChromePending = false;
+            if (!_closed) ApplyTitleChrome();
+        });
+    }
+
     private void ApplyTitleChrome()
     {
         _appTitle.FontWeight = FontWeight.SemiBold;
@@ -571,13 +585,17 @@ public sealed class MainWindow : Window
             }
         }
 
-        if (OperatingSystem.IsMacOS())
+        // Resolve the native height once. macOS reports changed decoration margins synchronously,
+        // which re-enters this method; competing Fleet (50) and legacy (52) writes recurse forever.
+        if (FleetSkin.IsActive)
+            ExtendClientAreaTitleBarHeightHint = FleetTitleLayout.BandHeight;
+        else if (OperatingSystem.IsMacOS())
         {
             ExtendClientAreaTitleBarHeightHint = _skinTitleActive
                 ? Math.Max(MacTitleBarHeight, _windowSkin.BorderBitmap is not null ? _windowSkin.Inset.Top : _windowSkin.BandHeight)
                 : MacTitleBarHeight;
-            UpdateTitleBarInsets();
         }
+        if (OperatingSystem.IsMacOS()) UpdateTitleBarInsets();
     }
 
     private void ApplyFooterClearance()
@@ -667,7 +685,6 @@ public sealed class MainWindow : Window
         ToolTip.SetTip(_appTitle, _plaqueLabel);
         Avalonia.Automation.AutomationProperties.SetName(_appTitle, _plaqueLabel);
         ExtendClientAreaToDecorationsHint = true;
-        ExtendClientAreaTitleBarHeightHint = FleetTitleLayout.BandHeight;
         WindowDecorationProperties.SetElementRole(_metalDrag, WindowDecorationsElementRole.TitleBar);
         WindowDecorationProperties.SetElementRole(_plaqueTitleHost, WindowDecorationsElementRole.TitleBar);
         _plaque.IsHitTestVisible = false;

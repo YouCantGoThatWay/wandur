@@ -12,6 +12,38 @@ namespace Wandur.Desktop.Tests;
 public sealed class FleetSkinTests
 {
     [AvaloniaFact]
+    public async Task SwitchingToHullUsesOneConsistentNativeTitleBarHeight()
+    {
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-fleet-switch-" + Guid.NewGuid(), "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper", UseWorldThemes = false });
+        var window = new MainWindow(new TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
+            new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        try
+        {
+            window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var requestedHeights = new List<double>();
+            window.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == Window.ExtendClientAreaTitleBarHeightHintProperty)
+                    requestedHeights.Add(window.ExtendClientAreaTitleBarHeightHint);
+            };
+            using var preferences = new Wandur.Desktop.ViewModels.PreferencesViewModel(
+                window.Controller, window.Sessions.PreviewAppearanceSettings);
+            preferences.Theme = "Hull";
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            window.Width += 80;
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var band = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().Single().BandHeight;
+            Assert.Equal(50, band);
+            Assert.Equal(band, window.ExtendClientAreaTitleBarHeightHint);
+            Assert.NotEmpty(requestedHeights);
+            Assert.All(requestedHeights, height => Assert.Equal(band, height));
+            preferences.SaveCommand.Execute(null);
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task BoxedMapButtonsStillShowHoverFeedback()
     {
         var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-fleet-hover-" + Guid.NewGuid(), "settings.json"));

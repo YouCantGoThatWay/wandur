@@ -141,3 +141,19 @@ generated-file drift was not regenerated as part of the skin change.
 
 The implementation is ready for further visual review, not a claim of exact
 cross-platform pixel equivalence to the reference illustration.
+
+## Native theme-switch crash correction
+
+A subsequent macOS report exposed a stack overflow when activating Hull. The
+Fleet title layout requested a native titlebar height of 50 DIP while the
+general macOS path immediately requested 52 DIP. Each native margin change
+synchronously re-entered the layout method, alternating the two values until
+the process aborted. Headless rendering did not simulate those native callbacks.
+
+The title layout now resolves and writes the native height in one place. The
+Preferences regression first failed with a 50/52 mismatch and now verifies that
+switching to Hull and resizing never request a height different from its band.
+An isolated native run reproduced the original stack overflow; after the fix,
+startup and eight live Paper/Hull switches through the Preferences view model,
+with resizing after each switch, completed and shut down with exit code 0.
+The probe used temporary data and an offline directory URL, not user profiles.
