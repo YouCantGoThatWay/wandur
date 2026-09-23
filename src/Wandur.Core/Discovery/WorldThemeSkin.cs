@@ -83,6 +83,8 @@ public sealed record WorldThemeSkinEdge
     /// of a panel seen straight on, and it is still three colours and a width, not a picture.
     /// </summary>
     public string? Outline { get; init; }
+    /// <summary>Optional six-digit hex colour for an accent rail along the frame.</summary>
+    public string? Accent { get; init; }
 }
 
 /// <summary>
@@ -117,7 +119,7 @@ public sealed record WorldThemeSkinWings
 
 public sealed record WorldThemeSkinPlaque
 {
-    /// <summary>"chamfer", "notch", "round" or "square".</summary>
+    /// <summary>"chamfer", "notch", "round", "square" or "fleet".</summary>
     public string Shape { get; init; } = "chamfer";
     /// <summary>Width of the accent stripe inside each end, in DIP. Zero draws none.</summary>
     public double Cap { get; init; } = 6;

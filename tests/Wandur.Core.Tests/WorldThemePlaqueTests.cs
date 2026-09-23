@@ -138,4 +138,69 @@ public sealed class WorldThemePlaqueTests
         node["skin"]!["edge"] = JsonNode.Parse("""{ "color": "#D8DAD8", "outline": "#5D636A", "thickness": 2 }""");
         Assert.Null(Skin(node).Edge);
     }
+
+    [Theory]
+    [InlineData("fleet")]
+    [InlineData("chamfer")]
+    [InlineData("notch")]
+    [InlineData("round")]
+    [InlineData("square")]
+    public void FleetAndExistingPlaqueShapesRoundTrip(string shape)
+    {
+        var node = Theme(new JsonObject { ["shape"] = shape }.ToJsonString());
+        var theme = JsonSerializer.Deserialize<WorldTheme>(node.ToJsonString())!;
+        Assert.NotNull(theme.Skin!.Layout!.TitleBar!.Plaque);
+        Assert.Equal(shape, theme.Skin.Layout.TitleBar.Plaque.Shape);
+        Assert.Equal(theme, JsonSerializer.Deserialize<WorldTheme>(JsonSerializer.Serialize(theme)));
+    }
+
+    [Theory]
+    [InlineData("#35C4E8")]
+    [InlineData("#a1b2c3")]
+    public void AnOptionalEdgeAccentRoundTrips(string accent)
+    {
+        var node = Theme(null);
+        node["skin"]!["edge"] = new JsonObject
+        {
+            ["color"] = "#D8DAD8", ["outline"] = "#5D636A", ["thickness"] = 6, ["accent"] = accent,
+        };
+        var theme = JsonSerializer.Deserialize<WorldTheme>(node.ToJsonString())!;
+        var serialized = JsonSerializer.SerializeToNode(theme)!;
+        Assert.Equal(accent, serialized["skin"]!["edge"]!["accent"]?.GetValue<string>());
+        Assert.Equal("#D8DAD8", theme.Skin!.Edge!.Color);
+        Assert.Equal("#5D636A", theme.Skin.Edge.Outline);
+        Assert.Equal(6, theme.Skin.Edge.Thickness);
+        Assert.Equal(theme, JsonSerializer.Deserialize<WorldTheme>(serialized.ToJsonString()));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("null")]
+    [InlineData("\"\"")]
+    [InlineData("\"cyan\"")]
+    [InlineData("\"#ABC\"")]
+    [InlineData("\"#35C4E880\"")]
+    [InlineData("\"#GGGGGG\"")]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("{}")]
+    [InlineData("[]")]
+    public void AnInvalidOrMissingEdgeAccentKeepsTheValidEdge(string? accent)
+    {
+        var node = Theme(null);
+        var edge = new JsonObject
+        {
+            ["color"] = "#D8DAD8", ["outline"] = "#5D636A", ["thickness"] = 6,
+        };
+        if (accent is not null) edge["accent"] = JsonNode.Parse(accent);
+        node["skin"]!["edge"] = edge;
+        var theme = JsonSerializer.Deserialize<WorldTheme>(node.ToJsonString())!;
+        Assert.Equal(new WorldThemeSkinEdge
+        {
+            Color = "#D8DAD8", Outline = "#5D636A", Thickness = 6,
+        }, theme.Skin!.Edge);
+        var serialized = JsonSerializer.SerializeToNode(theme)!;
+        Assert.False(serialized["skin"]!["edge"]!.AsObject().ContainsKey("accent"));
+        Assert.Equal(theme, JsonSerializer.Deserialize<WorldTheme>(serialized.ToJsonString()));
+    }
 }

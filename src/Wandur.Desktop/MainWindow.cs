@@ -5,6 +5,7 @@ using Wandur.Core.Mapping;
 using L = Wandur.Core.Localization.Strings;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Chrome;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -35,6 +36,8 @@ public sealed class MainWindow : Window
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly Border _notice;
     private readonly Border _toolbar;
+    private (Size Size, Rect Title)? _fleetToolbarSurfaceKey;
+    private readonly StackPanel _toolbarActions;
     private readonly Border _footer;
     private readonly Border _windowHeader;
     private readonly Border _metalDrag;
@@ -55,6 +58,9 @@ public sealed class MainWindow : Window
     private const double MacTitleBarHeight = 52;
     private const double ToolbarHeight = 40;
     private readonly Button _disconnect;
+    private readonly Button _connect;
+    private readonly Button _browse;
+    private readonly Button _fleetSettings;
     private readonly DesktopMenus _menus;
     private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 28, Height = 28, FontSize = 12, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
     private List<ConnectionProfile>? _profiles;
@@ -69,7 +75,7 @@ public sealed class MainWindow : Window
     private readonly IProfileAutomationFactory _profileAutomationFactory;
     private readonly IAgentClientServices? _agents;
     public ConnectionProfile? SelectedProfile => _worldPicker.SelectedItem as ConnectionProfile;
-    public bool ToolbarVisible { get => _toolbar?.IsVisible ?? true; set { _toolbar.IsVisible = value; _menus.Refresh(); } }
+    public bool ToolbarVisible { get => _toolbar?.IsVisible ?? true; set { _toolbar.IsVisible = value; if (FleetSkin.IsActive) UpdateTitleBarInsets(); _menus.Refresh(); } }
 
     public MainWindow(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, WorldCatalog? catalog = null, IProfileAutomationFactory? profileAutomationFactory = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null)
     {
@@ -93,22 +99,30 @@ public sealed class MainWindow : Window
         _dock = new DockControl { Name = "WorkspaceDock", Factory = Workspace, Layout = layout, InitializeFactory = true, InitializeLayout = false };
 
         _menus = new DesktopMenus(this);
-        _worldPicker.ItemTemplate = new FuncDataTemplate<ConnectionProfile>((profile, _) => new TextBlock { Text = profile?.Name, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12 });
+        _worldPicker.ItemTemplate = new FuncDataTemplate<ConnectionProfile>((profile, _) =>
+        {
+            var label = new TextBlock { Text = profile?.Name, TextTrimming = TextTrimming.CharacterEllipsis };
+            label.Bind(TextBlock.FontSizeProperty, new Avalonia.Data.Binding(nameof(ComboBox.FontSize)) { Source = _worldPicker });
+            return label;
+        });
         // Choosing a world here only changes what Connect will open; the theme follows the session.
         _worldPicker.SelectionChanged += (_, _) => _menus.Refresh();
         ToolTip.SetTip(_worldPicker, L.ChooseASavedWorldToOpenInASession);
         Avalonia.Automation.AutomationProperties.SetName(_worldPicker, L.ChooseAWorld);
         _worldPicker.Classes.Add("toolbar-world-picker");
-        var connect = ToolbarButton("M 4,2 L 14,8 L 4,14 Z", "Connect", nameof(L.ConnectToTheSelectedWorldInASessionTab), filled: true);
+        var connect = _connect = ToolbarButton("M 4,2 L 14,8 L 4,14 Z", "Connect", nameof(L.ConnectToTheSelectedWorldInASessionTab), filled: true);
         connect.Command = _menus.Connect;
         _disconnect = ToolbarButton("M 3,3 H 13 V 13 H 3 Z", "Disconnect", nameof(L.DisconnectTheActiveSession), filled: true);
         _disconnect.Command = _menus.Disconnect;
-        var browse = ToolbarButton("M 6.5,1 A 5.5,5.5 0 1 0 6.5,12 A 5.5,5.5 0 1 0 6.5,1 M 10.5,10.5 L 15,15", "FindMud", nameof(L.SearchTheDirectoryForAMUDServer));
+        var browse = _browse = ToolbarButton(FleetIcons.Search, "FindMud", nameof(L.SearchTheDirectoryForAMUDServer));
         browse.Click += async (_, _) => await BrowseWorldsAsync();
+        _fleetSettings = ToolbarButton(FleetIcons.Settings, "FleetSettings", nameof(L.SettingsTitle));
+        _fleetSettings.Click += async (_, _) => await PreferencesAsync();
+        _fleetSettings.IsVisible = false;
         var divider = new Border { Width = 1, Height = 16, Margin = new Thickness(7, 0) };
         divider.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         var connectionControls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(5, 0, 0, 0), Children = { connect, _disconnect } };
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { _worldPicker, connectionControls, divider, browse } };
+        var actions = _toolbarActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { _worldPicker, connectionControls, divider, browse, _fleetSettings } };
         _toolbarStatus.Name = "SessionStatus";
         _toolbarStatus.VerticalAlignment = VerticalAlignment.Center;
         _toolbarStatus.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -120,6 +134,9 @@ public sealed class MainWindow : Window
         _titleBarIdentity = new StackPanel { Name = "TitleBarIdentity", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { AppLogo(), _appTitle } };
         Grid.SetColumn(actions, 2);
         _toolbar = new Border { Name = "MainToolbar", Padding = new Thickness(12, 5), MinHeight = OperatingSystem.IsMacOS() ? MacTitleBarHeight : ToolbarHeight, BorderThickness = new Thickness(0, 0, 0, 1), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 20, Children = { _titleBarIdentity, actions } } };
+        // Reparenting/native insets can move this row without resizing it. The cached brush key
+        // includes its arranged origin relative to the plaque, so refresh after arrangement too.
+        _toolbar.LayoutUpdated += (_, _) => ApplyFleetToolbarSurface();
         _toolbar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
         BindToolbarBackground();
         _menus.Fallback.IsVisible = !OperatingSystem.IsMacOS();
@@ -184,6 +201,11 @@ public sealed class MainWindow : Window
         chrome.Children.Add(_plaqueTitleHost);
         chrome.SizeChanged += (_, _) => ApplyTitleChrome();
         Content = chrome;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty || e.Property == WindowDecorationMarginProperty)
+                ApplyTitleChrome();
+        };
         ThemeService.Applied += OnThemeApplied;
         // The theme in force was usually applied before this window existed to hear about it, so pick it up
         // now. Without this the frame, band and nameplate only appeared after the first theme change, and a
@@ -208,11 +230,46 @@ public sealed class MainWindow : Window
 
     private void OnThemeApplied()
     {
+        Classes.Set("fleet", FleetSkin.IsActive);
+        _fleetToolbarSurfaceKey = null;
+        _fleetSettings.IsVisible = FleetSkin.IsActive;
+        foreach (var button in new[] { _connect, _browse, _fleetSettings }) button.Classes.Set("fleet-action", FleetSkin.IsActive);
+        _connect.Content = FleetSkin.IsActive ? FleetIcons.Action(FleetIcons.Connect, nameof(L.Connect)) : Ui.ChromeGlyph("M 4,2 L 14,8 L 4,14 Z", true);
+        _browse.Content = FleetSkin.IsActive ? FleetIcons.Action(FleetIcons.Search, nameof(L.FindAMUD)) : Ui.ChromeGlyph(FleetIcons.Search);
+        _fleetSettings.Content = FleetIcons.Action(FleetIcons.Settings, nameof(L.SettingsTitle), true);
+        // On Windows the fallback menu remains available, below the overlapping title/toolbar pair.
+        _headerStack.Children.Remove(_menus.Fallback);
+        _headerStack.Children.Insert(FleetSkin.IsActive ? _headerStack.Children.Count : 0, _menus.Fallback);
+        _headerStack.Margin = default;
+        _worldPicker.FontSize = FleetSkin.IsActive ? 14 : 12;
+        _worldPicker.Height = FleetSkin.IsActive ? 32 : 28;
+        if (_toolbar.Child is Grid toolbarGrid)
+        {
+            if (FleetSkin.IsActive && _worldPicker.Parent == _toolbarActions)
+            {
+                _toolbarActions.Children.Remove(_worldPicker);
+                Grid.SetColumn(_worldPicker, 0);
+                toolbarGrid.Children.Add(_worldPicker);
+            }
+            else if (!FleetSkin.IsActive && _worldPicker.Parent == toolbarGrid)
+            {
+                toolbarGrid.Children.Remove(_worldPicker);
+                _toolbarActions.Children.Insert(0, _worldPicker);
+            }
+        }
+        if (!FleetSkin.IsActive)
+        {
+            WindowDecorationProperties.SetElementRole(_metalDrag, WindowDecorationsElementRole.User);
+            WindowDecorationProperties.SetElementRole(_plaqueTitleHost, WindowDecorationsElementRole.User);
+            _plaque.IsHitTestVisible = true;
+            if (!OperatingSystem.IsMacOS()) ExtendClientAreaToDecorationsHint = false;
+        }
         _windowSkin.ApplyFromTheme();
         _bezel.ApplyFromTheme();
         _ornaments.ApplyFromTheme();
         ApplyFooterClearance();
         ApplyTitleChrome();
+        if (!_toolbarInBand) { BindToolbarBackground(); UpdateTitleBarInsets(); }
     }
 
     /// <summary>
@@ -280,9 +337,11 @@ public sealed class MainWindow : Window
 
         // The plate sits inside the wings, so the title's room is the theme's padding plus the wing reach.
         // Without the wing term a long title runs out over the bracket.
-        var reach = wings?.Extend ?? 0;
+        var reach = plaque.Shape == "fleet" ? 0 : wings?.Extend ?? 0;
         var pad = plaque.Padding;
-        _plaque.Padding = new Thickness(reach + pad.Left, pad.Top, reach + pad.Right, pad.Bottom);
+        var intrinsic = plaque.Shape == "fleet" ? FleetTitleLayout.TextInset : 0;
+        _plaque.Padding = new Thickness(Math.Max(intrinsic, reach + pad.Left), pad.Top,
+            Math.Max(intrinsic, reach + pad.Right), pad.Bottom);
         _plaque.InvalidateVisual();
     }
 
@@ -292,7 +351,14 @@ public sealed class MainWindow : Window
     private void BindToolbarBackground()
     {
         _toolbarBackground?.Dispose();
+        _toolbarBackground = null;
+        _fleetToolbarSurfaceKey = null;
         _toolbar.ClearValue(Border.BackgroundProperty);
+        if (FleetSkin.IsActive)
+        {
+            ApplyFleetToolbarSurface();
+            return;
+        }
         _toolbarBackground = _toolbar.Bind(Border.BackgroundProperty,
             new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ToolbarBrush"));
     }
@@ -350,12 +416,17 @@ public sealed class MainWindow : Window
         else
         {
             _chrome.Children.Remove(_toolbar);
-            if (!_headerStack.Children.Contains(_toolbar)) _headerStack.Children.Add(_toolbar);
+            if (!_headerStack.Children.Contains(_toolbar))
+            {
+                if (FleetSkin.IsActive) _headerStack.Children.Insert(0, _toolbar);
+                else _headerStack.Children.Add(_toolbar);
+            }
             BindToolbarBackground();
             _toolbar.BorderThickness = new Thickness(0, 0, 0, 1);
             _toolbar.VerticalAlignment = VerticalAlignment.Stretch;
             _toolbar.HorizontalAlignment = HorizontalAlignment.Stretch;
             _toolbar.Margin = default;
+            _toolbar.Height = double.NaN;
             UpdateTitleBarInsets();
         }
     }
@@ -378,6 +449,7 @@ public sealed class MainWindow : Window
 
     private void ApplyTitleChrome()
     {
+        _appTitle.FontWeight = FontWeight.SemiBold;
         SkinSize? header = null;
         SkinRect? headerText = null;
         if (!_ornaments.IsCompact && ThemeSkinResources.FromApplied() is { } skin)
@@ -472,6 +544,7 @@ public sealed class MainWindow : Window
                 _appTitle.VerticalAlignment = VerticalAlignment.Center;
                 _appTitle.HorizontalAlignment = HorizontalAlignment.Center;
                 _appTitle.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(plated ? "PlaqueTextBrush" : "TerminalTextBrush"));
+                if (FleetSkin.IsActive) ApplyFleetTitle(width);
             }
             else
             {
@@ -501,7 +574,7 @@ public sealed class MainWindow : Window
         if (OperatingSystem.IsMacOS())
         {
             ExtendClientAreaTitleBarHeightHint = _skinTitleActive
-                ? Math.Max(MacTitleBarHeight, _windowSkin.Inset.Top)
+                ? Math.Max(MacTitleBarHeight, _windowSkin.BorderBitmap is not null ? _windowSkin.Inset.Top : _windowSkin.BandHeight)
                 : MacTitleBarHeight;
             UpdateTitleBarInsets();
         }
@@ -523,6 +596,21 @@ public sealed class MainWindow : Window
 
     private void UpdateTitleBarInsets()
     {
+        if (FleetSkin.IsActive)
+        {
+            _toolbar.Padding = new Thickness(12, 13, 12, 5);
+            _toolbar.MinHeight = 54;
+            _windowHeader.MinHeight = 0;
+            _headerStack.Margin = _toolbar.IsVisible ? default : new Thickness(0, 14, 0, 0);
+            return;
+        }
+        if (!OperatingSystem.IsMacOS())
+        {
+            _toolbar.Padding = new Thickness(12, 5);
+            _toolbar.MinHeight = ToolbarHeight;
+            _windowHeader.MinHeight = 0;
+            return;
+        }
         // Native traffic lights occupy the left of the extended titlebar. With a skin plaque they sit in
         // the metal header above the white toolbar, so the toolbar only needs ordinary side padding.
         var left = WindowState == WindowState.FullScreen ? 12 : _skinTitleActive ? 12 : 88;
@@ -534,12 +622,69 @@ public sealed class MainWindow : Window
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        // Fleet uses Avalonia's non-client hit testing, including native double-click behavior.
+        if (FleetSkin.IsActive) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.Source is not Visual source) return;
         if (source.GetSelfAndVisualAncestors().Any(v => v is Button or ComboBox or TextBox or MenuItem)) return;
         if (e.ClickCount == 2 && WindowState != WindowState.FullScreen)
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         else if (e.ClickCount == 1) BeginMoveDrag(e);
         e.Handled = true;
+    }
+
+    private void ApplyFleetTitle(double width)
+    {
+        Classes.Set("fleet-compact", width < 1100);
+        // Run on every platform, not just the macOS native-decoration callback.
+        UpdateTitleBarInsets();
+        _appTitle.FontSize = 20;
+        _appTitle.FontWeight = FontWeight.Normal;
+        _appTitle.LetterSpacing = 1.8;
+        _plaque.Fill = FleetSkin.Instrument;
+        _plaque.WingFill = FleetSkin.Metal;
+        var measure = new TextBlock { Text = _appTitle.Text, FontFamily = _appTitle.FontFamily,
+            FontSize = _appTitle.FontSize, LetterSpacing = _appTitle.LetterSpacing, FontWeight = _appTitle.FontWeight };
+        measure.Measure(new Size(double.PositiveInfinity, FleetTitleLayout.PlaqueHeight));
+        // OS traffic lights are native, not Avalonia children. Reserve their platform-safe span;
+        // decoration margins can enlarge it (for example when the native frame changes).
+        var left = Math.Max(WindowDecorationMargin.Left, OperatingSystem.IsMacOS() && WindowState != WindowState.FullScreen ? 88 : 0);
+        var right = Math.Max(WindowDecorationMargin.Right, OperatingSystem.IsWindows() ? 144 : 0);
+        var place = FleetTitleLayout.Calculate(width, left, right, measure.DesiredSize.Width);
+        _windowSkin.TitleModuleBounds = place.Bounds;
+        ApplyFleetToolbarSurface();
+        _plaqueTitleHost.HorizontalAlignment = HorizontalAlignment.Left;
+        _plaqueTitleHost.MinWidth = 0;
+        _plaqueTitleHost.MaxWidth = double.PositiveInfinity;
+        _plaqueTitleHost.Width = place.Bounds.Width;
+        _plaqueTitleHost.Height = place.Bounds.Height;
+        _plaqueTitleHost.Margin = new Thickness(place.Bounds.X, place.Bounds.Y, 0, 0);
+        _plaque.Padding = new Thickness(place.PlainTitle ? 4 : FleetTitleLayout.TextInset, 0);
+        if (place.PlainTitle)
+        {
+            _plaque.Fill = null;
+            _appTitle.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
+        }
+        ToolTip.SetTip(_appTitle, _plaqueLabel);
+        Avalonia.Automation.AutomationProperties.SetName(_appTitle, _plaqueLabel);
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaTitleBarHeightHint = FleetTitleLayout.BandHeight;
+        WindowDecorationProperties.SetElementRole(_metalDrag, WindowDecorationsElementRole.TitleBar);
+        WindowDecorationProperties.SetElementRole(_plaqueTitleHost, WindowDecorationsElementRole.TitleBar);
+        _plaque.IsHitTestVisible = false;
+        _footer.MinHeight = 30;
+    }
+
+    private void ApplyFleetToolbarSurface()
+    {
+        if (!FleetSkin.IsActive || _chrome is null || _windowSkin is null ||
+            _toolbar.TranslatePoint(default, _chrome) is not { } origin) return;
+        var title = _windowSkin.TitleModuleBounds.Translate(new Vector(-origin.X, -origin.Y));
+        var key = (_toolbar.Bounds.Size, title);
+        if (_fleetToolbarSurfaceKey == key) return;
+        _toolbarBackground?.Dispose();
+        _toolbarBackground = null;
+        _toolbar.Background = FleetToolbarSurface.Create(key.Size, title);
+        _fleetToolbarSurfaceKey = key;
     }
 
     // Toolbar brand mark when no skin plaque owns the title.
@@ -684,8 +829,10 @@ public sealed class MainWindow : Window
         Title = !Controller.HasSession ? "Wandur" : Controller.CharacterName.Length == 0 ? $"{Controller.WorldName} · Wandur" : $"{Controller.CharacterName} · {Controller.WorldName} · Wandur";
         // The plaque's readable window is a couple of inches of dark metal, so it carries the world's
         // name alone. The full "character · world · Wandur" stays on the OS title, where there is room.
+        var oldPlaqueLabel = _plaqueLabel;
         _plaqueLabel = !Controller.HasSession || Controller.WorldName.Length == 0 ? "Wandur" : Controller.WorldName;
         _appTitle.Text = _skinTitleActive ? PlateTitle() : Title;
+        if (FleetSkin.IsActive && oldPlaqueLabel != _plaqueLabel) ApplyTitleChrome();
         var connected = Sessions.Tabs.Count(t => t.Controller.IsConnected);
         var count = Sessions.Tabs.Count(t => t.Controller.HasSession);
         _status.Text = L.Format(count == 1 ? L.SessionsOne : L.SessionsMany, count, connected);

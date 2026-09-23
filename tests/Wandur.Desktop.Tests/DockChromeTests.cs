@@ -25,7 +25,9 @@ public sealed class DockChromeTests
 {
     private static MainWindow CreateWindow()
     {
-        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-dock-" + Guid.NewGuid(), "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-dock-" + Guid.NewGuid(), "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper" });
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
         window.Width = 1200; window.Height = 800;
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -107,7 +109,9 @@ public sealed class DockChromeTests
         Directory.CreateDirectory(path);
         using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
         var profile = new ConnectionProfile { Name = "Panel world", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port };
-        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(path, "settings.json")), new MemoryPasswordVault(),
+        var store = new SettingsStore(Path.Combine(path, "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper" });
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
             new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore()) { Width = 1200, Height = 800 };
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         try

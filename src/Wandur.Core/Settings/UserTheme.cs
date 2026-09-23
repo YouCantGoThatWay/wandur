@@ -45,8 +45,8 @@ public sealed record UserTheme
     [
         // The client's own look: pale hull plating around a dark transcript, measured off the design it
         // was drawn from. Light chrome with dark content panes is the one combination no other preset has.
-        new("Hull", true, "#C9CBC8", "#D1D3D1", "#0E181F", "#22282B", "#4A5053", "#115C73", "#8F9294",
-            "#0F181E", "#26333C", "#F4F5F6", "#22282B", DarkAnsi),
+        new("Hull", true, "#D1D4D2", "#DCDEDC", "#11171B", "#202629", "#404B50", "#115C73", "#7E8788",
+            "#11171B", "#26333C", "#F4F5F6", "#202622", DarkAnsi),
         new("Ember", false, "#141519", "#212328", "#1A1C21", "#E3E4E8", "#979BA6", "#DBBFA0", "#2B2E35",
             "#10191F", "#1D2B34", "#161B22", "#E6EDF3", DarkAnsi),
         new("Moonlight", false, "#12141C", "#1C1F2B", "#171A24", "#E3E6F1", "#969CAF", "#B9B6F2", "#292D3C",

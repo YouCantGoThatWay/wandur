@@ -307,6 +307,13 @@
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="Window.fleet TabStripItem.output-footer-tab:selected">
+      <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="#35D3E8" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
     <Style Selector="TabStripItem.output-footer-tab:focus-visible">
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
@@ -460,5 +467,6 @@
     <Style Selector="ToolTip">
       <Setter Property="MaxWidth" Value="320" />
     </Style>
+    <StyleInclude Source="avares://Wandur/Styles/Fleet.axaml" />
   </Application.Styles>
 </Application>

@@ -12,12 +12,16 @@ namespace Wandur.Desktop;
 /// </summary>
 internal sealed class ThemeWindowSkinHost : Decorator
 {
+    private IBrush? _edgeAccent;
     public static readonly StyledProperty<Bitmap?> BorderBitmapProperty =
         AvaloniaProperty.Register<ThemeWindowSkinHost, Bitmap?>(nameof(BorderBitmap));
     public static readonly StyledProperty<WorldThemeSkinBorder?> BorderMetaProperty =
         AvaloniaProperty.Register<ThemeWindowSkinHost, WorldThemeSkinBorder?>(nameof(BorderMeta));
     public static readonly StyledProperty<Thickness> InsetProperty =
         AvaloniaProperty.Register<ThemeWindowSkinHost, Thickness>(nameof(Inset));
+    public static readonly StyledProperty<Rect> TitleModuleBoundsProperty =
+        AvaloniaProperty.Register<ThemeWindowSkinHost, Rect>(nameof(TitleModuleBounds));
+    public Rect TitleModuleBounds { get => GetValue(TitleModuleBoundsProperty); set => SetValue(TitleModuleBoundsProperty, value); }
 
     public Bitmap? BorderBitmap
     {
@@ -38,7 +42,7 @@ internal sealed class ThemeWindowSkinHost : Decorator
     static ThemeWindowSkinHost()
     {
         AffectsRender<ThemeWindowSkinHost>(EdgeBrushProperty, EdgeThicknessProperty, EdgeOutlineProperty, GroundBrushProperty, BandBrushProperty,
-            BandHeightProperty, BorderBitmapProperty, BorderMetaProperty, InsetProperty);
+            BandHeightProperty, BorderBitmapProperty, BorderMetaProperty, InsetProperty, TitleModuleBoundsProperty);
         AffectsMeasure<ThemeWindowSkinHost>(BorderBitmapProperty, BandHeightProperty, InsetProperty,
             EdgeOutlineProperty, EdgeThicknessProperty);
         AffectsArrange<ThemeWindowSkinHost>(BorderBitmapProperty, BandHeightProperty, InsetProperty,
@@ -59,6 +63,7 @@ internal sealed class ThemeWindowSkinHost : Decorator
         var lip = new SolidColorBrush(Lighten(metal, 0.55));
         var (w, h) = (size.Width, size.Height);
         var top = Math.Max(0, BorderBitmap is null ? BandHeight : 0);
+        if (w < t * 2 || h <= top + t) return;
 
         // Metal bands.
         context.FillRectangle(fill, new Rect(0, top, t, h - top));
@@ -77,6 +82,11 @@ internal sealed class ThemeWindowSkinHost : Decorator
         context.FillRectangle(dark, new Rect(t - 1, top, 1, h - top - t));
         context.FillRectangle(dark, new Rect(w - t, top, 1, h - top - t));
         context.FillRectangle(dark, new Rect(t - 1, h - t, w - t * 2 + 2, 1));
+        if (_edgeAccent is not null && BorderBitmap is null && t >= 4)
+        {
+            context.FillRectangle(_edgeAccent, new Rect(2, top, 1.5, h - top - t));
+            context.FillRectangle(_edgeAccent, new Rect(w - 3.5, top, 1.5, h - top - t));
+        }
     }
 
     private static Color Lighten(Color colour, double amount) => Color.FromArgb(colour.A,
@@ -146,7 +156,25 @@ internal sealed class ThemeWindowSkinHost : Decorator
         }
         // The band is painted before anything else so the title, the toolbar and any art sit on it.
         if (BorderBitmap is null && BandBrush is { } band && BandHeight > 0 && Bounds.Width > 0)
+        {
             context.FillRectangle(band, new Rect(0, 0, Bounds.Width, BandHeight));
+            if (FleetSkin.IsActive && Bounds.Width > 12)
+            {
+                var dark = new Pen(Brush.Parse("#596260"), 1);
+                var lip = new Pen(Brush.Parse("#F8FAF7"), 1);
+                var cap = new Rect(5.5, 2.5, Bounds.Width - 11, Math.Max(0, BandHeight - 3));
+                context.DrawRectangle(FleetSkin.Metal, dark, cap, 4, 4);
+                context.DrawRectangle(null, lip, cap.Deflate(1), 3, 3);
+                // The side rails meet the plaque shoulders instead of boxing a separate badge.
+                var railY = BandHeight - .5;
+                var leftEnd = Math.Clamp(TitleModuleBounds.Left + 6, 6, Bounds.Width - 6);
+                var rightStart = Math.Clamp(TitleModuleBounds.Right - 6, leftEnd, Bounds.Width - 6);
+                context.DrawLine(dark, new(6, railY), new(leftEnd, railY));
+                context.DrawLine(dark, new(rightStart, railY), new(Bounds.Width - 6, railY));
+                context.DrawLine(lip, new(6, railY + 1), new(leftEnd, railY + 1));
+                context.DrawLine(lip, new(rightStart, railY + 1), new(Bounds.Width - 6, railY + 1));
+            }
+        }
         // The hairline is drawn whether or not there is window art, because a theme may declare one alone.
         DrawEdge(context);
         if (BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;
@@ -202,6 +230,8 @@ internal sealed class ThemeWindowSkinHost : Decorator
         BandBrush = BandHeight > 0 ? Application.Current?.Resources["ChromeBrush"] as IBrush : null;
 
         var themeEdge = ThemeService.AppliedSkin?.Edge;
+        _edgeAccent = themeEdge?.Accent is { } accent && Color.TryParse(accent, out var accentColor)
+            ? new SolidColorBrush(accentColor) : null;
         EdgeBrush = themeEdge is not null && Color.TryParse(themeEdge.Color, out var edgeColour)
             ? new SolidColorBrush(edgeColour) : null;
         EdgeThickness = themeEdge?.Thickness ?? 0;

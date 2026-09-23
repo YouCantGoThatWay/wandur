@@ -1,0 +1,135 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dc="using:Dock.Avalonia.Controls">
+  <!-- Kept after the base styles. A floating dock's host also carries fleet. -->
+  <Style Selector="Window.fleet dc|DocumentControl /template/ Border#PART_Border">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+  <Style Selector="Window.fleet Border#MainToolbar">
+    <Setter Property="CornerRadius" Value="2" />
+  </Style>
+  <Style Selector="Window.fleet Button.fleet-action">
+    <Setter Property="Width" Value="NaN" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Padding" Value="9,4" />
+  </Style>
+  <Style Selector="Window.fleet.fleet-compact TextBlock.fleet-action-label">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Window.fleet ComboBox.toolbar-world-picker">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <!-- Keep the Dock command bindings and hit targets; replace only their vector faces. -->
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Grid#PART_Grid">
+    <Setter Property="Grid.Column" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ TextBlock#PART_Title">
+    <Setter Property="Margin" Value="26,0,0,0" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Button Viewbox">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Path#PART_PinPath">
+    <Setter Property="Data" Value="M 10,1 L 15,6 L 13,7 L 10,10 L 10,13 L 7,10 L 2,15 L 1,14 L 6,9 L 3,6 L 6,6 L 9,3 Z" />
+    <Setter Property="Fill" Value="{DynamicResource ToolbarIconBrush}" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Path#PART_ClosePath">
+    <Setter Property="Data" Value="M 2,1 L 8,7 L 14,1 L 15,2 L 9,8 L 15,14 L 14,15 L 8,9 L 2,15 L 1,14 L 7,8 L 1,2 Z" />
+    <Setter Property="Fill" Value="{DynamicResource ToolbarIconBrush}" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Path#PART_MenuPath">
+    <Setter Property="Data" Value="M 2,4 L 8,10 L 14,4 L 15,5 L 8,12 L 1,5 Z" />
+    <Setter Property="Fill" Value="{DynamicResource ToolbarIconBrush}" />
+  </Style>
+  <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Border#PART_Border">
+    <Setter Property="BoxShadow" Value="inset 0 1 0 0 #FAFCFA, inset 0 -1 0 0 #687675" />
+  </Style>
+  <Style Selector="Window.fleet Border#FleetDocumentHeader">
+    <Setter Property="BoxShadow" Value="inset 0 1 0 0 #FAFCFA, inset 0 -1 0 0 #687675" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Padding" Value="3" />
+    <Setter Property="Foreground" Value="{DynamicResource InstrumentTextBrush}" />
+    <Setter Property="Background" Value="#24333A" />
+    <Setter Property="BorderBrush" Value="#596A71" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Window.fleet Border#Composer">
+    <Setter Property="BoxShadow" Value="inset 0 2 2 0 #080E12, inset 0 -1 0 0 #6D7A7E" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar ToggleButton:checked">
+    <Setter Property="Background" Value="#44616B" />
+    <Setter Property="BorderBrush" Value="#80C3CE" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:pointerover">
+    <Setter Property="Background" Value="#405962" />
+    <Setter Property="BorderBrush" Value="#96BDC5" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:pressed">
+    <Setter Property="Background" Value="#182B34" />
+    <Setter Property="BorderBrush" Value="#80D3E1" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:focus-visible">
+    <Setter Property="BorderBrush" Value="#80D3E1" />
+  </Style>
+  <Style Selector=":is(Control).fleet Border#MapToolbar TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource TerminalPlaceholderForeground}" />
+  </Style>
+  <Style Selector=":is(Control).fleet TextBlock#ChannelsMirrorNote">
+    <Setter Property="Foreground" Value="{DynamicResource TerminalPlaceholderForeground}" />
+  </Style>
+  <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="12,3" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
+                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                            VerticalContentAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:selected">
+    <Setter Property="Background" Value="#344B55" />
+    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+  <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:pointerover">
+    <Setter Property="Background" Value="#445B65" />
+  </Style>
+  <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:focus-visible">
+    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider">
+    <Setter Property="Foreground" Value="#497E8D" />
+    <Setter Property="Background" Value="#8D999B" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider /template/ Thumb">
+    <Setter Property="Background" Value="#78B7C1" />
+    <Setter Property="BorderBrush" Value="#476570" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="#9EDCE5" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pressed /template/ Thumb">
+    <Setter Property="Background" Value="#61A5B6" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pointerover /template/ RepeatButton#PART_DecreaseButton, :is(Control).fleet Slider#MapZoomSlider:pressed /template/ RepeatButton#PART_DecreaseButton">
+    <Setter Property="Background" Value="#497E8D" />
+  </Style>
+  <Style Selector=":is(Control).fleet Slider#MapZoomSlider:disabled /template/ Thumb">
+    <Setter Property="Background" Value="#7E9399" />
+  </Style>
+</Styles>

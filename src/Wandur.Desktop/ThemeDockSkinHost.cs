@@ -59,12 +59,12 @@ public sealed class ThemeDockSkinHost : Decorator
 
     public ThemeDockSkinHost()
     {
-        ThemeService.Applied += OnThemeApplied;
         DetachedFromVisualTree += (_, _) => ThemeService.Applied -= OnThemeApplied;
-        AttachedToVisualTree += (_, _) => OnThemeApplied();
+        AttachedToVisualTree += (_, _) => { ThemeService.Applied += OnThemeApplied; OnThemeApplied(); };
     }
 
-    private Thickness ActiveInset => IsSkinActive ? Inset : default;
+    private bool _fleet;
+    private Thickness ActiveInset => IsSkinActive ? Inset : _fleet ? new Thickness(3) : default;
 
     /// <summary>
     /// The shape each panel border was templated with. The corners come through a converter on a binding
@@ -92,6 +92,8 @@ public sealed class ThemeDockSkinHost : Decorator
 
     private void OnThemeApplied()
     {
+        _fleet = FleetSkin.IsActive;
+        Classes.Set("fleet", _fleet);
         ApplyPanelRadius();
         var skin = ThemeSkinResources.FromApplied();
         if (skin is not { PanelReady: true } || skin.PanelMeta is not { } meta)
@@ -164,6 +166,12 @@ public sealed class ThemeDockSkinHost : Decorator
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        if (_fleet && !IsSkinActive && Bounds.Width > 6 && Bounds.Height > 6)
+        {
+            context.DrawRectangle(FleetSkin.Metal, new Pen(Brush.Parse("#424743"), 1), new Rect(Bounds.Size).Deflate(.5), 3, 3);
+            context.DrawRectangle(null, new Pen(Brush.Parse("#F3F3EC"), 1), new Rect(Bounds.Size).Deflate(1.5), 2, 2);
+            context.DrawRectangle(null, new Pen(Brush.Parse("#687572"), 1), new Rect(Bounds.Size).Deflate(2.5), 1, 1);
+        }
         if (!IsSkinActive || BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;
         var size = Bounds.Size;
         if (!CanFit(size, Inset)) return;

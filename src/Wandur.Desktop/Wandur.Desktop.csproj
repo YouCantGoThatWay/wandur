@@ -8,6 +8,7 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets/icon-256.png" />
     <AvaloniaResource Include="Styles/ThemeDockSkin.axaml" />
+    <AvaloniaResource Include="Styles/Fleet.axaml" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Wandur.Core/Wandur.Core.csproj" />

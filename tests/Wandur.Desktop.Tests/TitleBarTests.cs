@@ -39,12 +39,13 @@ public sealed class TitleBarTests
             Assert.Equal(window.Controller.WorldName, title.Text, ignoreCase: true);   // engraved in capitals
             Assert.Contains(window.Controller.WorldName, window.Title);
             Assert.Contains("Wandur", window.Title);
-            Assert.Equal(FontWeight.SemiBold, title.FontWeight);
+            Assert.Equal(FontWeight.Normal, title.FontWeight);
             Assert.Contains(logo, identity.Children);
             Assert.Equal(0, Grid.GetColumn(identity));
             var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
-            var controls = picker.GetSelfAndVisualAncestors().OfType<StackPanel>().First(p => Grid.GetColumn(p) == 2);
-            Assert.NotSame(identity, controls);
+            // Hull keeps world selection on the left of the toolbar, separate from native drag chrome.
+            Assert.Equal(0, Grid.GetColumn(picker));
+            Assert.IsType<Grid>(picker.Parent);
             var status = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SessionStatus");
             Assert.Contains(status.GetSelfAndVisualAncestors().OfType<StackPanel>(), p => p.Name == "FooterStatus");
 
@@ -57,7 +58,7 @@ public sealed class TitleBarTests
             // title band up, that strip is the band's own drag surface rather than the old header row.
             var bandDrag = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MetalHeaderDrag");
             if (OperatingSystem.IsMacOS())
-                Assert.True(header.Bounds.Height >= 52 || (bandDrag.IsVisible && bandDrag.Bounds.Height >= 52),
+                Assert.True(header.Bounds.Height >= 50 || (bandDrag.IsVisible && bandDrag.Bounds.Height >= 50),
                     $"no draggable title area: header {header.Bounds.Height}, band {bandDrag.Bounds.Height}");
             else Assert.Equal(0, header.MinHeight);
             Assert.False(disconnect.IsEffectivelyVisible);

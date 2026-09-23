@@ -54,6 +54,8 @@ public sealed class WorldThemeWindowSkinTests
         // skin should not mean editing tests.
         var expectedInset = theme.Skin!.Window!.Inset;
         Assert.Equal(new Thickness(expectedInset.Left, expectedInset.Top, expectedInset.Right, expectedInset.Bottom), windowSkin.Inset);
+        if (OperatingSystem.IsMacOS())
+            Assert.Equal(Math.Max(52, expectedInset.Top), harness.Window.ExtendClientAreaTitleBarHeightHint);
         Assert.Null(bezel.BorderBitmap);
         Assert.Equal(default, bezel.Inset);
         Assert.False(ornaments.IsHitTestVisible);

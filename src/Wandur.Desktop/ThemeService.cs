@@ -80,6 +80,7 @@ public static class ThemeService
     /// world theme's skin, or a world without one paints nothing and a world with part of one paints half.
     /// </summary>
     internal static WorldThemeSkin? AppliedSkin { get; private set; }
+    internal static bool UsesFleetSkin { get; private set; }
     /// <summary>Decoded theme bitmaps for the appearance on screen (chrome, shell, frame-border).</summary>
     internal static IReadOnlyDictionary<string, Bitmap>? AppliedImages => _lastAppearance?.Images;
     private static ThemeResources? _resources;
@@ -176,7 +177,10 @@ public static class ThemeService
         // A world whose chrome is a texture keeps it: the default's shaded surfaces would paint straight
         // over the material the world chose, which is the one thing a textured theme exists to show.
         var textured = worldTheme?.Surface == "metallic" || worldTheme?.Images?.Chrome is not null;
-        var skin = DefaultSkin.Merge(worldTheme?.Skin, DefaultSkin.For(panel, text, background, terminalText, accent),
+        UsesFleetSkin = settings.Theme == "Hull" && worldTheme is null && personal is null;
+        var fallback = UsesFleetSkin
+            ? FleetSkin.Create() : DefaultSkin.For(panel, text, background, terminalText, accent);
+        var skin = DefaultSkin.Merge(worldTheme?.Skin, fallback,
             keepSurfaces: textured);
         skin = skin with { Radii = new WorldThemeSkinRadii { Panel = panelRadius, Control = controlRadius } };
         AppliedSkin = skin;
@@ -282,6 +286,10 @@ public static class ThemeService
         // Titlebar icons: flat, a touch darker than ChromeBrush so they sit quietly on the bar.
         var chrome = Color.Parse(personal?.Colors["Chrome"] ?? panel);
         resources.Color("ToolbarIconBrush", Mix(chrome, Colors.Black, light ? .16 : .28));
+        if (FleetSkin.IsActive && worldTheme is null && personal is null) FleetSkin.Apply(resources);
+        resources.Brush("InstrumentBarBrush", FleetSkin.IsActive ? FleetSkin.Instrument : resources.Read("ChromeBrush"));
+        resources.Brush("InstrumentTextBrush", resources.Read(FleetSkin.IsActive ? "TerminalTextBrush" : "TextBrush"));
+        resources.Brush("ChannelBodyBrush", resources.Read(FleetSkin.IsActive ? "TerminalBrush" : "PanelBrush"));
         _lastAppearance = appearance;
         Applied?.Invoke();
     }

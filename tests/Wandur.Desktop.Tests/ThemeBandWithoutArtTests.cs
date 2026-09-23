@@ -16,6 +16,39 @@ namespace Wandur.Desktop.Tests;
 /// </summary>
 public sealed class ThemeBandWithoutArtTests
 {
+    [AvaloniaFact]
+    public async Task ReturningFromAnInBandToolbarRestoresFleetToolbarBeforeFallbackMenu()
+    {
+        await using var harness = await DockHarness.OpenAsync(Frameless(96));
+        Dispatcher.UIThread.RunJobs(); harness.Window.UpdateLayout();
+        ThemeService.Apply(new Wandur.Core.Settings.ClientSettings { Theme = "Hull", UseWorldThemes = false });
+        Dispatcher.UIThread.RunJobs(); harness.Window.UpdateLayout();
+        var toolbar = harness.Window.GetVisualDescendants().OfType<Avalonia.Controls.Border>().Single(b => b.Name == "MainToolbar");
+        var menu = harness.Window.GetVisualDescendants().OfType<Avalonia.Controls.Menu>().Single(b => b.Name == "MainMenu");
+        var stack = Assert.IsType<Avalonia.Controls.StackPanel>(toolbar.Parent);
+        Assert.True(stack.Children.IndexOf(toolbar) < stack.Children.IndexOf(menu));
+        Assert.True(double.IsNaN(toolbar.Height), "The old band's explicit toolbar height must not survive a theme change.");
+    }
+
+    [AvaloniaFact]
+    public async Task FleetPlaqueInAWorldThemeRespectsItsOwnShortBandAndPalette()
+    {
+        var theme = Frameless(28);
+        theme = theme with { Name = "A very long fleet world title that must stay clear of both cyan lamps", Skin = theme.Skin! with { Layout = theme.Skin.Layout! with
+        { TitleBar = theme.Skin.Layout.TitleBar! with { HostsToolbar = false,
+            Plaque = new WorldThemeSkinPlaque { Shape = "fleet" } } } } };
+        await using var harness = await DockHarness.OpenAsync(theme);
+        Dispatcher.UIThread.RunJobs(); harness.Window.UpdateLayout();
+        Assert.False(FleetSkin.IsActive);
+        var plaque = harness.Window.GetVisualDescendants().OfType<ThemePlaque>().Single();
+        var origin = plaque.TranslatePoint(default, harness.Window)!.Value;
+        Assert.True(origin.Y + plaque.Bounds.Height <= 28);
+        var text = harness.Window.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(t => t.Name == "AppTitle");
+        var textOrigin = text.TranslatePoint(default, plaque)!.Value;
+        Assert.True(textOrigin.X >= 64, "World plaque text must stay inside the fixed lamp-safe inset.");
+        Assert.True(textOrigin.X + text.Bounds.Width <= plaque.Bounds.Width - 64);
+    }
+
     private static WorldTheme Frameless(double? height, bool plaque = true)
     {
         var node = JsonNode.Parse(File.ReadAllText(

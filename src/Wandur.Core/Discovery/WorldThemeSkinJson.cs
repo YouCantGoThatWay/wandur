@@ -63,6 +63,7 @@ public static class WorldThemeSkinJson
             writer.WriteString("color", windowEdge.Color);
             writer.WriteNumber("thickness", windowEdge.Thickness);
             if (windowEdge.Outline is { Length: > 0 } edgeOutline) writer.WriteString("outline", edgeOutline);
+            if (windowEdge.Accent is { Length: > 0 } edgeAccent) writer.WriteString("accent", edgeAccent);
             writer.WriteEndObject();
         }
         if (skin.Radii is { HasContent: true } radii)
@@ -444,7 +445,7 @@ public static class WorldThemeSkinJson
         return new WorldThemeSkinSurface { From = from, To = to, Gloss = gloss, Bevel = bevel, BevelStrength = bevelStrength, Grain = grain, Rule = rule };
     }
 
-    private static readonly string[] AllowedPlaqueShapes = ["chamfer", "notch", "round", "square"];
+    private static readonly string[] AllowedPlaqueShapes = ["chamfer", "notch", "round", "square", "fleet"];
 
     /// <summary>
     /// A nameplate is a shape and up to three colours. A colour the theme leaves out is taken from the
@@ -561,7 +562,14 @@ public static class WorldThemeSkinJson
         }
         // A bevelled frame needs room for its two outlines and a highlight between them.
         if (outline is not null && thickness < 3) return null;
-        return thickness <= 0 ? null : new WorldThemeSkinEdge { Color = colour!, Thickness = thickness, Outline = outline };
+        string? accent = null;
+        if (el.TryGetProperty("accent", out var accentEl) && accentEl.ValueKind == JsonValueKind.String &&
+            WorldTheme.IsColor(accentEl.GetString()))
+            accent = accentEl.GetString();
+        return thickness <= 0 ? null : new WorldThemeSkinEdge
+        {
+            Color = colour!, Thickness = thickness, Outline = outline, Accent = accent,
+        };
     }
 
     private static WorldThemeSkinRadii? ReadRadii(JsonElement root)

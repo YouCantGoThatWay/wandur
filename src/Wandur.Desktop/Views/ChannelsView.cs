@@ -72,8 +72,11 @@ public sealed class ChannelsView : UserControl
         replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("TerminalBrush"));
         replyRow.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
         var header = Ui.Toolbar(tabs, "ChannelsToolbar");
+        header.Bind(Border.BackgroundProperty, new DynamicResourceExtension("InstrumentBarBrush"));
         Grid.SetRow(note, 1); Grid.SetRow(messages, 2); Grid.SetRow(replyRow, 3);
-        Content = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, note, messages, replyRow } };
+        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, note, messages, replyRow } };
+        body.Bind(BackgroundProperty, new DynamicResourceExtension("ChannelBodyBrush"));
+        Content = body;
     }
 
     /// <summary>A tab wears its unread count until the reader looks at it.</summary>

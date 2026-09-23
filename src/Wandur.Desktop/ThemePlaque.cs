@@ -64,13 +64,18 @@ public sealed class ThemePlaque : Decorator
 
     /// <summary>The shapes a theme may ask for. Anything else falls back to a plain rectangle.</summary>
     public static bool IsShape(string? shape) =>
-        shape is "chamfer" or "notch" or "round" or "square";
+        shape is "chamfer" or "notch" or "round" or "square" or "fleet";
 
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         var size = Bounds.Size;
         if (size.Width <= 1 || size.Height <= 1 || Fill is null) return;
+        if (Shape == "fleet")
+        {
+            DrawFleet(context, size);
+            return;
+        }
 
         // With wings the plaque is two parts: a light bracket filling the whole bounds, and the dark plate
         // set into it, narrower by the wing reach on each side and inset from the top and bottom so the
@@ -103,6 +108,58 @@ public sealed class ThemePlaque : Decorator
         var height = plate.Height * 0.64;
         context.FillRectangle(Accent, new Rect(plate.X + inset, top, cap, height));
         context.FillRectangle(Accent, new Rect(plate.Right - inset - cap, top, cap, height));
+    }
+
+    private Size _fleetSize;
+    private StreamGeometry? _fleetOutline;
+    private static readonly IBrush FleetLip = Brush.Parse("#F5F8F6");
+    private static readonly IBrush FleetShadow = Brush.Parse("#485352");
+
+    internal static Rect FleetPlate(Size size)
+    {
+        var inset = Math.Min(7, Math.Max(0, size.Height * .12));
+        return new(44, inset, Math.Max(0, size.Width - 88), Math.Max(0, size.Height - inset * 2));
+    }
+
+    private void DrawFleet(DrawingContext context, Size size)
+    {
+        if (size.Width < 168 || size.Height < 24) return;
+        if (_fleetOutline is null || _fleetSize != size)
+        {
+            _fleetSize = size;
+            var w = size.Width; var h = size.Height;
+            _fleetOutline = new StreamGeometry();
+            using var draw = _fleetOutline.Open();
+            draw.BeginFigure(new Point(28, 2), true);
+            foreach (var p in new Point[] { new(w-28,2), new(w-.5,h*.60),
+                new(w-12,h-2), new(12,h-2), new(.5,h*.60) })
+                draw.LineTo(p);
+            draw.EndFigure(true);
+        }
+        // A short extrusion under the actual silhouette, not a rectangular drop shadow.
+        using (context.PushTransform(Matrix.CreateTranslation(0, 2)))
+            context.DrawGeometry(FleetShadow, new Pen(Brush.Parse("#303B3D"), 1), _fleetOutline);
+        context.DrawGeometry(WingFill is ISolidColorBrush ? Shaded(WingFill, .2, -.12) : WingFill ?? FleetSkin.Metal,
+            new Pen(WingEdge ?? FleetShadow, 1), _fleetOutline);
+        context.DrawLine(new Pen(FleetLip, 1), new(28, 3), new(size.Width-28, 3));
+        context.DrawLine(new Pen(FleetLip, 1), new(28, 3), new(1.5, size.Height*.60));
+        context.DrawLine(new Pen(FleetLip, 1), new(size.Width-28, 3), new(size.Width-1.5, size.Height*.60));
+        context.DrawLine(new Pen(FleetShadow, 1), new(12, size.Height-3), new(size.Width-12, size.Height-3));
+        var plate = FleetPlate(size);
+        context.DrawRectangle(Fill is ISolidColorBrush ? Shaded(Fill, .12, -.06) : Fill,
+            new Pen(FleetLip, 1), plate, 2, 2);
+        context.DrawRectangle(null, new Pen(Edge ?? FleetShadow, 1), plate.Deflate(1), 2, 2);
+        // Recessed plate: dark inner top edge, reflected light at the bottom.
+        context.DrawLine(new Pen(Brush.Parse("#101B20"), 1), new(plate.Left+2, plate.Top+2), new(plate.Right-2, plate.Top+2));
+        context.DrawLine(new Pen(Brush.Parse("#8A9698"), 1), new(plate.Left+2, plate.Bottom-1), new(plate.Right-2, plate.Bottom-1));
+        if (Accent is null || Cap <= 0) return;
+        var lampInset = Math.Min(6, plate.Height * .18);
+        foreach (var x in new[] { plate.X + 10, plate.Right - 13 })
+        {
+            var lamp = new Rect(x, plate.Y + lampInset, 3, plate.Height - lampInset * 2);
+            using (context.PushOpacity(.16)) context.DrawRectangle(Accent, null, lamp.Inflate(2), 3, 3);
+            context.DrawRectangle(Accent, null, lamp, 1.5, 1.5);
+        }
     }
 
     /// <summary>
