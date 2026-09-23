@@ -16,6 +16,8 @@ internal sealed class ThemeSkinResources
 
     public Bitmap? WindowBorder { get; init; }
     public WorldThemeSkinBorder? WindowBorderMeta { get; init; }
+    /// <summary>Where the client's own chrome sits inside the frame; null leaves the default stack.</summary>
+    public WorldThemeSkinLayout? Layout { get; init; }
     public Bitmap? PanelDefault { get; init; }
     public WorldThemePanelSkin? PanelMeta { get; init; }
     public IReadOnlyDictionary<string, (Bitmap Bitmap, WorldThemeSkinOverlay Overlay)> Overlays { get; init; } =
@@ -63,6 +65,7 @@ internal sealed class ThemeSkinResources
 
         return new ThemeSkinResources
         {
+            Layout = skin.Layout,
             WindowBorder = window,
             WindowBorderMeta = windowMeta,
             PanelDefault = panel,

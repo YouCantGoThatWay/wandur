@@ -5,7 +5,7 @@ using Wandur.Core.Discovery;
 
 namespace Wandur.Desktop;
 
-internal readonly record struct SkinPatch(Rect SourcePixels, Rect Destination);
+internal readonly record struct SkinPatch(Rect SourcePixels, Rect Destination, bool TileX = false, bool TileY = false);
 
 /// <summary>
 /// Eight-patch (no center) geometry. Source coordinates are raw bitmap pixels; destination
@@ -15,7 +15,7 @@ internal static class ThemeNineSlice
 {
     /// <summary>Return empty when the destination cannot fit the border at its fixed thickness.</summary>
     internal static IReadOnlyList<SkinPatch> Build(
-        PixelSize source, SkinPixelBox slice, SkinBox thickness, Size destination)
+        PixelSize source, SkinPixelBox slice, SkinBox thickness, Size destination, bool tile = false)
     {
         if (source.Width <= 0 || source.Height <= 0) return [];
         if (destination.Width <= 0 || destination.Height <= 0) return [];
@@ -48,7 +48,10 @@ internal static class ThemeNineSlice
             var destRect = new Rect(dx[col], dy[row], dx[col + 1] - dx[col], dy[row + 1] - dy[row]);
             if (sourceRect.Width <= 0 || sourceRect.Height <= 0 || destRect.Width <= 0 || destRect.Height <= 0)
                 continue;
-            patches.Add(new SkinPatch(sourceRect, destRect));
+            // Only the rail middles repeat: a corner is a fixed piece of art.
+            var tileX = tile && col == 1 && row != 1;
+            var tileY = tile && row == 1 && col != 1;
+            patches.Add(new SkinPatch(sourceRect, destRect, tileX, tileY));
         }
         return patches;
     }
@@ -102,6 +105,42 @@ internal static class ThemeNineSlice
     internal static void Draw(DrawingContext context, Bitmap bitmap, IReadOnlyList<SkinPatch> patches)
     {
         foreach (var patch in patches)
-            context.DrawImage(bitmap, patch.SourcePixels, patch.Destination);
+        {
+            if (patch.TileX || patch.TileY) DrawTiled(context, bitmap, patch);
+            else context.DrawImage(bitmap, patch.SourcePixels, patch.Destination);
+        }
+    }
+
+    /// <summary>How many repeats are drawn before falling back to a stretch, so a pathological source
+    /// cannot turn one rail into thousands of draw calls.</summary>
+    private const int MaxTiles = 512;
+
+    private static void DrawTiled(DrawingContext context, Bitmap bitmap, SkinPatch patch)
+    {
+        var (src, dest) = (patch.SourcePixels, patch.Destination);
+        // The axis that is not repeating scales to fit, and the repeat uses that same scale, so the
+        // detail keeps its proportions however far the rail has to run.
+        var scale = patch.TileX ? dest.Height / src.Height : dest.Width / src.Width;
+        var step = (patch.TileX ? src.Width : src.Height) * scale;
+        var span = patch.TileX ? dest.Width : dest.Height;
+        if (!double.IsFinite(scale) || scale <= 0 || step <= 0.5 || span / step > MaxTiles)
+        {
+            context.DrawImage(bitmap, src, dest);
+            return;
+        }
+        for (var offset = 0d; offset < span; offset += step)
+        {
+            // The last repeat is usually partial: take the matching fraction of the source so it is
+            // cropped rather than squashed.
+            var take = Math.Min(step, span - offset);
+            var fraction = take / step;
+            var source = patch.TileX
+                ? new Rect(src.X, src.Y, src.Width * fraction, src.Height)
+                : new Rect(src.X, src.Y, src.Width, src.Height * fraction);
+            var target = patch.TileX
+                ? new Rect(dest.X + offset, dest.Y, take, dest.Height)
+                : new Rect(dest.X, dest.Y + offset, dest.Width, take);
+            context.DrawImage(bitmap, source, target);
+        }
     }
 }

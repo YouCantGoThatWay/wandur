@@ -31,9 +31,14 @@ public sealed class TitleBarTests
             Assert.NotNull(logo.Source);
 
             // Identity on the left, controls on the right, and the live session state down in the footer.
+            // AppTitle tracks the window Title (character · world · Wandur) once a session is open.
             var identity = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "TitleBarIdentity");
             var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle");
-            Assert.Equal("Wandur", title.Text);
+            // The nameplate carries the world alone; the full string (character · world · Wandur) stays on
+            // the operating system's window title, where there is room for it.
+            Assert.Equal(window.Controller.WorldName, title.Text, ignoreCase: true);   // engraved in capitals
+            Assert.Contains(window.Controller.WorldName, window.Title);
+            Assert.Contains("Wandur", window.Title);
             Assert.Equal(FontWeight.SemiBold, title.FontWeight);
             Assert.Contains(logo, identity.Children);
             Assert.Equal(0, Grid.GetColumn(identity));
@@ -48,13 +53,54 @@ public sealed class TitleBarTests
             Assert.True(toolbar.Bounds.Height >= 40);
             window.ToolbarVisible = false;
             window.UpdateLayout();
-            if (OperatingSystem.IsMacOS()) Assert.True(header.Bounds.Height >= 52);
+            // Hiding the toolbar must never take away the draggable strip the traffic lights sit in. With the
+            // title band up, that strip is the band's own drag surface rather than the old header row.
+            var bandDrag = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MetalHeaderDrag");
+            if (OperatingSystem.IsMacOS())
+                Assert.True(header.Bounds.Height >= 52 || (bandDrag.IsVisible && bandDrag.Bounds.Height >= 52),
+                    $"no draggable title area: header {header.Bounds.Height}, band {bandDrag.Bounds.Height}");
             else Assert.Equal(0, header.MinHeight);
             Assert.False(disconnect.IsEffectivelyVisible);
             Assert.True(window.Controller.IsConnected);
             window.ToolbarVisible = true;
             window.UpdateLayout();
             Assert.True(disconnect.IsEffectivelyVisible);
+        }
+        finally
+        {
+            await window.Sessions.DisposeAsync();
+            window.Close();
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ToolbarWorldPickerFollowsTheActiveSessionProfile()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "wandur-picker-" + Guid.NewGuid());
+        var store = new SettingsStore(Path.Combine(directory, "settings.json"));
+        var first = new ConnectionProfile { Name = "First", Host = "first.example", Port = 4000 };
+        var second = new ConnectionProfile { Name = "Second", Host = "127.0.0.1", Port = 0 };
+        // Listener for a real connect so the session profile sticks.
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        second = second with { Port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port };
+        store.Save(new ClientSettings { Profiles = [first, second] });
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store,
+            new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
+            Assert.Equal(first.Id, Assert.IsType<ConnectionProfile>(picker.SelectedItem).Id);
+
+            var open = window.Sessions.OpenAsync(second);
+            using var _ = await listener.AcceptTcpClientAsync();
+            await open;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(second.Id, Assert.IsType<ConnectionProfile>(picker.SelectedItem).Id);
         }
         finally
         {

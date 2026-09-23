@@ -7,6 +7,7 @@
     <None Include="../Fixtures/world-theme-metallic.json" Link="Fixtures/world-theme-metallic.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/world-theme-lotj-bezel.json" Link="Fixtures/world-theme-lotj-bezel.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/world-theme-industrial-skin.json" Link="Fixtures/world-theme-industrial-skin.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Fixtures/world-theme-skin-contract.json" Link="Fixtures/world-theme-skin-contract.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Fixtures/brushed-gunmetal-v1.png" Link="Fixtures/brushed-gunmetal-v1.png" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Wandur.Desktop/Wandur.Desktop.csproj" />
     <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.2" />

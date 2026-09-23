@@ -25,11 +25,16 @@ public sealed record WorldTheme
         double.IsFinite(CornerRadius) && CornerRadius is >= 0 and <= 16 && Colors is not null &&
         Colors.Values.All(IsColor);
     internal static bool IsColor(string? value) => value is { Length: 7 } && value[0] == '#' && value.Skip(1).All(char.IsAsciiHexDigit);
+    /// <summary>
+    /// Theme art is served by the directory and nowhere else, so the url is always relative to it. Allowing an
+    /// absolute host would let a listing point the client at a third party, which turns painting a window into
+    /// a request that host can see and control; it would also put the bytes outside the versioning the
+    /// directory applies to its own assets. Relative-only keeps both properties.
+    /// </summary>
     internal static bool IsThemeUrl(string? url) => url is { Length: > 0 and <= 2048 } && !url.Any(char.IsControl) &&
-        !url.Contains('\\') && !url.StartsWith('/') &&
-        (Uri.TryCreate(url, UriKind.Absolute, out var absolute)
-            ? absolute.Scheme == "https" && absolute.UserInfo.Length == 0
-            : Uri.TryCreate(url, UriKind.Relative, out _) && !url.Split('/').Any(p => p is "." or ".."));
+        !url.Contains('\\') && !url.StartsWith('/') && !url.Contains("//", StringComparison.Ordinal) &&
+        !Uri.TryCreate(url, UriKind.Absolute, out _) &&
+        Uri.TryCreate(url, UriKind.Relative, out _) && !url.Split('/').Any(p => p is "." or "..");
 }
 
 public sealed record WorldThemeImages
@@ -42,6 +47,12 @@ public sealed record WorldThemeImages
 public sealed record WorldThemeImage
 {
     public string Url { get; init; } = "";
+    /// <summary>
+    /// What the directory says this asset currently is, moving whenever its bytes do. The client caches art
+    /// under url plus version, so replacing a file at a stable path reaches every client without anyone
+    /// remembering to rename it. Empty when the directory does not report one, which caches by url alone.
+    /// </summary>
+    public string? Version { get; init; }
     public double Opacity { get; init; } = .12;
     [JsonIgnore] public bool IsValid => WorldTheme.IsThemeUrl(Url) && double.IsFinite(Opacity) && Opacity is >= 0 and <= .35;
 }

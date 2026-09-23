@@ -1880,4 +1880,10 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   <data name="ChannelRuleChannel" xml:space="preserve"><value>Canal</value></data>
   <data name="ChannelRulePattern" xml:space="preserve"><value>Motif</value></data>
   <data name="ChannelRuleReply" xml:space="preserve"><value>Commande de réponse</value></data>
+  <data name="DeleteSavedWorldPrompt" xml:space="preserve">
+    <value>Supprimer ce monde enregistré ? Ses identifiants, son mappage de protocole et ses scripts disparaîtront aussi.</value>
+  </data>
+  <data name="ThemeHull" xml:space="preserve">
+    <value>Coque</value>
+  </data>
 </root>

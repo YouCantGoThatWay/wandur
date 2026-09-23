@@ -43,6 +43,9 @@ public sealed class ChannelsView : UserControl
         tabs.Bind(SelectingItemsControl.SelectedIndexProperty, new Binding(nameof(model.SelectedIndex)) { Mode = BindingMode.TwoWay });
         var messages = new ChannelMessageList(model) { Name = "ChannelMessages" };
         var reply = new TextBox { Name = "ChannelReply", MaxLength = 1024, FontSize = 12, MinHeight = 30, AcceptsReturn = false };
+        // The reply bar sits on the transcript surface, so the field takes the terminal's own field chrome
+        // and placeholder. With the chrome placeholder it was a light-chrome grey on a dark transcript.
+        reply.Classes.Add("terminal-field");
         reply.Bind(TextBox.TextProperty, new Binding(nameof(model.Draft)) { Mode = BindingMode.TwoWay });
         reply.Bind(TextBox.PlaceholderTextProperty, new Binding(nameof(model.ReplyHint)));
         reply.Bind(IsEnabledProperty, new Binding(nameof(model.CanReply)));

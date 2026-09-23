@@ -23,6 +23,24 @@ public sealed class WorldThemeViewTests
     private static WorldTheme Theme => JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme.json")))!;
     private static string ColorOf(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color.ToString();
 
+    /// <summary>
+    /// Shaded chrome is derived from a world's colour rather than equal to it, so what matters is that every
+    /// stop stays close to that colour: a world with navy chrome gets navy metal, not the user's grey.
+    /// </summary>
+    private static void AssertDerivedFrom(IBrush? brush, string hex, int tolerance = 64)
+    {
+        var target = Color.Parse(hex);
+        var stops = brush switch
+        {
+            ISolidColorBrush solid => new[] { solid.Color },
+            GradientBrush gradient => gradient.GradientStops.Select(s => s.Color).ToArray(),
+            _ => throw new Xunit.Sdk.XunitException($"unexpected brush {brush?.GetType().Name ?? "null"}"),
+        };
+        foreach (var c in stops)
+            Assert.True(Math.Abs(c.R - target.R) <= tolerance && Math.Abs(c.G - target.G) <= tolerance
+                && Math.Abs(c.B - target.B) <= tolerance, $"{c} is not derived from {hex}");
+    }
+
     [AvaloniaFact]
     public async Task AnOpenSessionThemesTheShellDockToolbarsAndDialogsAndClosingItRestoresTheUserDefault()
     {
@@ -59,8 +77,10 @@ public sealed class WorldThemeViewTests
             var session = window.Sessions.Active;
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
             Assert.Equal("#ff091821", ColorOf(window.Background));
-            Assert.Equal("#ff112532", ColorOf(toolbar.Background));
-            Assert.Equal("#ff091821", ColorOf((IBrush)Application.Current!.Resources["DockSurfaceHeaderBrush"]!));
+            // The toolbar sits transparent in the title band, which paints the world's chrome.
+            var band = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().First();
+            AssertDerivedFrom(band.BandBrush, "#112532");
+            AssertDerivedFrom((IBrush)Application.Current!.Resources["DockSurfaceHeaderBrush"]!, "#091821");
             // Nothing a reader does in the directory, the saved list or a dialog moves it off that session.
             search.SelectedIndex = 1; Dispatcher.UIThread.RunJobs();
             Assert.Equal(ThemeVariant.Dark, window.ActualThemeVariant);
@@ -275,7 +295,11 @@ public sealed class WorldThemeViewTests
         File.WriteAllText(Path.Combine(path, "directory.json"), JsonSerializer.Serialize(new { schema_version = 2, format = "wandur.directory", fetched_at = DateTimeOffset.UtcNow, worlds = new[] { world, plain } }, options));
         using var http = new HttpClient(new NoArtwork());
         using var catalog = new WorldCatalog(Path.Combine(path, "directory.json"), http: http);
-        await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(path, "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        // This proves browsing never re-themes the window, so it pins a dark personal preset rather than
+        // relying on whatever the client's default preset happens to be.
+        var browsingStore = new SettingsStore(Path.Combine(path, "settings.json"));
+        browsingStore.Save(new ClientSettings { Theme = "Ember" });
+        await using var sessions = new SessionWorkspace(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), browsingStore, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
         using var model = new WorldBrowserViewModel(catalog, sessions);
         var browser = new WorldBrowserView(model, catalog);
         var window = new Window { Content = browser, Width = 1050, Height = 780 };

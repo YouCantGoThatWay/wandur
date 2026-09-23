@@ -36,6 +36,17 @@ public sealed class MainWindow : Window
     private readonly Border _notice;
     private readonly Border _toolbar;
     private readonly Border _footer;
+    private readonly Border _windowHeader;
+    private readonly Border _metalDrag;
+    private readonly Border _plaqueTitleHost;
+    /// <summary>The drawn nameplate behind the title. Renders before its child, so the title sits on it.</summary>
+    private readonly ThemePlaque _plaque = new() { Name = "ThemePlaqueShape" };
+    private string _plaqueLabel = "Wandur";
+    private Grid _chrome = null!;
+    private StackPanel _headerStack = null!;
+    private bool _toolbarInBand;
+    private readonly StackPanel _titleBarIdentity;
+    private readonly TextBlock _appTitle;
     private readonly TextBlock _footerHint;
     private readonly ThemeBezelHost _bezel;
     private readonly ThemeWindowSkinHost _windowSkin;
@@ -47,9 +58,13 @@ public sealed class MainWindow : Window
     private readonly DesktopMenus _menus;
     private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 28, Height = 28, FontSize = 12, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
     private List<ConnectionProfile>? _profiles;
+    private Guid? _pickerSessionProfileId;
     private bool? _channelsPreference;
     private bool _closing;
     private bool _closed;
+    private bool _skinTitleActive;
+    /// <summary>A toolbar move is queued for after layout; one at a time, and it reads the state when it runs.</summary>
+    private bool _toolbarMovePending;
     private Window? _dialog;
     private readonly IProfileAutomationFactory _profileAutomationFactory;
     private readonly IAgentClientServices? _agents;
@@ -98,28 +113,28 @@ public sealed class MainWindow : Window
         _toolbarStatus.VerticalAlignment = VerticalAlignment.Center;
         _toolbarStatus.TextTrimming = TextTrimming.CharacterEllipsis;
         _toolbarStatus.TextWrapping = TextWrapping.NoWrap;
-        // The bar reads identity on the left and controls on the right; the live session state it used to
-        // hold on the right now sits beside the session counts in the footer, so status has one home.
-        var title = new TextBlock { Name = "AppTitle", Text = "Wandur", FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-        title.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
-        var identity = new StackPanel { Name = "TitleBarIdentity", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { AppLogo(), title } };
+        // Default chrome: identity on the left, session controls on the right. A modular skin with a
+        // top-center plaque moves the live title into that plaque (window-centered) and hides this brand.
+        _appTitle = new TextBlock { Name = "AppTitle", Text = "Wandur", FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
+        _appTitle.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
+        _titleBarIdentity = new StackPanel { Name = "TitleBarIdentity", Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { AppLogo(), _appTitle } };
         Grid.SetColumn(actions, 2);
-        _toolbar = new Border { Name = "MainToolbar", Padding = new Thickness(12, 5), MinHeight = OperatingSystem.IsMacOS() ? MacTitleBarHeight : ToolbarHeight, BorderThickness = new Thickness(0, 0, 0, 1), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 20, Children = { identity, actions } } };
+        _toolbar = new Border { Name = "MainToolbar", Padding = new Thickness(12, 5), MinHeight = OperatingSystem.IsMacOS() ? MacTitleBarHeight : ToolbarHeight, BorderThickness = new Thickness(0, 0, 0, 1), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 20, Children = { _titleBarIdentity, actions } } };
         _toolbar.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
-        _toolbar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ChromeBrush"));
+        BindToolbarBackground();
         _menus.Fallback.IsVisible = !OperatingSystem.IsMacOS();
         // Keep a draggable native titlebar even when View > Toolbar hides its controls.
-        var header = new Border
+        _windowHeader = new Border
         {
             Name = "WindowHeader", MinHeight = OperatingSystem.IsMacOS() ? MacTitleBarHeight : 0,
-            Child = new StackPanel { Children = { _menus.Fallback, _toolbar } }
+            Child = _headerStack = new StackPanel { Children = { _menus.Fallback, _toolbar } }
         };
-        header.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ChromeBrush"));
+        _windowHeader.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ChromeBrush"));
         if (OperatingSystem.IsMacOS())
         {
             UpdateTitleBarInsets();
             PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty) UpdateTitleBarInsets(); };
-            header.PointerPressed += OnTitleBarPointerPressed;
+            _windowHeader.PointerPressed += OnTitleBarPointerPressed;
         }
 
         var dismiss = Ui.Button("×", () => Controller.ShowNotice(null), "quiet");
@@ -136,25 +151,51 @@ public sealed class MainWindow : Window
         var footerLeft = new StackPanel { Name = "FooterStatus", Orientation = Orientation.Horizontal, Spacing = 8, Children = { _status, footerSeparator, _toolbarStatus } };
         _footer = new Border { Name = "WindowFooter", Padding = _footerBasePadding, BorderThickness = new Thickness(0, 1, 0, 0), Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Children = { footerLeft, statusRight } } };
         _footer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        _footer.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("FooterBrush"));
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
-        root.Children.Add(header); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(_footer, 3); root.Children.Add(_footer);
+        root.Children.Add(_windowHeader); Grid.SetRow(_notice, 1); root.Children.Add(_notice); Grid.SetRow(_dock, 2); root.Children.Add(_dock); Grid.SetRow(_footer, 3); root.Children.Add(_footer);
         // Clip the shell when a bezel sets content_radius; without a frame the radius stays zero.
         var shell = new Border { Name = "ShellContent", Child = root, ClipToBounds = true };
         _bezel = new ThemeBezelHost { Name = "ThemeBezel", Child = shell };
         _windowSkin = new ThemeWindowSkinHost { Name = "ThemeWindowSkin", Child = _bezel };
         _ornaments = new ThemeOrnamentLayer { Name = "ThemeOrnaments" };
         _ornaments.ClearanceChanged += ApplyFooterClearance;
-        var chrome = new Grid { Name = "ThemeChrome" };
+        _ornaments.ClearanceChanged += ApplyTitleChrome;
+        // Transparent hit targets over the metal header / plaque so decorative bitmaps (IsHitTestVisible
+        // false) never swallow drags, while toolbar buttons below the inset keep their normal hits.
+        _metalDrag = new Border
+        {
+            Name = "MetalHeaderDrag", HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Top, Background = Brushes.Transparent, IsVisible = false
+        };
+        _metalDrag.PointerPressed += OnTitleBarPointerPressed;
+        _plaqueTitleHost = new Border
+        {
+            Name = "PlaqueTitleHost", HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top, Background = Brushes.Transparent, IsVisible = false,
+            Padding = new Thickness(24, 0)
+        };
+        _plaqueTitleHost.PointerPressed += OnTitleBarPointerPressed;
+        _chrome = new Grid { Name = "ThemeChrome" };
+        var chrome = _chrome;
         chrome.Children.Add(_windowSkin);
+        chrome.Children.Add(_metalDrag);
         chrome.Children.Add(_ornaments);
+        chrome.Children.Add(_plaqueTitleHost);
+        chrome.SizeChanged += (_, _) => ApplyTitleChrome();
         Content = chrome;
         ThemeService.Applied += OnThemeApplied;
+        // The theme in force was usually applied before this window existed to hear about it, so pick it up
+        // now. Without this the frame, band and nameplate only appeared after the first theme change, and a
+        // freshly launched window showed none of them.
+        OnThemeApplied();
         Sessions.Changed += Refresh;
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
         Closed += (_, _) =>
         {
             ThemeService.Applied -= OnThemeApplied;
             _ornaments.ClearanceChanged -= ApplyFooterClearance;
+            _ornaments.ClearanceChanged -= ApplyTitleChrome;
             Wandur.Core.Localization.UiLanguage.Changed -= RefreshLanguage;
         };
         Closing += OnClosing;
@@ -171,6 +212,299 @@ public sealed class MainWindow : Window
         _bezel.ApplyFromTheme();
         _ornaments.ApplyFromTheme();
         ApplyFooterClearance();
+        ApplyTitleChrome();
+    }
+
+    /// <summary>
+    /// When a skin paints a top-center plaque, the live window title sits in that plaque (centered on the
+    /// window, not the content column) and the left toolbar brand is removed so it is not duplicated.
+    /// </summary>
+    /// <summary>
+    /// The titlebar slot. A skin that hosts the toolbar moves the row into the painted band, so the
+    /// frame's metal is the toolbar's background instead of a second bar being drawn underneath it.
+    /// The row keeps its own hit testing; only its placement and backing move.
+    /// </summary>
+    /// <summary>
+    /// Paints the nameplate from the theme, falling back to the palette for anything it leaves out. A
+    /// theme that names no plaque gets none, and the title is drawn straight onto the band as before.
+    /// </summary>
+    private void ApplyPlaque(Wandur.Core.Discovery.WorldThemeSkinPlaque? plaque)
+    {
+        if (plaque is null)
+        {
+            _plaque.Fill = null;
+            _plaque.Edge = null;
+            _plaque.Accent = null;
+            _plaque.WingFill = null;
+            _plaque.WingEdge = null;
+            _plaque.WingExtend = 0;
+            _plaque.ShadowColor = null;
+            _plaque.Padding = default;
+            _plaque.InvalidateVisual();
+            return;
+        }
+        IBrush? Named(string? colour, string resource) =>
+            colour is { Length: > 0 } && Color.TryParse(colour, out var parsed)
+                ? new SolidColorBrush(parsed)
+                : Application.Current?.Resources[resource] as IBrush;
+
+        _plaque.Shape = plaque.Shape;
+        _plaque.Cap = plaque.Cap;
+        _plaque.Fill = Named(plaque.Fill, "ChromeBrush");
+        // The title's colour follows the plate, not the palette: white on a dark plate, the text colour on a
+        // light one. TerminalTextBrush was wrong whenever the transcript and the plate disagreed.
+        if (_plaque.Fill is ISolidColorBrush plateBrush)
+        {
+            var c = plateBrush.Color;
+            var dark = 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B < 140 * 1.0;
+            Application.Current!.Resources["PlaqueTextBrush"] = dark
+                ? new SolidColorBrush(Color.Parse("#F2F5F8"))
+                : Application.Current.Resources["TextBrush"];
+        }
+        _plaque.Edge = plaque.Edge is { Length: > 0 } ? Named(plaque.Edge, "BorderBrush") : null;
+        _plaque.Accent = Named(plaque.Accent, "AccentBrush");
+
+        var wings = plaque.Wings;
+        _plaque.WingExtend = wings?.Extend ?? 0;
+        _plaque.WingFill = wings is null ? null : Named(wings.Fill, "ChromeBrush");
+        _plaque.WingEdge = wings?.Edge is { Length: > 0 } ? Named(wings.Edge, "BorderBrush") : null;
+
+        if (plaque.Shadow is { } shadow && Color.TryParse(shadow.Color, out var shade))
+        {
+            _plaque.ShadowColor = shade;
+            _plaque.ShadowOpacity = shadow.Opacity;
+            _plaque.ShadowBlur = shadow.Blur;
+            _plaque.ShadowOffset = shadow.Y;
+        }
+        else _plaque.ShadowColor = null;
+
+        // The plate sits inside the wings, so the title's room is the theme's padding plus the wing reach.
+        // Without the wing term a long title runs out over the bracket.
+        var reach = wings?.Extend ?? 0;
+        var pad = plaque.Padding;
+        _plaque.Padding = new Thickness(reach + pad.Left, pad.Top, reach + pad.Right, pad.Bottom);
+        _plaque.InvalidateVisual();
+    }
+
+    /// <summary>The toolbar's own bar, bound to the theme. Kept so it can be disposed when the band hosts it.</summary>
+    private IDisposable? _toolbarBackground;
+
+    private void BindToolbarBackground()
+    {
+        _toolbarBackground?.Dispose();
+        _toolbar.ClearValue(Border.BackgroundProperty);
+        _toolbarBackground = _toolbar.Bind(Border.BackgroundProperty,
+            new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ToolbarBrush"));
+    }
+
+    /// <summary>The world's name as the nameplate shows it: engraved in capitals when there is a plate.</summary>
+    private string PlateTitle() =>
+        ThemeService.AppliedSkin?.Layout?.TitleBar?.Plaque is not null ? _plaqueLabel.ToUpperInvariant() : _plaqueLabel;
+
+    private void ApplyToolbarSlot(WorldThemeSkinTitleBar? slot)
+    {
+        var inBand = slot is { HostsToolbar: true } && !_ornaments.IsCompact;
+        _toolbarInBand = inBand;
+        // Decided from where the toolbar actually is, not from a flag recording where it was last sent. A
+        // flag drifts whenever a move is still queued as the next theme arrives, and a switched window then
+        // settled with the toolbar in one place and the title chrome laid out as if it were in the other.
+        var isInBand = _chrome.Children.Contains(_toolbar);
+        if (inBand == isInBand) { if (inBand) PositionBandToolbar(slot!); return; }
+        if (_toolbarMovePending) return;
+        _toolbarMovePending = true;
+        // This runs from SizeChanged, so the tree cannot be reparented here: moving a child mid-layout
+        // leaves the Grid arranging against definitions it has already measured, which throws. The move
+        // reads the state current when it runs, and the title chrome is laid out again once it has landed,
+        // since whether the nameplate is shown depends on where the toolbar ended up.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _toolbarMovePending = false;
+            if (_closed) return;
+            MoveToolbar(_toolbarInBand, ThemeService.AppliedSkin?.Layout?.TitleBar);
+            ApplyTitleChrome();
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void MoveToolbar(bool inBand, WorldThemeSkinTitleBar? slot)
+    {
+        if (_closed || inBand != _toolbarInBand) return;
+        if (inBand && slot is not null)
+        {
+            _headerStack.Children.Remove(_toolbar);
+            if (!_chrome.Children.Contains(_toolbar))
+            {
+                Grid.SetRow(_toolbar, 0);
+                Grid.SetColumn(_toolbar, 0);
+                _chrome.Children.Add(_toolbar);
+            }
+            // Drop the resource binding before going transparent. A local value set over a live binding only
+            // masks it, and so does ClearValue, which clears the local value and leaves the binding running:
+            // the next theme change fired it and repainted the toolbar's own bar over the band, so a window
+            // that switched theme differed from one opened in that theme. Only disposing the binding stops it.
+            _toolbarBackground?.Dispose();
+            _toolbarBackground = null;
+            _toolbar.Background = Brushes.Transparent;
+            _toolbar.BorderThickness = default;
+            PositionBandToolbar(slot);
+        }
+        else
+        {
+            _chrome.Children.Remove(_toolbar);
+            if (!_headerStack.Children.Contains(_toolbar)) _headerStack.Children.Add(_toolbar);
+            BindToolbarBackground();
+            _toolbar.BorderThickness = new Thickness(0, 0, 0, 1);
+            _toolbar.VerticalAlignment = VerticalAlignment.Stretch;
+            _toolbar.HorizontalAlignment = HorizontalAlignment.Stretch;
+            _toolbar.Margin = default;
+            UpdateTitleBarInsets();
+        }
+    }
+
+    private void PositionBandToolbar(WorldThemeSkinTitleBar slot)
+    {
+        _toolbar.VerticalAlignment = VerticalAlignment.Top;
+        _toolbar.HorizontalAlignment = slot.ToolbarAlign switch
+        {
+            "left" => HorizontalAlignment.Left,
+            "center" => HorizontalAlignment.Center,
+            _ => HorizontalAlignment.Right
+        };
+        _toolbar.Margin = new Thickness(slot.Padding.Left, slot.Padding.Top, slot.Padding.Right, slot.Padding.Bottom);
+        // The band's height is the skin's top inset; the row centres in whatever is left of it.
+        _toolbar.Height = Math.Max(0, _windowSkin.Inset.Top - slot.Padding.Top - slot.Padding.Bottom);
+        _toolbar.MinHeight = 0;
+        _toolbar.Padding = new Thickness(0);
+    }
+
+    private void ApplyTitleChrome()
+    {
+        SkinSize? header = null;
+        SkinRect? headerText = null;
+        if (!_ornaments.IsCompact && ThemeSkinResources.FromApplied() is { } skin)
+        {
+            foreach (var (_, entry) in skin.Overlays)
+            {
+                if (entry.Overlay.Anchor == "top-center")
+                {
+                    header = entry.Overlay.Size;
+                    headerText = entry.Overlay.TextArea;
+                    break;
+                }
+            }
+        }
+
+        // A skin with a clean title band needs no nameplate overlay: the band IS the title area, so the
+        // title is placed straight onto it. An overlay only wins when the art has a plate moulded in.
+        var slot = _ornaments.IsCompact ? null : ThemeService.AppliedSkin?.Layout?.TitleBar;
+        // The band's depth is the theme's where it states one, otherwise whatever the window art leaves.
+        // A theme with no art at all still gets a band, which is what a drawn nameplate needs to sit in.
+        var band = slot?.Height ?? _windowSkin.Inset.Top;
+        // Measured from the chrome grid, whose SizeChanged is what brings this here. The window's own Bounds
+        // lag behind it and can still be empty on the passes that decide whether the plate is shown.
+        var width = _chrome.Bounds.Width > 0 ? _chrome.Bounds.Width : Bounds.Width;
+        if (header is null && slot is not null && band > 0)
+        {
+            header = new SkinSize(Math.Max(0, width - slot.Padding.Left - slot.Padding.Right), band);
+            headerText = null;
+        }
+
+        ApplyToolbarSlot(slot);
+
+        var active = header is { Width: > 0, Height: > 0 };
+        Wandur.Core.Diagnostics.ThemeTrace.Write("title.chrome",
+            $"chrome={_chrome.Bounds.Width:F0}x{_chrome.Bounds.Height:F0} compact={_ornaments.IsCompact} slot={(slot is null ? "null" : $"h={slot.Height} hosts={slot.HostsToolbar}")} band={band} header={(header is null ? "null" : $"{header.Value.Width:F0}x{header.Value.Height:F0}")} active={active} wasActive={_skinTitleActive}");
+        if (active != _skinTitleActive || active)
+        {
+            _skinTitleActive = active;
+            if (active && header is { } size)
+            {
+                if (!ReferenceEquals(_appTitle.Parent, _plaque))
+                {
+                    _titleBarIdentity.Children.Remove(_appTitle);
+                    _plaque.Child = _appTitle;
+                    _plaqueTitleHost.Child = _plaque;
+                }
+                ApplyPlaque(slot?.Plaque);
+                _titleBarIdentity.IsVisible = false;
+                _metalDrag.IsVisible = true;
+                _metalDrag.Height = Math.Max(_windowSkin.Inset.Top, size.Height);
+                _plaqueTitleHost.IsVisible = true;
+                // The plaque bitmap is mostly metal: only its inner window is dark enough to read a
+                // title on. Sizing the host to the whole plate put the title on the shoulders, where it
+                // was white on light metal, and clipped it mid-word for want of an ellipsis.
+                var window = headerText is { } area
+                    ? new Rect(area.X * size.Width, area.Y * size.Height, area.Width * size.Width, area.Height * size.Height)
+                    : new Rect(0, 0, size.Width, size.Height);
+                // A nameplate is an object on the bar, not the bar itself: it hugs the title, bounded so a
+                // long world name cannot push it past the toolbar and a short one still reads as a plate.
+                if (slot?.Plaque is not null)
+                {
+                    var plate = Math.Clamp(window.Height * (slot.Plaque.Wings is null ? 0.62 : 0.86), 24, 72);
+                    window = new Rect(window.X, window.Y + (window.Height - plate) / 2, window.Width, plate);
+                    _plaqueTitleHost.Width = double.NaN;
+                    // Wide enough to read as a mounted plate rather than a label, capped so a long world name
+                    // cannot push it into the toolbar.
+                    _plaqueTitleHost.MinWidth = Math.Min(Math.Max(320, size.Width * 0.36), size.Width * 0.5);
+                    _plaqueTitleHost.MaxWidth = Math.Max(320, size.Width * 0.5);
+                }
+                else
+                {
+                    _plaqueTitleHost.MinWidth = 0;
+                    _plaqueTitleHost.MaxWidth = double.PositiveInfinity;
+                    _plaqueTitleHost.Width = window.Width;
+                }
+                _plaqueTitleHost.Height = window.Height;
+                _plaqueTitleHost.Margin = new Thickness(0, window.Y, 0, 0);
+                _plaqueTitleHost.HorizontalAlignment = (slot?.TitleAlign ?? "center") switch
+                {
+                    "left" => HorizontalAlignment.Left,
+                    "right" => HorizontalAlignment.Right,
+                    _ => HorizontalAlignment.Center
+                };
+                _plaqueTitleHost.Padding = slot?.Plaque is null ? new Thickness(8, 0) : default;
+                var plated = slot?.Plaque is not null;
+                // A nameplate is engraved: capitals, spaced, on whichever text colour reads on its plate.
+                _appTitle.Text = PlateTitle();
+                _appTitle.FontSize = plated ? 15 : window.Height >= 56 ? 15 : 13;
+                _appTitle.LetterSpacing = plated ? 2.2 : 0.6;
+                _appTitle.TextTrimming = TextTrimming.CharacterEllipsis;
+                _appTitle.TextWrapping = TextWrapping.NoWrap;
+                _appTitle.VerticalAlignment = VerticalAlignment.Center;
+                _appTitle.HorizontalAlignment = HorizontalAlignment.Center;
+                _appTitle.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(plated ? "PlaqueTextBrush" : "TerminalTextBrush"));
+            }
+            else
+            {
+                if (!ReferenceEquals(_appTitle.Parent, _titleBarIdentity))
+                {
+                    // The title now hangs off the plaque rather than the host, so clearing the host alone
+                    // leaves it parented and the move to the identity row throws.
+                    _plaque.Child = null;
+                    _plaqueTitleHost.Child = null;
+                    if (!_titleBarIdentity.Children.Contains(_appTitle))
+                        _titleBarIdentity.Children.Add(_appTitle);
+                }
+                _titleBarIdentity.IsVisible = true;
+                _metalDrag.IsVisible = false;
+                _plaqueTitleHost.IsVisible = false;
+                _plaqueTitleHost.Margin = default;
+                _appTitle.Text = Title;
+                _appTitle.FontSize = 13;
+                _appTitle.LetterSpacing = 0;
+                _appTitle.TextTrimming = TextTrimming.None;
+                _appTitle.VerticalAlignment = VerticalAlignment.Center;
+                _appTitle.HorizontalAlignment = HorizontalAlignment.Left;
+                _appTitle.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
+            }
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            ExtendClientAreaTitleBarHeightHint = _skinTitleActive
+                ? Math.Max(MacTitleBarHeight, _windowSkin.Inset.Top)
+                : MacTitleBarHeight;
+            UpdateTitleBarInsets();
+        }
     }
 
     private void ApplyFooterClearance()
@@ -189,22 +523,26 @@ public sealed class MainWindow : Window
 
     private void UpdateTitleBarInsets()
     {
-        // Native traffic lights occupy the left side of the extended titlebar.
-        _toolbar.Padding = new Thickness(WindowState == WindowState.FullScreen ? 12 : 88, 7, 12, 7);
-        _toolbar.MinHeight = MacTitleBarHeight;
+        // Native traffic lights occupy the left of the extended titlebar. With a skin plaque they sit in
+        // the metal header above the white toolbar, so the toolbar only needs ordinary side padding.
+        var left = WindowState == WindowState.FullScreen ? 12 : _skinTitleActive ? 12 : 88;
+        var vertical = _skinTitleActive ? 5 : 7;
+        _toolbar.Padding = new Thickness(left, vertical, 12, vertical);
+        _toolbar.MinHeight = _skinTitleActive ? ToolbarHeight : MacTitleBarHeight;
+        _windowHeader.MinHeight = _skinTitleActive ? 0 : MacTitleBarHeight;
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.Source is not Visual source) return;
-        if (source.GetSelfAndVisualAncestors().Any(v => v is Button or ComboBox or TextBox)) return;
+        if (source.GetSelfAndVisualAncestors().Any(v => v is Button or ComboBox or TextBox or MenuItem)) return;
         if (e.ClickCount == 2 && WindowState != WindowState.FullScreen)
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         else if (e.ClickCount == 1) BeginMoveDrag(e);
         e.Handled = true;
     }
 
-    // The app icon sits at the head of the toolbar row, which doubles as the titlebar on macOS.
+    // Toolbar brand mark when no skin plaque owns the title.
     private static Image AppLogo()
     {
         using var stream = AssetLoader.Open(new Uri("avares://Wandur/Assets/icon-256.png"));
@@ -332,8 +670,22 @@ public sealed class MainWindow : Window
             _worldPicker.ItemsSource = _profiles;
             _worldPicker.SelectedItem = _profiles.FirstOrDefault(p => p.Id == selected) ?? _profiles.FirstOrDefault();
         }
+        // When the active session's saved profile changes (open / tab switch), point the picker at that
+        // world so the toolbar matches the session. Manual picks still stick until the next session change.
+        var sessionProfileId = Sessions.Active.Profile?.Id;
+        if (sessionProfileId != _pickerSessionProfileId)
+        {
+            _pickerSessionProfileId = sessionProfileId;
+            if (_profiles is not null && sessionProfileId is not null &&
+                _profiles.FirstOrDefault(p => p.Id == sessionProfileId) is { } match)
+                _worldPicker.SelectedItem = match;
+        }
         // Character first: it is what tells two sessions on one world apart at a glance; then the world, then the app.
         Title = !Controller.HasSession ? "Wandur" : Controller.CharacterName.Length == 0 ? $"{Controller.WorldName} · Wandur" : $"{Controller.CharacterName} · {Controller.WorldName} · Wandur";
+        // The plaque's readable window is a couple of inches of dark metal, so it carries the world's
+        // name alone. The full "character · world · Wandur" stays on the OS title, where there is room.
+        _plaqueLabel = !Controller.HasSession || Controller.WorldName.Length == 0 ? "Wandur" : Controller.WorldName;
+        _appTitle.Text = _skinTitleActive ? PlateTitle() : Title;
         var connected = Sessions.Tabs.Count(t => t.Controller.IsConnected);
         var count = Sessions.Tabs.Count(t => t.Controller.HasSession);
         _status.Text = L.Format(count == 1 ? L.SessionsOne : L.SessionsMany, count, connected);

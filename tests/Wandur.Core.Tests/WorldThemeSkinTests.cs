@@ -6,7 +6,12 @@ namespace Wandur.Core.Tests;
 
 public sealed class WorldThemeSkinTests
 {
-    private static string FixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json");
+    /// <summary>
+    /// A synthetic skin that exercises every field the contract defines, deliberately not the theme any world
+    /// ships. Pointing these at a live manifest made them fail whenever the art was retuned, which says nothing
+    /// about the parser. Tests that care about a shipped theme read its own fixture.
+    /// </summary>
+    private static string FixturePath => Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json");
     private static JsonNode SkinTheme => JsonNode.Parse(File.ReadAllText(FixturePath))!;
 
     [Fact]
@@ -17,7 +22,7 @@ public sealed class WorldThemeSkinTests
         Assert.NotNull(theme.Skin);
         Assert.Equal(1, theme.Skin!.Version);
         Assert.NotNull(theme.Skin.Window);
-        Assert.Equal("themes/industrial-v2/window-border.png", theme.Skin.Window!.Border.Url);
+        Assert.Equal("themes/contract/window-border.png", theme.Skin.Window!.Border.Url);
         Assert.Equal(new SkinPixelSize(512, 384), theme.Skin.Window.Border.SourceSize);
         Assert.Equal(theme.Skin.Window.Border.Thickness, theme.Skin.Window.Inset);
         Assert.Equal(3, theme.Skin.Window.Overlays.Count);
@@ -171,6 +176,23 @@ public sealed class WorldThemeSkinTests
                 Assert.Contains(theme.Skin.Window.Overlays, o => o.Id == "header");
                 break;
         }
+    }
+
+    /// <summary>The theme wandur.net actually serves must keep parsing, whatever the art is tuned to today.</summary>
+    [Fact]
+    public void ShippedIndustrialThemeStillParses()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json");
+        var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(path))!;
+        Assert.True(theme.IsValid);
+        // Every section is optional, and so is the skin itself: the shipped theme is currently colours alone,
+        // with the client's default supplying the structure. The assertion is that whatever it ships parses.
+        if (theme.Skin is { } skin)
+        {
+            Assert.True(skin.HasContent);
+            if (skin.Window is { } window) Assert.EndsWith(".png", window.Border.Url);
+        }
+        Assert.Equal(theme, JsonSerializer.Deserialize<WorldTheme>(JsonSerializer.Serialize(theme)));
     }
 
     [Fact]

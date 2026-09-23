@@ -11,25 +11,27 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class WorldThemeSkinResourceTests
 {
+    /// <summary>
+    /// The contract fixture, not a shipped theme: these exercise panel and overlay skinning, which a live
+    /// theme is free to stop using. Pointing them at whatever wandur.net serves today made them fail when
+    /// the art was retuned, which says nothing about the code under test.
+    /// </summary>
     private static WorldTheme Industrial =>
         JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
 
     [AvaloniaFact]
     public async Task PanelUrlIsRequestedOnceEvenWithSharedKey()
     {
         var theme = Industrial;
         var handler = new SkinHandler();
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
 
         await using var harness = await SkinHarness.OpenAsync(theme, handler);
         await harness.WaitForKey(ThemeSkinResources.WindowBorderKey);
-        Assert.Equal(1, handler.Count("dock-panel.png"));
-        Assert.Equal(1, handler.Count("window-border.png"));
+        Assert.Equal(1, handler.Count(theme.Skin!.Panels!.Default!.Border.Url.Split('/')[^1]));
+        Assert.Equal(1, handler.Count(theme.Skin.Window!.Border.Url.Split('/')[^1]));
         Assert.True(ThemeService.AppliedImages!.ContainsKey(ThemeSkinResources.PanelDefaultKey));
         Assert.True(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.WindowBorderKey));
         Assert.False(ThemeService.AppliedImages.ContainsKey("frame-border"));
@@ -37,7 +39,7 @@ public sealed class WorldThemeSkinResourceTests
         Assert.NotNull(skin);
         Assert.True(skin!.WindowReady);
         Assert.True(skin.PanelReady);
-        Assert.Equal(3, skin.Overlays.Count);
+        Assert.Equal(SkinAssetMap.OverlayCount(theme), skin.Overlays.Count);
     }
 
     [AvaloniaFact]
@@ -45,11 +47,10 @@ public sealed class WorldThemeSkinResourceTests
     {
         var theme = Industrial;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(64, 64)); // wrong vs 512x384
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
+        // Serve the window border at a size the skin did not declare; its siblings stay intact.
+        handler.Map(theme.Skin!.Window!.Border.Url.Split('/')[^1], TestPng.Rgba(64, 64));
         // Legacy fallback still present on the theme.
         handler.Map("imperial-bezel", TestPng.Rgba(96, 96));
 
@@ -73,17 +74,23 @@ public sealed class WorldThemeSkinResourceTests
     {
         var theme = Industrial;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(10, 10)); // bad aspect vs destination
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
+        // The shipped skin has no overlays (its band is its title area), so this test supplies one and
+        // serves it at a size the skin did not declare: the frame must not wait on it.
+        var overlay = new WorldThemeSkinOverlay
+        {
+            Id = "header", Url = "themes/industrial-v2/bogus-overlay.png",
+            Anchor = "top-center", Size = new SkinSize(200, 60)
+        };
+        theme = theme with { Skin = theme.Skin! with { Window = theme.Skin.Window! with { Overlays = [overlay] } } };
+        handler.Map("bogus-overlay.png", TestPng.Rgba(10, 10));
 
         await using var harness = await SkinHarness.OpenAsync(theme, handler);
         await harness.WaitForKey(ThemeSkinResources.WindowBorderKey);
         Assert.True(ThemeService.AppliedImages!.ContainsKey(ThemeSkinResources.WindowBorderKey));
-        Assert.False(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.OverlayKey("header")));
-        Assert.True(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.OverlayKey("left-flare")));
+        Assert.False(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.OverlayKey(overlay.Id)));
+        Assert.True(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.PanelDefaultKey));
     }
 
     [AvaloniaFact]
@@ -93,11 +100,8 @@ public sealed class WorldThemeSkinResourceTests
         var palette = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-icesus.json")))!;
         var handler = new SkinHandler { DelayMs = 80 };
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(industrial))
+            handler.Map(fragment, TestPng.Rgba(w, h));
 
         await using var harness = await SkinHarness.OpenAsync(industrial, handler);
         // Switch to palette-only before industrial images finish.

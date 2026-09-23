@@ -15,8 +15,15 @@ public sealed class DockChromeConverter : IValueConverter
 {
     public static readonly DockChromeConverter Instance = new();
 
-    /// <summary>Corner radius kept on the outer edge of a docked panel.</summary>
-    public const double Radius = 10;
+    /// <summary>The client's own corner radius for the outer edge of a docked panel.</summary>
+    public const double DefaultRadius = 10;
+
+    /// <summary>
+    /// The radius in force, which a world theme may change. Bindings through this converter are not
+    /// re-evaluated when a static moves, so <see cref="ThemeService"/> sets this before it raises
+    /// <c>Applied</c>, and the dock chrome re-reads it when it re-templates.
+    /// </summary>
+    public static double Radius { get; set; } = DefaultRadius;
 
     /// <summary>Space left around a docked panel; between two panels a splitter adds the rest of the gap.</summary>
     public const double Edge = 4;

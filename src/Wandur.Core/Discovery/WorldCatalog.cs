@@ -89,12 +89,16 @@ public sealed partial class WorldCatalog : IWorldDirectory, IDisposable
             _lastLoaded = _time.GetTimestamp();
             if (response.Headers.TryGetValues("X-Wandur-Stale", out var values) && values.Contains("true"))
                 Warning = L.ShowingTheSavedDirectoryWhileTheServerRefreshesIt;
+            Wandur.Core.Diagnostics.ThemeTrace.Write("catalog.load",
+                $"ok from {BaseUri}directory worlds={parsed.Worlds.Length} themed={parsed.Worlds.Count(w => w.Theme is not null)}");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
         catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or ArgumentException or UnauthorizedAccessException or OperationCanceledException or InvalidOperationException or KeyNotFoundException or FormatException)
         {
             Warning = ex is HttpRequestException && ex.Message.StartsWith("Set MUDVERSE") ? ex.Message :
                 L.Format(L.DirectoryUnavailableAtStartTheDirectoryServerSavedWorlds, BaseUri);
+            Wandur.Core.Diagnostics.ThemeTrace.Write("catalog.load",
+                $"FAILED from {BaseUri}directory: {ex.GetType().Name}: {ex.Message}; serving {Worlds.Count} cached worlds");
         }
         finally { Loading = false; _loadLock.Release(); Changed?.Invoke(); }
     }

@@ -34,6 +34,10 @@ public sealed partial class SessionWorkspace
         var settings = _previewSettings ?? Active.Controller.Settings;
         var theme = settings.UseWorldThemes ? Active.Controller.WorldTheme : null;
         var oldImages = PrepareThemeImages(theme);
+        Wandur.Core.Diagnostics.ThemeTrace.Write("appearance.apply",
+            $"useWorldThemes={settings.UseWorldThemes} theme={theme?.Id ?? "(none)"} " +
+            $"skinWindow={(theme?.Skin?.Window is null ? "no" : "yes")} frame={(theme?.Frame is { IsValid: true } ? "yes" : "no")} " +
+            $"images=[{string.Join(",", (_themeImages ?? new()).Keys)}]");
         ThemeService.Apply(settings, theme, _themeImages);
         if (oldImages is not null) foreach (var bitmap in oldImages.Values.Distinct()) bitmap.Dispose();
     }
@@ -43,7 +47,15 @@ public sealed partial class SessionWorkspace
         if (_disposed || _catalog is null || _catalog.Loading) return;
         ConnectionProfile Update(ConnectionProfile profile)
         {
-            if (_catalog.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is not { } listing) return profile;
+            if (_catalog.FindEndpoint(profile.Host, profile.Port, profile.UseTls) is not { } listing)
+            {
+                Wandur.Core.Diagnostics.ThemeTrace.Write("profile.refresh",
+                    $"{profile.Host}:{profile.Port} tls={profile.UseTls} -> no unique listing, keeping stored theme");
+                return profile;
+            }
+            Wandur.Core.Diagnostics.ThemeTrace.Write("profile.refresh",
+                $"{profile.Host}:{profile.Port} -> listing={listing.Id} theme={listing.Theme?.Id ?? "(none)"} " +
+                $"window={(listing.Theme?.Skin?.Window is null ? "no" : "yes")} stored={profile.Theme?.Id ?? "(none)"}");
             var mapping = listing.MappingForEndpoint(profile.Host, profile.Port, profile.UseTls) ?? profile.GetProtocolMapping();
             // Parsing another snapshot creates new arrays even when the mapping is unchanged.
             if (mapping is not null && profile.ProtocolMapping is { } previous &&

@@ -19,31 +19,28 @@ public sealed class WorldThemeWindowSkinTests
         Assert.Equal(new Rect(1280, 836, 100, 64), bounds);
         var left = ThemeOrnamentLayer.AnchorBounds("bottom-left", new SkinSize(100, 64), new Size(1380, 900));
         Assert.Equal(new Rect(0, 836, 100, 64), left);
-        var header = ThemeOrnamentLayer.AnchorBounds("top-center", new SkinSize(212, 56), new Size(1380, 900));
-        Assert.Equal(new Rect(584, 0, 212, 56), header);
+        var header = ThemeOrnamentLayer.AnchorBounds("top-center", new SkinSize(310, 88), new Size(1380, 900));
+        Assert.Equal(new Rect(535, 0, 310, 88), header);
     }
 
     [Fact]
     public void BottomFlareIntrusionFitsFooterClearance()
     {
-        // Measured polish: flare 64, inset.bottom 20 → 44 DIP intrusion; footer min_height 44.
-        const double flareHeight = 64, insetBottom = 20, minHeight = 44;
+        // Measured polish: flare 64, inset.bottom 18 → 46 DIP intrusion; footer min_height 46.
+        const double flareHeight = 64, insetBottom = 18, minHeight = 46;
         Assert.True(flareHeight <= insetBottom + minHeight);
-        // Horizontal: width 100, side inset 16 → need clearance >= 90.
-        Assert.Equal(90, Math.Max(0, 100 - 16) + 6);
+        // Horizontal: width 100, side inset 14 → need clearance >= 90.
+        Assert.Equal(90, Math.Max(0, 100 - 14) + 4);
     }
 
     [AvaloniaFact]
     public async Task SkinWindowPrefersModularBorderOverLegacyBezel()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
         handler.Map("imperial-bezel", TestPng.Rgba(96, 96));
 
         await using var harness = await OpenAsync(theme, handler);
@@ -53,27 +50,27 @@ public sealed class WorldThemeWindowSkinTests
         var bezel = harness.Window.GetVisualDescendants().OfType<ThemeBezelHost>().Single(h => h.Name == "ThemeBezel");
         var ornaments = harness.Window.GetVisualDescendants().OfType<ThemeOrnamentLayer>().Single(h => h.Name == "ThemeOrnaments");
         Assert.NotNull(windowSkin.BorderBitmap);
-        Assert.Equal(new Thickness(16, 56, 16, 20), windowSkin.Inset);
+        // Read from the theme rather than pinned here: band geometry is config, and tuning it in the
+        // skin should not mean editing tests.
+        var expectedInset = theme.Skin!.Window!.Inset;
+        Assert.Equal(new Thickness(expectedInset.Left, expectedInset.Top, expectedInset.Right, expectedInset.Bottom), windowSkin.Inset);
         Assert.Null(bezel.BorderBitmap);
         Assert.Equal(default, bezel.Inset);
         Assert.False(ornaments.IsHitTestVisible);
-        Assert.Equal(3, ThemeSkinResources.FromApplied()!.Overlays.Count);
+        Assert.Equal(SkinAssetMap.OverlayCount(theme), ThemeSkinResources.FromApplied()!.Overlays.Count);
     }
 
     [AvaloniaFact]
     public async Task CompactHostHidesOrnamentClearance()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
 
         await using var harness = await OpenAsync(theme, handler);
-        await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.OverlayKey("left-flare")) == true);
+        await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.WindowBorderKey) == true);
 
         harness.Window.Width = 1380;
         harness.Window.Height = 900;

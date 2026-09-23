@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "id": "wandur-industrial-v2",
-  "name": "Industrial silver",
+  "id": "skin-contract-v1",
+  "name": "Skin contract",
   "variant": "light",
   "corner_radius": 2,
   "surface": "metallic",
@@ -41,69 +41,70 @@
     "version": 1,
     "window": {
       "border": {
-        "url": "themes/industrial-v2/window-border.png",
+        "url": "themes/contract/window-border.png",
         "source_size": {
           "width": 512,
           "height": 384
         },
         "slice": {
-          "left": 31,
+          "left": 96,
           "top": 75,
-          "right": 31,
+          "right": 96,
           "bottom": 48
         },
         "thickness": {
-          "left": 16,
-          "top": 56,
-          "right": 16,
-          "bottom": 20
-        }
+          "left": 96,
+          "top": 75,
+          "right": 96,
+          "bottom": 48
+        },
+        "repeat": "tile"
       },
       "inset": {
-        "left": 16,
-        "top": 56,
-        "right": 16,
-        "bottom": 20
+        "left": 96,
+        "top": 75,
+        "right": 96,
+        "bottom": 48
       },
       "overlays": [
         {
           "id": "header",
-          "url": "themes/industrial-v2/header.png",
+          "url": "themes/contract/header.png",
           "anchor": "top-center",
           "size": {
-            "width": 212,
-            "height": 56
+            "width": 420,
+            "height": 96
           },
           "text_area": {
-            "x": 0.2194,
-            "y": 0.2841,
-            "width": 0.5645,
-            "height": 0.5682
+            "left": 40,
+            "top": 24,
+            "width": 340,
+            "height": 44
           }
         },
         {
-          "id": "left-flare",
-          "url": "themes/industrial-v2/corner-left.png",
+          "id": "corner-left",
+          "url": "themes/contract/corner-left.png",
           "anchor": "bottom-left",
           "size": {
-            "width": 100,
-            "height": 64
+            "width": 120,
+            "height": 70
           }
         },
         {
-          "id": "right-flare",
-          "url": "themes/industrial-v2/corner-right.png",
+          "id": "corner-right",
+          "url": "themes/contract/corner-right.png",
           "anchor": "bottom-right",
           "size": {
-            "width": 100,
-            "height": 64
+            "width": 120,
+            "height": 70
           }
         }
       ],
       "footer_clearance": {
         "left": 90,
         "right": 90,
-        "min_height": 44
+        "min_height": 46
       },
       "compact_below": {
         "width": 1200,
@@ -113,50 +114,52 @@
     "panels": {
       "default": {
         "border": {
-          "url": "themes/industrial-v2/dock-panel.png",
+          "url": "themes/contract/panel-border.png",
           "source_size": {
             "width": 512,
             "height": 1024
           },
           "slice": {
-            "left": 42,
-            "top": 79,
-            "right": 42,
-            "bottom": 41
+            "left": 64,
+            "top": 72,
+            "right": 64,
+            "bottom": 64
           },
           "thickness": {
-            "left": 16,
+            "left": 32,
             "top": 36,
-            "right": 16,
-            "bottom": 16
-          }
+            "right": 32,
+            "bottom": 32
+          },
+          "repeat": "stretch"
         },
         "inset": {
-          "left": 20,
-          "top": 14,
-          "right": 20,
-          "bottom": 18
+          "left": 32,
+          "top": 40,
+          "right": 32,
+          "bottom": 32
         },
-        "header_height": 28
+        "header_height": 30
       }
     },
     "layout": {
       "titlebar": {
         "hosts_toolbar": true,
         "toolbar_align": "right",
+        "title_align": "center",
         "padding": {
-          "left": 96,
-          "top": 14,
-          "right": 22,
-          "bottom": 14
+          "left": 110,
+          "top": 4,
+          "right": 110,
+          "bottom": 4
         }
       },
       "panel_header": {
-        "height": 34,
+        "height": 30,
         "inset": {
-          "left": 10,
-          "top": 0,
-          "right": 6,
+          "left": 26,
+          "top": 12,
+          "right": 18,
           "bottom": 0
         }
       }

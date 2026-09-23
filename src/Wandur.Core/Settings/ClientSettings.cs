@@ -61,7 +61,7 @@ public sealed record ConnectionProfile
 
 public sealed record ClientSettings
 {
-    public string Theme { get; init; } = "Ember";
+    public string Theme { get; init; } = "Hull";
     public string Language { get; init; } = "";
     public double FontSize { get; init; } = 15;
     public string? Foreground { get; init; }

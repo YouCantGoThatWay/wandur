@@ -1880,4 +1880,10 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="ChannelRuleChannel" xml:space="preserve"><value>Kanal</value></data>
   <data name="ChannelRulePattern" xml:space="preserve"><value>Muster</value></data>
   <data name="ChannelRuleReply" xml:space="preserve"><value>Antwortbefehl</value></data>
+  <data name="DeleteSavedWorldPrompt" xml:space="preserve">
+    <value>Diese gespeicherte Welt löschen? Login, Protokollzuordnung und Skripte gehen mit verloren.</value>
+  </data>
+  <data name="ThemeHull" xml:space="preserve">
+    <value>Rumpf</value>
+  </data>
 </root>

@@ -1880,4 +1880,10 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="ChannelRuleChannel" xml:space="preserve"><value>Canal</value></data>
   <data name="ChannelRulePattern" xml:space="preserve"><value>Patrón</value></data>
   <data name="ChannelRuleReply" xml:space="preserve"><value>Comando de respuesta</value></data>
+  <data name="DeleteSavedWorldPrompt" xml:space="preserve">
+    <value>¿Eliminar este mundo guardado? Se perderán su acceso, su asignación de protocolo y sus scripts.</value>
+  </data>
+  <data name="ThemeHull" xml:space="preserve">
+    <value>Casco</value>
+  </data>
 </root>

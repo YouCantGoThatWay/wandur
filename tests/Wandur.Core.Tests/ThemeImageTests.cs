@@ -9,6 +9,8 @@ public sealed class ThemeImageTests
 {
     private static string Fixture => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-metallic.json"));
     private static byte[] Png => Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAYAAACzzX7wAAAAEklEQVR4nGPY0mTzHx9moL0CABxATiGmNzirAAAAAElFTkSuQmCC");
+    /// <summary>A second valid PNG, distinct in both bytes and pixel size, standing in for regenerated art.</summary>
+    private static byte[] OtherPng => Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAABAAAAAICAIAAAB/FOjAAAAAE0lEQVR4nGM4ISdHEmIY1UALDQDkVYIBxErvjQAAAABJRU5ErkJggg==");
     [Fact]
     public void MetallicSchemaRoundTripsAndBadImageDoesNotDiscardThePalette()
     {
@@ -40,6 +42,39 @@ public sealed class ThemeImageTests
         Assert.Equal(Png, await reopened.GetThemeImageAsync(image));
         Directory.Delete(Path.GetDirectoryName(path)!, true);
     }
+
+    /// <summary>
+    /// Art is replaced in place at a stable url, so the version the directory reports is what tells the client
+    /// its cached copy is no longer the asset. Caching by url alone silently defeated a day of theme work:
+    /// the directory served redrawn art and the client kept painting the first copy it had ever fetched.
+    /// </summary>
+    [Fact]
+    public async Task ArtworkReplacedAtTheSameUrlIsFetchedAgainWhenItsVersionMoves()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "wandur-theme-swap-" + Guid.NewGuid(), "directory.json");
+        var body = Png;
+        var calls = 0;
+        using var http = new HttpClient(new Handler(_ => { calls++; return new(HttpStatusCode.OK) { Content = new ByteArrayContent(body) }; }));
+        using var catalog = new WorldCatalog(path, new Uri("http://localhost:8765/"), http);
+
+        var first = new WorldThemeImage { Url = "theme-assets/frame.png", Version = "aaaa" };
+        Assert.Equal(Png, await catalog.GetThemeImageAsync(first));
+        Assert.Equal(Png, await catalog.GetThemeImageAsync(first));
+        Assert.Equal(1, calls);                                  // unchanged art is served from the cache
+
+        body = OtherPng;
+        var second = new WorldThemeImage { Url = "theme-assets/frame.png", Version = "bbbb" };
+        Assert.Equal(OtherPng, await catalog.GetThemeImageAsync(second));
+        Assert.Equal(2, calls);
+        Assert.Equal(OtherPng, await catalog.GetThemeImageAsync(second));
+        Assert.Equal(2, calls);
+
+        // The earlier version stays cached, so a client still holding it is not sent back to the network.
+        body = [];
+        Assert.Equal(Png, await catalog.GetThemeImageAsync(first));
+        Directory.Delete(Path.GetDirectoryName(path)!, true);
+    }
+
     [Fact]
     public async Task InvalidAndOversizedImagesAreRejected()
     {

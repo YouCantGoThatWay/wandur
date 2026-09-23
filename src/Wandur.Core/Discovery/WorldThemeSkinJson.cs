@@ -28,7 +28,14 @@ public static class WorldThemeSkinJson
             if (def is not null) panels = new WorldThemePanelStyles { Default = def };
         }
 
-        var skin = new WorldThemeSkin { Version = 1, Window = window, Panels = panels };
+        WorldThemeSkinLayout? layout = null;
+        if (root.TryGetProperty("layout", out var layoutEl) && layoutEl.ValueKind == JsonValueKind.Object)
+            layout = ReadLayout(layoutEl);
+
+        var skin = new WorldThemeSkin
+        {
+            Version = 1, Window = window, Panels = panels, Layout = layout, Surfaces = ReadSurfaces(root), Radii = ReadRadii(root), Edge = ReadEdge(root),
+        };
         return skin.HasContent ? skin : null;
     }
 
@@ -49,6 +56,112 @@ public static class WorldThemeSkinJson
             WritePanel(writer, panel);
             writer.WriteEndObject();
         }
+        if (skin.Edge is { } windowEdge)
+        {
+            writer.WritePropertyName("edge");
+            writer.WriteStartObject();
+            writer.WriteString("color", windowEdge.Color);
+            writer.WriteNumber("thickness", windowEdge.Thickness);
+            if (windowEdge.Outline is { Length: > 0 } edgeOutline) writer.WriteString("outline", edgeOutline);
+            writer.WriteEndObject();
+        }
+        if (skin.Radii is { HasContent: true } radii)
+        {
+            writer.WritePropertyName("radii");
+            writer.WriteStartObject();
+            if (radii.Panel is { } panelRadius) writer.WriteNumber("panel", panelRadius);
+            if (radii.Control is { } controlRadius) writer.WriteNumber("control", controlRadius);
+            writer.WriteEndObject();
+        }
+        if (skin.Surfaces is { HasContent: true } surfaces)
+        {
+            writer.WritePropertyName("surfaces");
+            writer.WriteStartObject();
+            void Slot(string name, WorldThemeSkinSurface? surface)
+            {
+                if (surface is null) return;
+                writer.WritePropertyName(name);
+                writer.WriteStartObject();
+                writer.WriteString("from", surface.From);
+                writer.WriteString("to", surface.To);
+                if (surface.Gloss > 0) writer.WriteNumber("gloss", surface.Gloss);
+                if (surface.Bevel != "none") writer.WriteString("bevel", surface.Bevel);
+                if (surface.BevelStrength < 1) writer.WriteNumber("bevel_strength", surface.BevelStrength);
+                if (surface.Grain > 0) writer.WriteNumber("grain", surface.Grain);
+                if (surface.Rule is { Length: > 0 } rule) writer.WriteString("rule", rule);
+                writer.WriteEndObject();
+            }
+            Slot("titlebar", surfaces.TitleBar);
+            Slot("toolbar", surfaces.Toolbar);
+            Slot("panel_header", surfaces.PanelHeader);
+            Slot("panel_body", surfaces.PanelBody);
+            Slot("footer", surfaces.Footer);
+            Slot("ground", surfaces.Ground);
+            writer.WriteEndObject();
+        }
+        if (skin.Layout is { } skinLayout && (skinLayout.TitleBar is not null || skinLayout.PanelHeader is not null))
+        {
+            writer.WritePropertyName("layout");
+            writer.WriteStartObject();
+            if (skinLayout.PanelHeader is { } panelHeader)
+            {
+                writer.WritePropertyName("panel_header");
+                writer.WriteStartObject();
+                writer.WriteNumber("height", panelHeader.Height);
+                writer.WritePropertyName("inset");
+                WriteBox(writer, panelHeader.Inset);
+                writer.WriteEndObject();
+            }
+            if (skinLayout.TitleBar is not { } titleBar) { writer.WriteEndObject(); }
+            else
+            {
+            writer.WritePropertyName("titlebar");
+            writer.WriteStartObject();
+            writer.WriteBoolean("hosts_toolbar", titleBar.HostsToolbar);
+            writer.WriteString("toolbar_align", titleBar.ToolbarAlign);
+            writer.WriteString("title_align", titleBar.TitleAlign);
+            if (titleBar.Height is { } barHeight) writer.WriteNumber("height", barHeight);
+            if (titleBar.Plaque is { } plaque)
+            {
+                writer.WritePropertyName("plaque");
+                writer.WriteStartObject();
+                writer.WriteString("shape", plaque.Shape);
+                writer.WriteNumber("cap", plaque.Cap);
+                if (plaque.Fill is { Length: > 0 } fill) writer.WriteString("fill", fill);
+                if (plaque.Edge is { Length: > 0 } edge) writer.WriteString("edge", edge);
+                if (plaque.Accent is { Length: > 0 } accent) writer.WriteString("accent", accent);
+                if (plaque.Padding != default)
+                {
+                    writer.WritePropertyName("padding");
+                    WriteBox(writer, plaque.Padding);
+                }
+                if (plaque.Shadow is { } shadow)
+                {
+                    writer.WritePropertyName("shadow");
+                    writer.WriteStartObject();
+                    writer.WriteString("color", shadow.Color);
+                    writer.WriteNumber("opacity", shadow.Opacity);
+                    writer.WriteNumber("blur", shadow.Blur);
+                    writer.WriteNumber("y", shadow.Y);
+                    writer.WriteEndObject();
+                }
+                if (plaque.Wings is { } wings)
+                {
+                    writer.WritePropertyName("wings");
+                    writer.WriteStartObject();
+                    writer.WriteNumber("extend", wings.Extend);
+                    if (wings.Fill is { Length: > 0 } wingFill) writer.WriteString("fill", wingFill);
+                    if (wings.Edge is { Length: > 0 } wingEdge) writer.WriteString("edge", wingEdge);
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndObject();
+            }
+            writer.WritePropertyName("padding");
+            WriteBox(writer, titleBar.Padding);
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+            }
+        }
         writer.WriteEndObject();
     }
 
@@ -66,7 +179,12 @@ public static class WorldThemeSkinJson
         if (el.ValueKind != JsonValueKind.Object) return null;
         if (!TryReadBorder(el, out var border) || border is null) return null;
         if (!TryReadBox(el, "inset", out var inset)) return null;
-        if (!InsetCoversThickness(inset, border.Thickness)) return null;
+        // Inset is deliberately NOT required to cover thickness. A nine-slice ties the corner patch size
+        // to the slice, so art whose corner fittings run down a rail forces a thick border even when the
+        // rail itself is thin, and content would then start far inside a frame that looks slim. The
+        // client paints the frame first and arranges content over it, so a smaller inset costs some of
+        // the corner art and never costs reachability.
+        if (inset.Left < 0 || inset.Top < 0 || inset.Right < 0 || inset.Bottom < 0) return null;
 
         var overlays = ReadOverlays(el, inset, out var footer);
         SkinSize? compact = null;
@@ -88,14 +206,94 @@ public static class WorldThemeSkinJson
         };
     }
 
+    private static readonly HashSet<string> AllowedToolbarAlign = new(StringComparer.Ordinal) { "left", "center", "right" };
+
+    /// <summary>
+    /// Slot geometry. The slots themselves are the client's; a theme only says where they sit, and
+    /// every number is clamped so a skin cannot push the toolbar out of reach or flatten it away.
+    /// </summary>
+    private static WorldThemeSkinPanelHeader? ReadPanelHeader(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("height", out var hEl) || !TryGetFiniteNumber(hEl, out var height)) return null;
+        if (height is < 18 or > 64) return null;
+        var inset = default(SkinBox);
+        if (el.TryGetProperty("inset", out _) && !TryReadBox(el, "inset", out inset)) return null;
+        if (inset.Left is < 0 or > 128 || inset.Right is < 0 or > 128
+            || inset.Top is < 0 or > 128 || inset.Bottom is < 0 or > 128)
+            return null;
+        return new WorldThemeSkinPanelHeader { Height = height, Inset = inset };
+    }
+
+    private static WorldThemeSkinLayout? ReadLayout(JsonElement el)
+    {
+        WorldThemeSkinPanelHeader? panelHeader = null;
+        if (el.TryGetProperty("panel_header", out var panelEl))
+        {
+            panelHeader = ReadPanelHeader(panelEl);
+            if (panelHeader is null) return null;
+        }
+        if (!el.TryGetProperty("titlebar", out var barEl) || barEl.ValueKind != JsonValueKind.Object)
+            return panelHeader is null ? null : new WorldThemeSkinLayout { PanelHeader = panelHeader };
+        if (!barEl.TryGetProperty("hosts_toolbar", out var hostsEl)
+            || hostsEl.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return null;
+        var align = "right";
+        if (barEl.TryGetProperty("toolbar_align", out var alignEl))
+        {
+            if (alignEl.ValueKind != JsonValueKind.String) return null;
+            align = alignEl.GetString() ?? "";
+            if (!AllowedToolbarAlign.Contains(align)) return null;
+        }
+        var titleAlign = "center";
+        if (barEl.TryGetProperty("title_align", out var titleAlignEl))
+        {
+            if (titleAlignEl.ValueKind != JsonValueKind.String) return null;
+            titleAlign = titleAlignEl.GetString() ?? "";
+            if (!AllowedToolbarAlign.Contains(titleAlign)) return null;
+        }
+        var padding = default(SkinBox);
+        if (barEl.TryGetProperty("padding", out _) && !TryReadBox(barEl, "padding", out padding))
+            return null;
+        if (padding.Left is < 0 or > 400 || padding.Right is < 0 or > 400
+            || padding.Top is < 0 or > 96 || padding.Bottom is < 0 or > 96)
+            return null;
+
+        double? height = null;
+        if (barEl.TryGetProperty("height", out var heightEl))
+        {
+            if (heightEl.ValueKind != JsonValueKind.Number || !heightEl.TryGetDouble(out var value)) return null;
+            if (!double.IsFinite(value) || value is < 28 or > 160) return null;
+            height = value;
+        }
+
+        // A malformed nameplate costs the title its plate, not the band its layout: the title is drawn
+        // straight on the band instead, which is what a theme without a plaque does anyway.
+        var plaque = barEl.TryGetProperty("plaque", out var plaqueEl) ? ReadPlaque(plaqueEl) : null;
+
+        return new WorldThemeSkinLayout
+        {
+            PanelHeader = panelHeader,
+            TitleBar = new WorldThemeSkinTitleBar
+            {
+                HostsToolbar = hostsEl.ValueKind == JsonValueKind.True,
+                ToolbarAlign = align,
+                TitleAlign = titleAlign,
+                Padding = padding,
+                Height = height,
+                Plaque = plaque
+            }
+        };
+    }
+
     private static WorldThemePanelSkin? ReadPanel(JsonElement el)
     {
         if (el.ValueKind != JsonValueKind.Object) return null;
         if (!TryReadBorder(el, out var border) || border is null) return null;
         if (!TryReadBox(el, "inset", out var inset)) return null;
-        if (inset.Left < border.Thickness.Left || inset.Right < border.Thickness.Right ||
-            inset.Bottom < border.Thickness.Bottom)
-            return null;
+        // Same reasoning as the window: a panel's corner fittings are wider than its rails, and tying the
+        // body inset to the slice-driven thickness is what cost the dock panels their width.
+        if (inset.Left < 0 || inset.Top < 0 || inset.Right < 0 || inset.Bottom < 0) return null;
         if (!el.TryGetProperty("header_height", out var hhEl) || !TryGetFiniteNumber(hhEl, out var headerHeight) ||
             headerHeight is < 24 or > 48)
             return null;
@@ -136,6 +334,20 @@ public static class WorldThemeSkinJson
         return accepted.Count == 0 ? Array.Empty<WorldThemeSkinOverlay>() : accepted.ToArray();
     }
 
+    /// <summary>A sub-rectangle of an overlay, in fractions of its box, fully inside it.</summary>
+    private static bool TryReadRect(JsonElement el, out SkinRect rect)
+    {
+        rect = default;
+        if (el.ValueKind != JsonValueKind.Object) return false;
+        if (!el.TryGetProperty("x", out var xEl) || !TryGetFiniteNumber(xEl, out var x)) return false;
+        if (!el.TryGetProperty("y", out var yEl) || !TryGetFiniteNumber(yEl, out var y)) return false;
+        if (!el.TryGetProperty("width", out var wEl) || !TryGetFiniteNumber(wEl, out var w)) return false;
+        if (!el.TryGetProperty("height", out var hEl) || !TryGetFiniteNumber(hEl, out var h)) return false;
+        if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > 1 || y + h > 1) return false;
+        rect = new SkinRect(x, y, w, h);
+        return true;
+    }
+
     private static bool TryReadOverlay(JsonElement el, out WorldThemeSkinOverlay? overlay)
     {
         overlay = null;
@@ -150,8 +362,14 @@ public static class WorldThemeSkinJson
         var anchor = anchorEl.GetString() ?? "";
         if (!AllowedAnchors.Contains(anchor)) return false;
         if (!el.TryGetProperty("size", out var sizeEl) || !TryReadSize(sizeEl, out var size)) return false;
-        if (size.Width is <= 0 or > 512 || size.Height is <= 0 or > 128) return false;
-        overlay = new WorldThemeSkinOverlay { Id = id, Url = url, Anchor = anchor, Size = size };
+        // Bounded so a hostile theme cannot paint over the window; raised for larger frame art.
+        if (size.Width is <= 0 or > 1024 || size.Height is <= 0 or > 256) return false;
+        SkinRect? textArea = null;
+        // Decoration: a malformed inner window costs the title its placement, not the window its
+        // plaque, so this is ignored rather than rejecting the whole overlay.
+        if (el.TryGetProperty("text_area", out var textEl) && TryReadRect(textEl, out var rect))
+            textArea = rect;
+        overlay = new WorldThemeSkinOverlay { Id = id, Version = ReadAssetVersion(el), Url = url, Anchor = anchor, Size = size, TextArea = textArea };
         return true;
     }
 
@@ -172,6 +390,216 @@ public static class WorldThemeSkinJson
         return clearance >= required;
     }
 
+    /// <summary>
+    /// The directory's own label for the bytes behind a url. Opaque to the client: it only has to change when
+    /// the asset does. A malformed one is dropped rather than rejecting the asset, which would cost a world
+    /// its frame over a caching hint.
+    /// </summary>
+    private static readonly string[] AllowedBevels = ["raised", "sunken", "none"];
+
+    /// <summary>
+    /// A shaded surface is four values and any of them may be wrong without costing the theme its other
+    /// slots: a bad gradient drops that one surface, exactly as a bad overlay drops one overlay.
+    /// </summary>
+    private static WorldThemeSkinSurface? ReadSurface(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("from", out var fromEl) || fromEl.ValueKind != JsonValueKind.String) return null;
+        if (!el.TryGetProperty("to", out var toEl) || toEl.ValueKind != JsonValueKind.String) return null;
+        var from = fromEl.GetString() ?? "";
+        var to = toEl.GetString() ?? "";
+        if (!WorldTheme.IsColor(from) || !WorldTheme.IsColor(to)) return null;
+        var gloss = 0d;
+        if (el.TryGetProperty("gloss", out var glossEl))
+        {
+            if (glossEl.ValueKind != JsonValueKind.Number || !glossEl.TryGetDouble(out gloss)) return null;
+            if (!double.IsFinite(gloss) || gloss is < 0 or > 1) return null;
+        }
+        var bevel = "none";
+        if (el.TryGetProperty("bevel", out var bevelEl))
+        {
+            if (bevelEl.ValueKind != JsonValueKind.String) return null;
+            bevel = bevelEl.GetString() ?? "";
+            if (!AllowedBevels.Contains(bevel)) return null;
+        }
+        var bevelStrength = 1d;
+        if (el.TryGetProperty("bevel_strength", out var strengthEl))
+        {
+            if (strengthEl.ValueKind != JsonValueKind.Number || !strengthEl.TryGetDouble(out bevelStrength)) return null;
+            if (!double.IsFinite(bevelStrength) || bevelStrength is < 0 or > 1) return null;
+        }
+        var grain = 0d;
+        if (el.TryGetProperty("grain", out var grainEl))
+        {
+            if (grainEl.ValueKind != JsonValueKind.Number || !grainEl.TryGetDouble(out grain)) return null;
+            if (!double.IsFinite(grain) || grain is < 0 or > 1) return null;
+        }
+        string? rule = null;
+        if (el.TryGetProperty("rule", out var ruleEl))
+        {
+            if (ruleEl.ValueKind != JsonValueKind.String) return null;
+            rule = ruleEl.GetString();
+            if (!WorldTheme.IsColor(rule)) return null;
+        }
+        return new WorldThemeSkinSurface { From = from, To = to, Gloss = gloss, Bevel = bevel, BevelStrength = bevelStrength, Grain = grain, Rule = rule };
+    }
+
+    private static readonly string[] AllowedPlaqueShapes = ["chamfer", "notch", "round", "square"];
+
+    /// <summary>
+    /// A nameplate is a shape and up to three colours. A colour the theme leaves out is taken from the
+    /// palette rather than guessed, so the smallest useful plaque is a shape on its own.
+    /// </summary>
+    private static WorldThemeSkinPlaque? ReadPlaque(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        var shape = "chamfer";
+        if (el.TryGetProperty("shape", out var shapeEl))
+        {
+            if (shapeEl.ValueKind != JsonValueKind.String) return null;
+            shape = shapeEl.GetString() ?? "";
+            if (!AllowedPlaqueShapes.Contains(shape)) return null;
+        }
+        var cap = 6d;
+        if (el.TryGetProperty("cap", out var capEl))
+        {
+            if (capEl.ValueKind != JsonValueKind.Number || !capEl.TryGetDouble(out cap)) return null;
+            if (!double.IsFinite(cap) || cap is < 0 or > 32) return null;
+        }
+        string? Colour(string name)
+        {
+            if (!el.TryGetProperty(name, out var colourEl) || colourEl.ValueKind != JsonValueKind.String) return null;
+            var value = colourEl.GetString();
+            return WorldTheme.IsColor(value) ? value : null;
+        }
+        var padding = default(SkinBox);
+        if (el.TryGetProperty("padding", out _) && !TryReadBox(el, "padding", out padding)) return null;
+        if (padding.Left is < 0 or > 64 || padding.Right is < 0 or > 64
+            || padding.Top is < 0 or > 32 || padding.Bottom is < 0 or > 32) return null;
+
+        WorldThemeSkinShadow? shadow = null;
+        if (el.TryGetProperty("shadow", out var shadowEl))
+        {
+            shadow = ReadShadow(shadowEl);
+            if (shadow is null) return null;
+        }
+
+        WorldThemeSkinWings? wings = null;
+        if (el.TryGetProperty("wings", out var wingsEl))
+        {
+            wings = ReadWings(wingsEl);
+            if (wings is null) return null;
+        }
+
+        return new WorldThemeSkinPlaque
+        {
+            Shape = shape, Cap = cap,
+            Fill = Colour("fill"), Edge = Colour("edge"), Accent = Colour("accent"),
+            Padding = padding, Shadow = shadow, Wings = wings,
+        };
+    }
+
+    private static WorldThemeSkinShadow? ReadShadow(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("color", out var colourEl) || colourEl.ValueKind != JsonValueKind.String) return null;
+        var colour = colourEl.GetString();
+        if (!WorldTheme.IsColor(colour)) return null;
+        double Number(string name, double fallback, double min, double max, out bool ok)
+        {
+            ok = true;
+            if (!el.TryGetProperty(name, out var node)) return fallback;
+            if (node.ValueKind != JsonValueKind.Number || !node.TryGetDouble(out var value)
+                || !double.IsFinite(value) || value < min || value > max) { ok = false; return fallback; }
+            return value;
+        }
+        var opacity = Number("opacity", 0.35, 0, 1, out var okOpacity);
+        var blur = Number("blur", 8, 0, 24, out var okBlur);
+        var y = Number("y", 2, -8, 8, out var okY);
+        if (!okOpacity || !okBlur || !okY) return null;
+        return new WorldThemeSkinShadow { Color = colour!, Opacity = opacity, Blur = blur, Y = y };
+    }
+
+    private static WorldThemeSkinWings? ReadWings(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("extend", out var extendEl) || extendEl.ValueKind != JsonValueKind.Number
+            || !extendEl.TryGetDouble(out var extend) || !double.IsFinite(extend) || extend is < 0 or > 160)
+            return null;
+        string? Colour(string name, out bool ok)
+        {
+            ok = true;
+            if (!el.TryGetProperty(name, out var node)) return null;
+            var value = node.ValueKind == JsonValueKind.String ? node.GetString() : null;
+            ok = WorldTheme.IsColor(value);
+            return ok ? value : null;
+        }
+        var fill = Colour("fill", out var okFill);
+        var edge = Colour("edge", out var okEdge);
+        if (!okFill || !okEdge) return null;
+        return extend <= 0 ? null : new WorldThemeSkinWings { Extend = extend, Fill = fill, Edge = edge };
+    }
+
+    private static WorldThemeSkinEdge? ReadEdge(JsonElement root)
+    {
+        if (!root.TryGetProperty("edge", out var el) || el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("color", out var colourEl) || colourEl.ValueKind != JsonValueKind.String) return null;
+        var colour = colourEl.GetString();
+        if (!WorldTheme.IsColor(colour)) return null;
+        var thickness = 1d;
+        if (el.TryGetProperty("thickness", out var thickEl))
+        {
+            if (thickEl.ValueKind != JsonValueKind.Number || !thickEl.TryGetDouble(out thickness)) return null;
+            if (!double.IsFinite(thickness) || thickness is < 0 or > 16) return null;
+        }
+        string? outline = null;
+        if (el.TryGetProperty("outline", out var outlineEl))
+        {
+            if (outlineEl.ValueKind != JsonValueKind.String) return null;
+            outline = outlineEl.GetString();
+            if (!WorldTheme.IsColor(outline)) return null;
+        }
+        // A bevelled frame needs room for its two outlines and a highlight between them.
+        if (outline is not null && thickness < 3) return null;
+        return thickness <= 0 ? null : new WorldThemeSkinEdge { Color = colour!, Thickness = thickness, Outline = outline };
+    }
+
+    private static WorldThemeSkinRadii? ReadRadii(JsonElement root)
+    {
+        if (!root.TryGetProperty("radii", out var el) || el.ValueKind != JsonValueKind.Object) return null;
+        double? Slot(string name)
+        {
+            if (!el.TryGetProperty(name, out var slot) || slot.ValueKind != JsonValueKind.Number) return null;
+            if (!slot.TryGetDouble(out var value) || !double.IsFinite(value) || value is < 0 or > 24) return null;
+            return value;
+        }
+        var radii = new WorldThemeSkinRadii { Panel = Slot("panel"), Control = Slot("control") };
+        return radii.HasContent ? radii : null;
+    }
+
+    private static WorldThemeSkinSurfaces? ReadSurfaces(JsonElement root)
+    {
+        if (!root.TryGetProperty("surfaces", out var el) || el.ValueKind != JsonValueKind.Object) return null;
+        WorldThemeSkinSurface? Slot(string name) =>
+            el.TryGetProperty(name, out var slot) ? ReadSurface(slot) : null;
+        var surfaces = new WorldThemeSkinSurfaces
+        {
+            TitleBar = Slot("titlebar"),
+            Toolbar = Slot("toolbar"),
+            PanelHeader = Slot("panel_header"),
+            PanelBody = Slot("panel_body"),
+            Footer = Slot("footer"),
+            Ground = Slot("ground"),
+        };
+        return surfaces.HasContent ? surfaces : null;
+    }
+
+    private static string? ReadAssetVersion(JsonElement el) =>
+        el.TryGetProperty("version", out var versionEl) && versionEl.ValueKind == JsonValueKind.String &&
+        versionEl.GetString() is { Length: > 0 and <= 128 } version &&
+        version.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.')
+            ? version : null;
+
     private static bool TryReadBorder(JsonElement parent, out WorldThemeSkinBorder? border)
     {
         border = null;
@@ -188,7 +616,14 @@ public static class WorldThemeSkinJson
         if (slice.Left + slice.Right >= source.Width || slice.Top + slice.Bottom >= source.Height) return false;
         if (!el.TryGetProperty("thickness", out var thickEl) || !TryReadBox(thickEl, out var thickness)) return false;
         if (!ThicknessInRange(thickness)) return false;
-        border = new WorldThemeSkinBorder { Url = url, SourceSize = source, Slice = slice, Thickness = thickness };
+        var repeat = "stretch";
+        if (el.TryGetProperty("repeat", out var repeatEl))
+        {
+            if (repeatEl.ValueKind != JsonValueKind.String) return false;
+            repeat = repeatEl.GetString() ?? "";
+            if (repeat is not ("stretch" or "tile")) return false;
+        }
+        border = new WorldThemeSkinBorder { Url = url, Version = ReadAssetVersion(el), SourceSize = source, Slice = slice, Thickness = thickness, Repeat = repeat };
         return true;
     }
 
@@ -206,7 +641,7 @@ public static class WorldThemeSkinJson
         if (!TryGetFiniteNumber(el, "left", out var left) || !TryGetFiniteNumber(el, "top", out var top) ||
             !TryGetFiniteNumber(el, "right", out var right) || !TryGetFiniteNumber(el, "bottom", out var bottom))
             return false;
-        if (left is < 0 or > 128 || top is < 0 or > 128 || right is < 0 or > 128 || bottom is < 0 or > 128)
+        if (left is < 0 or > 256 || top is < 0 or > 256 || right is < 0 or > 256 || bottom is < 0 or > 256)
             return false;
         box = new SkinBox(left, top, right, bottom);
         return true;
@@ -281,12 +716,8 @@ public static class WorldThemeSkinJson
     }
 
     private static bool ThicknessInRange(SkinBox t) =>
-        t.Left is >= 0 and <= 128 && t.Top is >= 0 and <= 128 &&
-        t.Right is >= 0 and <= 128 && t.Bottom is >= 0 and <= 128;
-
-    private static bool InsetCoversThickness(SkinBox inset, SkinBox thickness) =>
-        inset.Left >= thickness.Left && inset.Top >= thickness.Top &&
-        inset.Right >= thickness.Right && inset.Bottom >= thickness.Bottom;
+        t.Left is >= 0 and <= 256 && t.Top is >= 0 and <= 256 &&
+        t.Right is >= 0 and <= 256 && t.Bottom is >= 0 and <= 256;
 
     private static void WriteWindow(Utf8JsonWriter writer, WorldThemeWindowSkin window)
     {
@@ -304,9 +735,22 @@ public static class WorldThemeSkinJson
                 writer.WriteStartObject();
                 writer.WriteString("id", overlay.Id);
                 writer.WriteString("url", overlay.Url);
+                if (overlay.Version is { Length: > 0 } overlayVersion) writer.WriteString("version", overlayVersion);
                 writer.WriteString("anchor", overlay.Anchor);
                 writer.WritePropertyName("size");
                 WriteSize(writer, overlay.Size);
+                if (overlay.TextArea is { } textArea)
+                {
+                    // Round-tripping a theme through the directory must not lose the plaque's inner
+                    // window, or the title goes back to being centred across the metal shoulders.
+                    writer.WritePropertyName("text_area");
+                    writer.WriteStartObject();
+                    writer.WriteNumber("x", textArea.X);
+                    writer.WriteNumber("y", textArea.Y);
+                    writer.WriteNumber("width", textArea.Width);
+                    writer.WriteNumber("height", textArea.Height);
+                    writer.WriteEndObject();
+                }
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();
@@ -343,6 +787,7 @@ public static class WorldThemeSkinJson
     {
         writer.WriteStartObject();
         writer.WriteString("url", border.Url);
+        if (border.Version is { Length: > 0 } borderVersion) writer.WriteString("version", borderVersion);
         writer.WritePropertyName("source_size");
         writer.WriteStartObject();
         writer.WriteNumber("width", border.SourceSize.Width);
@@ -357,6 +802,7 @@ public static class WorldThemeSkinJson
         writer.WriteEndObject();
         writer.WritePropertyName("thickness");
         WriteBox(writer, border.Thickness);
+        if (border.Tiles) writer.WriteString("repeat", border.Repeat);
         writer.WriteEndObject();
     }
 

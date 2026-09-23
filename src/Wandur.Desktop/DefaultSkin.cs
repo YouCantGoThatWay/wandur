@@ -1,0 +1,126 @@
+using Avalonia.Media;
+using Wandur.Core.Discovery;
+using Wandur.Core.Settings;
+
+namespace Wandur.Desktop;
+
+/// <summary>
+/// The client's own skin: the title band with its nameplate, the toolbar row, shaded panel headers and
+/// the device edge, drawn for every world and every personal theme.
+///
+/// It carries structure only. Every colour is derived from the palette in force, so the same default is
+/// right on a light theme and a dark one, and a world changes how it looks by naming colours rather than
+/// by shipping a skin. A world that does ship one wins section by section: whatever it states is used,
+/// and whatever it leaves out comes from here.
+/// </summary>
+internal static class DefaultSkin
+{
+    public static WorldThemeSkinRadii Radii { get; } = new() { Panel = 2, Control = 3 };
+
+    public static WorldThemeSkin For(string panel, string text, string terminal, string terminalText, string accent)
+    {
+        var p = Color.Parse(panel);
+        var t = Color.Parse(text);
+        var term = Color.Parse(terminal);
+        var termText = Color.Parse(terminalText);
+        // Toward the text colour is darker on a light theme and lighter on a dark one, so shading by it is
+        // the one direction that reads as depth either way.
+        string Toward(double amount) => Hex(Mix(p, t, amount));
+        // A raised face is lit away from the text colour: toward white on a light theme and toward black on
+        // a dark one. Lifting toward white regardless made the footer lighter than its muted text could read
+        // on, on every dark preset.
+        var away = UserTheme.IsLightBackground(text) ? Colors.Black : Colors.White;
+        string Lit(double amount) => Hex(Mix(p, away, amount));
+        var outline = Toward(0.55);
+
+        return new WorldThemeSkin
+        {
+            Version = 1,
+            Layout = new WorldThemeSkinLayout
+            {
+                TitleBar = new WorldThemeSkinTitleBar
+                {
+                    // The controls keep their own row beneath the band, as on the design: the band holds the
+                    // traffic lights and the nameplate and nothing else.
+                    HostsToolbar = false, ToolbarAlign = "right", TitleAlign = "center", Height = 52,
+                    Padding = new SkinBox(96, 6, 16, 6),
+                    Plaque = new WorldThemeSkinPlaque
+                    {
+                        Shape = "chamfer", Cap = 5,
+                        Fill = Hex(Mix(term, termText, 0.14)), Edge = Hex(term),
+                        Accent = Hex(Readable(Color.Parse(accent), Mix(term, termText, 0.14))),
+                        Padding = new SkinBox(22, 0, 22, 0),
+                        Wings = new WorldThemeSkinWings { Extend = 46, Fill = Lit(0.10), Edge = outline },
+                        Shadow = new WorldThemeSkinShadow { Color = "#000000", Opacity = 0.30, Blur = 4, Y = 2 },
+                    },
+                },
+                PanelHeader = new WorldThemeSkinPanelHeader { Height = 30, Inset = new SkinBox(10, 0, 10, 0) },
+            },
+            Surfaces = new WorldThemeSkinSurfaces
+            {
+                TitleBar = new() { From = Lit(0.12), To = Toward(0.04), Bevel = "raised", BevelStrength = 0.30 },
+                Toolbar = new() { From = Toward(0.06), To = Toward(0.12), Bevel = "raised", BevelStrength = 0.25 },
+                // Held close to the panel colour: the header's buttons draw in the muted colour, which only just
+                // clears contrast on a flat panel on several presets, so the header can barely move before they
+                // stop being readable. The bevel carries the definition instead.
+                // Darker than the panel, as on the design: the header glyphs switch to the text colour when a
+                // header surface is present, which is what makes that legible.
+                PanelHeader = new() { From = Toward(0.08), To = Toward(0.15), Bevel = "raised", BevelStrength = 0.30 },
+                PanelBody = new() { From = panel, To = Toward(0.02) },
+                Footer = new() { From = Lit(0.08), To = Toward(0.05), Bevel = "raised", BevelStrength = 0.30 },
+                // The dark chassis the panels rest on. Flat: it is a gap, not a face.
+                Ground = new() { From = Toward(0.66), To = Toward(0.66) },
+            },
+            Edge = new WorldThemeSkinEdge { Color = panel, Outline = outline, Thickness = 6 },
+            Radii = Radii,
+        };
+    }
+
+    /// <summary>
+    /// The world's skin where it says something, the default where it does not. A world with its own window
+    /// art keeps its frame to itself: the default band and edge would sit on top of that art, not beside it.
+    /// </summary>
+    public static WorldThemeSkin Merge(WorldThemeSkin? world, WorldThemeSkin fallback, bool keepSurfaces = false)
+    {
+        var defaults = keepSurfaces ? fallback with { Surfaces = null } : fallback;
+        if (world is null) return defaults;
+        var hasArt = world.Window is not null;
+        return world with
+        {
+            Layout = world.Layout ?? (hasArt ? null : fallback.Layout),
+            Surfaces = world.Surfaces ?? defaults.Surfaces,
+            Edge = world.Edge ?? (hasArt ? null : fallback.Edge),
+            Radii = world.Radii ?? fallback.Radii,
+        };
+    }
+
+    /// <summary>
+    /// The accent lifted until it reads on the plate. A preset's accent is chosen to read on its panels, and
+    /// on a dark plate a dark accent vanishes; the stripes need to be seen, not matched.
+    /// </summary>
+    private static Color Readable(Color accent, Color plate)
+    {
+        var lifted = accent;
+        for (var i = 0; i < 12 && Contrast(lifted, plate) < 3.5; i++)
+            lifted = Mix(lifted, Colors.White, 0.18);
+        return lifted;
+    }
+
+    private static double Contrast(Color a, Color b)
+    {
+        static double Lum(Color c)
+        {
+            static double Ch(byte v) { var s = v / 255.0; return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4); }
+            return 0.2126 * Ch(c.R) + 0.7152 * Ch(c.G) + 0.0722 * Ch(c.B);
+        }
+        var (la, lb) = (Lum(a), Lum(b));
+        return (Math.Max(la, lb) + 0.05) / (Math.Min(la, lb) + 0.05);
+    }
+
+    private static Color Mix(Color a, Color b, double t) => Color.FromRgb(
+        (byte)Math.Round(a.R + (b.R - a.R) * t),
+        (byte)Math.Round(a.G + (b.G - a.G) * t),
+        (byte)Math.Round(a.B + (b.B - a.B) * t));
+
+    private static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+}

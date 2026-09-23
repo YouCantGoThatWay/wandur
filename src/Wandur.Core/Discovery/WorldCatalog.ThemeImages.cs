@@ -1,25 +1,38 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using Wandur.Core.Diagnostics;
 
 namespace Wandur.Core.Discovery;
 
 public sealed partial class WorldCatalog
 {
+    /// <summary>
+    /// Theme artwork, cached under its url and the version the directory reports for it. Keying on the url
+    /// alone pins the first copy ever fetched: art lives at a stable path and is replaced in place, so the
+    /// directory would serve new art while the client kept painting the old one, indistinguishable from a
+    /// theme that never changed. The version moves with the bytes, so replacing an asset simply produces a
+    /// key nothing is stored under, and the previous copy stays valid for anyone still pointed at it.
+    /// </summary>
     public async Task<byte[]?> GetThemeImageAsync(WorldThemeImage image, CancellationToken token = default)
     {
         if (!image.IsValid) return null;
         var uri = new Uri(BaseUri, image.Url);
-        if (uri.Scheme != "https" && !BaseUri.IsBaseOf(uri)) return null;
-        if (!Uri.TryCreate(image.Url, UriKind.Absolute, out _) && !BaseUri.IsBaseOf(uri)) return null;
-        var key = "theme-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(uri.AbsoluteUri)));
+        if (!BaseUri.IsBaseOf(uri)) return null;
+        var identity = image.Version is { Length: > 0 } version ? uri.AbsoluteUri + "@" + version : uri.AbsoluteUri;
+        var key = "theme-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));
         token.ThrowIfCancellationRequested();
         try { if (_cache.ReadArtwork(key) is { } cached && IsThemePng(cached)) return cached; }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token, _lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
         using var response = await _http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxThemeImageBytes) return null;
+        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxThemeImageBytes)
+        {
+            ThemeTrace.Write("theme.image", $"{image.Url} HTTP {(int)response.StatusCode}, not cached");
+            return null;
+        }
         using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
         using var data = new MemoryStream();
         var buffer = new byte[16_384];
@@ -31,10 +44,12 @@ public sealed partial class WorldCatalog
         }
         var bytes = data.ToArray();
         if (!IsThemePng(bytes)) return null;
+        ThemeTrace.Write("theme.image", $"{image.Url} fetched {bytes.Length} bytes at version {image.Version ?? "(none)"}");
         try { _cache.WriteArtwork(key, bytes); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         return bytes;
     }
+
     private const int MaxThemeImageBytes = 4 * 1024 * 1024;
     private static bool IsThemePng(byte[] data)
     {

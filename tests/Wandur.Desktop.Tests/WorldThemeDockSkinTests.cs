@@ -20,13 +20,10 @@ public sealed class WorldThemeDockSkinTests
     public async Task PanelSkinWrapsToolDocksWithoutResettingLayout()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
 
         await using var harness = await OpenAsync(theme, handler);
         await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.PanelDefaultKey) == true);
@@ -56,13 +53,10 @@ public sealed class WorldThemeDockSkinTests
     public async Task SkinHostPreservesCloseAndTitleParts()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-industrial-skin.json")))!;
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
         var handler = new SkinHandler();
-        handler.Map("window-border.png", TestPng.Rgba(512, 384));
-        handler.Map("dock-panel.png", TestPng.Rgba(512, 1024));
-        handler.Map("header.png", TestPng.Rgba(212, 56));
-        handler.Map("corner-left.png", TestPng.Rgba(200, 128));
-        handler.Map("corner-right.png", TestPng.Rgba(200, 128));
+        foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
+            handler.Map(fragment, TestPng.Rgba(w, h));
 
         await using var harness = await OpenAsync(theme, handler);
         await WaitForAsync(() => ThemeService.AppliedImages?.ContainsKey(ThemeSkinResources.PanelDefaultKey) == true);

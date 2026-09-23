@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Wandur.Core.Discovery;
@@ -65,8 +66,33 @@ public sealed class ThemeDockSkinHost : Decorator
 
     private Thickness ActiveInset => IsSkinActive ? Inset : default;
 
+    /// <summary>
+    /// The shape each panel border was templated with. The corners come through a converter on a binding
+    /// over the dock's alignment, which squares the edge that meets the window side; a binding does not
+    /// re-run because a theme moved a radius, so the shape is re-derived here from the pattern the
+    /// template produced. Keeping the original means a theme can square the corners and a later one can
+    /// round them again, instead of squaring being one-way.
+    /// </summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Border, object> Templated = new();
+
+    private void ApplyPanelRadius()
+    {
+        var radius = ThemeService.AppliedSkin?.Radii?.Panel;
+        if (radius is null) return;
+        foreach (var border in this.GetVisualDescendants().OfType<Border>().Where(b => b.Name == "PART_Border"))
+        {
+            var original = (CornerRadius)Templated.GetValue(border, b => b.CornerRadius);
+            border.CornerRadius = new CornerRadius(
+                original.TopLeft > 0 ? radius.Value : 0,
+                original.TopRight > 0 ? radius.Value : 0,
+                original.BottomRight > 0 ? radius.Value : 0,
+                original.BottomLeft > 0 ? radius.Value : 0);
+        }
+    }
+
     private void OnThemeApplied()
     {
+        ApplyPanelRadius();
         var skin = ThemeSkinResources.FromApplied();
         if (skin is not { PanelReady: true } || skin.PanelMeta is not { } meta)
         {
@@ -141,7 +167,7 @@ public sealed class ThemeDockSkinHost : Decorator
         if (!IsSkinActive || BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;
         var size = Bounds.Size;
         if (!CanFit(size, Inset)) return;
-        var patches = ThemeNineSlice.Build(bitmap.PixelSize, meta.Slice, meta.Thickness, size);
+        var patches = ThemeNineSlice.Build(bitmap.PixelSize, meta.Slice, meta.Thickness, size, meta.Tiles);
         ThemeNineSlice.Draw(context, bitmap, patches);
     }
 }

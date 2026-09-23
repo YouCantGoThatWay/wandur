@@ -68,9 +68,17 @@ public sealed partial class SessionWorkspace
             var windowSkinReady = false;
             if (theme.Skin is { HasContent: true } skin)
                 windowSkinReady = await LoadSkinImagesAsync(skin, decoded, token);
+            Wandur.Core.Diagnostics.ThemeTrace.Write("skin.ready",
+                $"theme={theme.Id} hasSkin={theme.Skin is { HasContent: true }} windowSkinReady={windowSkinReady} " +
+                $"declinesFrame={theme.Skin is { HasContent: true, Window: null }} " +
+                $"legacyBezelWillPaint={(!windowSkinReady && theme.Skin is not { HasContent: true, Window: null } && theme.Frame is { IsValid: true, Assets.Border.IsValid: true })}");
 
-            // Legacy bezel only when the modular window border did not load. Never stack both.
-            if (!windowSkinReady && theme.Frame is { IsValid: true, Assets.Border: { IsValid: true } border })
+            // Legacy bezel only when the modular window border was wanted and did not load. A skin that has
+            // content but names no window is not a failure to fall back from: it is a theme saying it wants
+            // no frame, and painting the old bezel over it puts back the very thing it removed.
+            var declinesAFrame = theme.Skin is { HasContent: true, Window: null };
+            if (!windowSkinReady && !declinesAFrame &&
+                theme.Frame is { IsValid: true, Assets.Border: { IsValid: true } border })
             {
                 try
                 {
@@ -122,8 +130,13 @@ public sealed partial class SessionWorkspace
                 {
                     if (token.IsCancellationRequested) return;
                     var sample = byUrl[url][0];
-                    var bytes = await _catalog!.GetThemeImageAsync(new WorldThemeImage { Url = url, Opacity = 0 }, token);
-                    if (bytes is null) { urlBitmaps[url] = null; return; }
+                    var bytes = await _catalog!.GetThemeImageAsync(
+                        new WorldThemeImage { Url = url, Version = sample.Version, Opacity = 0 }, token);
+                    if (bytes is null)
+                    {
+                        Wandur.Core.Diagnostics.ThemeTrace.Write("skin.image", $"{url} REJECTED: fetch returned nothing");
+                        urlBitmaps[url] = null; return;
+                    }
                     if (Interlocked.Add(ref pngBytes, bytes.Length) > MaxSkinPngBytes)
                     { urlBitmaps[url] = null; return; }
 
@@ -131,10 +144,19 @@ public sealed partial class SessionWorkspace
                     var height = (int)BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20, 4));
                     if (sample.ExpectedPixels is { } expected &&
                         (width != expected.Width || height != expected.Height))
-                    { urlBitmaps[url] = null; return; }
+                    {
+                        Wandur.Core.Diagnostics.ThemeTrace.Write("skin.image",
+                            $"{url} REJECTED: {width}x{height} but source_size declares {expected.Width}x{expected.Height}");
+                        urlBitmaps[url] = null; return;
+                    }
 
                     if (sample.DestSize is { } dest && !AspectMatches(width, height, dest.Width, dest.Height))
-                    { urlBitmaps[url] = null; return; }
+                    {
+                        Wandur.Core.Diagnostics.ThemeTrace.Write("skin.image",
+                            $"{url} REJECTED: {width}x{height} aspect does not match declared size {dest.Width}x{dest.Height}");
+                        urlBitmaps[url] = null; return;
+                    }
+                    Wandur.Core.Diagnostics.ThemeTrace.Write("skin.image", $"{url} ok {width}x{height}");
 
                     var rgba = (long)width * height * 4;
                     if (Interlocked.Add(ref rgbaBytes, rgba) > MaxSkinRgbaBytes)
@@ -171,18 +193,18 @@ public sealed partial class SessionWorkspace
         if (skin.Window is { } window)
         {
             jobs.Add(new SkinImageJob(
-                ThemeSkinResources.WindowBorderKey, window.Border.Url, window.Border.SourceSize, null));
+                ThemeSkinResources.WindowBorderKey, window.Border.Url, window.Border.Version, window.Border.SourceSize, null));
             foreach (var overlay in window.Overlays)
             {
                 // Overlay PNGs are not required to declare source_size; aspect is checked against dest size.
                 jobs.Add(new SkinImageJob(
-                    ThemeSkinResources.OverlayKey(overlay.Id), overlay.Url, null, overlay.Size));
+                    ThemeSkinResources.OverlayKey(overlay.Id), overlay.Url, overlay.Version, null, overlay.Size));
             }
         }
         if (skin.Panels?.Default is { } panel)
         {
             jobs.Add(new SkinImageJob(
-                ThemeSkinResources.PanelDefaultKey, panel.Border.Url, panel.Border.SourceSize, null));
+                ThemeSkinResources.PanelDefaultKey, panel.Border.Url, panel.Border.Version, panel.Border.SourceSize, null));
         }
         return jobs;
     }
@@ -211,5 +233,5 @@ public sealed partial class SessionWorkspace
     }
 
     private readonly record struct SkinImageJob(
-        string Key, string Url, SkinPixelSize? ExpectedPixels, SkinSize? DestSize);
+        string Key, string Url, string? Version, SkinPixelSize? ExpectedPixels, SkinSize? DestSize);
 }
