@@ -658,8 +658,9 @@ public sealed class MainWindow : Window
         _appTitle.FontSize = 20;
         _appTitle.FontWeight = FontWeight.Normal;
         _appTitle.LetterSpacing = 1.8;
-        _plaque.Fill = FleetSkin.Instrument;
-        _plaque.WingFill = FleetSkin.Metal;
+        _plaque.Fill = FleetSkin.Plaque;
+        _plaque.WingFill = ThemeService.AppliedWorldTheme?.Skin?.Layout?.TitleBar?.Plaque?.Wings?.Fill is { } wingColor
+            ? FleetSkin.Shade(Color.Parse(wingColor)) : FleetSkin.Wings;
         var measure = new TextBlock { Text = _appTitle.Text, FontFamily = _appTitle.FontFamily,
             FontSize = _appTitle.FontSize, LetterSpacing = _appTitle.LetterSpacing, FontWeight = _appTitle.FontWeight };
         measure.Measure(new Size(double.PositiveInfinity, FleetTitleLayout.PlaqueHeight));

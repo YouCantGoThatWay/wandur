@@ -171,6 +171,8 @@ public sealed class MapSessionTests
         await controller.DisconnectAsync();
         await controller.StartAsync(profile);
         using var reconnected = await server.AcceptTcpClientAsync();
+        // Connecting does not await the background map restore.
+        await controller.MapReady;
         Assert.Equal(2, controller.Map.Snapshot.Rooms.Count);
         Assert.Null(controller.Map.Snapshot.CurrentRoomId);
         await controller.DisconnectAsync();

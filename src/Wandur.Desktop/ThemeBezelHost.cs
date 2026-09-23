@@ -79,7 +79,7 @@ internal sealed class ThemeBezelHost : Decorator
         var theme = ThemeService.AppliedWorldTheme;
         // Prefer modular window skin when ready; legacy bezel must not stack with it. A skin that names no
         // window at all has decided against a frame, so there is nothing for the bezel to stand in for.
-        if (ThemeSkinResources.FromApplied() is { WindowReady: true } ||
+        if (FleetSkin.IsActive || ThemeSkinResources.FromApplied() is { WindowReady: true } ||
             theme?.Skin is { HasContent: true, Window: null })
         {
             BorderBitmap = null;

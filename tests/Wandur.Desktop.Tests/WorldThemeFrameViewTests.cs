@@ -14,12 +14,12 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class WorldThemeFrameViewTests
 {
-    // 96x96 PNG with a cyan rim so nine-slice loading has a real bitmap to attach.
+    // 96x96 PNG with a cyan rim so legacy asset loading has a real bitmap to retain.
     private static readonly byte[] BezelPng = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAAu0lEQVR42u3RAQ0AIAwDwRqbbyThAmSwhWvyBnqptY/eFScAACAAAAQAgAAAEAAAAgBAAABoAEA+HwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANABQAAACAAAAQAgAAAEAIAAABAAAALQvgvkbjNYmbBdNAAAAABJRU5ErkJggg==");
 
     [AvaloniaFact]
-    public async Task FramedThemeAppliesBezelWhenBorderLoadsAndPaletteOnlyDoesNot()
+    public async Task LegacyBezelDownloadAndPaletteSwitchKeepFleetGeometry()
     {
         var path = Path.Combine(Path.GetTempPath(), "wandur-bezel-" + Guid.NewGuid());
         Directory.CreateDirectory(path);
@@ -45,6 +45,7 @@ public sealed class WorldThemeFrameViewTests
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
             var bezel = window.GetVisualDescendants().OfType<ThemeBezelHost>().Single(b => b.Name == "ThemeBezel");
+            var shell = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().Single();
             Assert.Null(bezel.BorderBitmap);
             Assert.Equal(default, bezel.Inset);
 
@@ -53,10 +54,14 @@ public sealed class WorldThemeFrameViewTests
             Assert.Equal(framed, window.Sessions.Active.Controller.WorldTheme);
             Assert.Equal(framed, ThemeService.AppliedWorldTheme);
             var end = DateTime.UtcNow.AddSeconds(5);
-            while (bezel.BorderBitmap is null && DateTime.UtcNow < end)
+            while (ThemeService.AppliedImages?.ContainsKey("frame-border") != true && DateTime.UtcNow < end)
             { await Task.Delay(15); Dispatcher.UIThread.RunJobs(); }
-            Assert.NotNull(bezel.BorderBitmap);
-            Assert.Equal(new Thickness(28, 36, 28, 32), bezel.Inset);
+            Assert.True(ThemeService.AppliedImages?.ContainsKey("frame-border") == true);
+            Assert.Null(bezel.BorderBitmap);
+            Assert.Equal(default, bezel.Inset);
+            Assert.Equal(50, shell.BandHeight);
+            Assert.Equal(6, shell.EdgeThickness);
+            Assert.Null(ThemeSkinResources.FromApplied());
             Assert.True(handler.BorderRequests >= 1);
             Assert.Equal(Color.Parse("#FFFFFF"), Assert.IsAssignableFrom<ISolidColorBrush>(Application.Current!.Resources["TerminalBrush"]).Color);
 
@@ -73,6 +78,8 @@ public sealed class WorldThemeFrameViewTests
             Assert.Null(bezel.BorderBitmap);
             Assert.Equal(default, bezel.Inset);
             Assert.Equal(Color.Parse(palette.Colors.Terminal), Assert.IsAssignableFrom<ISolidColorBrush>(Application.Current.Resources["TerminalBrush"]).Color);
+            Assert.Equal(50, shell.BandHeight);
+            Assert.Equal(6, shell.EdgeThickness);
         }
         finally
         {

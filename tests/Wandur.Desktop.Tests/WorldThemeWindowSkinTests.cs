@@ -34,7 +34,7 @@ public sealed class WorldThemeWindowSkinTests
     }
 
     [AvaloniaFact]
-    public async Task SkinWindowPrefersModularBorderOverLegacyBezel()
+    public async Task LegacyWindowAssetsKeepFleetGeometryAndDisableBitmapChrome()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
@@ -49,21 +49,25 @@ public sealed class WorldThemeWindowSkinTests
         var windowSkin = harness.Window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().Single(h => h.Name == "ThemeWindowSkin");
         var bezel = harness.Window.GetVisualDescendants().OfType<ThemeBezelHost>().Single(h => h.Name == "ThemeBezel");
         var ornaments = harness.Window.GetVisualDescendants().OfType<ThemeOrnamentLayer>().Single(h => h.Name == "ThemeOrnaments");
-        Assert.NotNull(windowSkin.BorderBitmap);
-        // Read from the theme rather than pinned here: band geometry is config, and tuning it in the
-        // skin should not mean editing tests.
-        var expectedInset = theme.Skin!.Window!.Inset;
-        Assert.Equal(new Thickness(expectedInset.Left, expectedInset.Top, expectedInset.Right, expectedInset.Bottom), windowSkin.Inset);
+        Assert.Null(windowSkin.BorderBitmap);
+        Assert.Null(windowSkin.BorderMeta);
+        Assert.Equal(default, windowSkin.Inset);
+        Assert.Equal(50, windowSkin.BandHeight);
+        Assert.Equal(6, windowSkin.EdgeThickness);
+        Assert.NotNull(windowSkin.BandBrush);
+        harness.Window.UpdateLayout();
+        Assert.Equal(new Point(6, 50), windowSkin.Child!.Bounds.Position);
         if (OperatingSystem.IsMacOS())
-            Assert.Equal(Math.Max(52, expectedInset.Top), harness.Window.ExtendClientAreaTitleBarHeightHint);
+            Assert.Equal(50, harness.Window.ExtendClientAreaTitleBarHeightHint);
         Assert.Null(bezel.BorderBitmap);
         Assert.Equal(default, bezel.Inset);
         Assert.False(ornaments.IsHitTestVisible);
-        Assert.Equal(SkinAssetMap.OverlayCount(theme), ThemeSkinResources.FromApplied()!.Overlays.Count);
+        Assert.Null(ThemeSkinResources.FromApplied());
+        Assert.Equal(default, ornaments.EffectiveFooterClearance);
     }
 
     [AvaloniaFact]
-    public async Task CompactHostHidesOrnamentClearance()
+    public async Task LegacyOrnamentsReserveNoClearanceAtLargeOrCompactSizes()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
@@ -79,22 +83,24 @@ public sealed class WorldThemeWindowSkinTests
         Dispatcher.UIThread.RunJobs();
         var ornaments = harness.Window.GetVisualDescendants().OfType<ThemeOrnamentLayer>().Single();
         ornaments.ApplyFromTheme();
-        // Force a measured size above the compact threshold via the chrome panel.
+        // Legacy ornament thresholds must not affect the Fleet shell at either size.
         var chrome = harness.Window.GetVisualDescendants().OfType<Grid>().Single(p => p.Name == "ThemeChrome");
         chrome.Width = 1380;
         chrome.Height = 900;
         ornaments.InvalidateMeasure();
         ornaments.InvalidateArrange();
         Dispatcher.UIThread.RunJobs();
+        Assert.False(ornaments.IsCompact);
+        Assert.Equal(default, ornaments.EffectiveFooterClearance);
+        Assert.Null(ThemeSkinResources.FromApplied());
 
-        // Drive clearance from a known host size through the public anchor math / Apply path.
-        // Compact threshold is 1200x760; shrink below it.
+        // Shrink below the legacy asset's 1200x760 compact threshold.
         chrome.Width = 1000;
         chrome.Height = 700;
         ornaments.Measure(new Size(1000, 700));
         ornaments.Arrange(new Rect(0, 0, 1000, 700));
         Dispatcher.UIThread.RunJobs();
-        Assert.True(ornaments.IsCompact);
+        Assert.False(ornaments.IsCompact);
         Assert.Equal(default, ornaments.EffectiveFooterClearance);
     }
 

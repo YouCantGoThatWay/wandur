@@ -5,15 +5,16 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Dock.Avalonia.Controls;
+using Dock.Model.Controls;
+using Dock.Model.Core;
 using Wandur.Core.Discovery;
 using Wandur.Desktop.Converters;
 
 namespace Wandur.Desktop.Tests;
 
 /// <summary>
-/// Whether a docked panel has square or soft corners belongs to the theme. A skin that paints flat
-/// military chrome and one that paints a consumer shell want opposite answers, and the client cannot
-/// guess which.
+/// Legacy radii remain parseable metadata; rendered panels and controls always use Fleet radii.
 /// </summary>
 public sealed class ThemeSkinRadiiTests
 {
@@ -44,58 +45,64 @@ public sealed class ThemeSkinRadiiTests
     [InlineData("""{ "panel": "8" }""")]
     public void AnOutOfRangeRadiusIsIgnoredRatherThanClamped(string radii)
     {
-        // Clamping would paint a corner the theme never asked for; dropping it keeps the client's own.
+        // Invalid legacy metadata is dropped rather than silently rewritten.
         Assert.Null(WithRadii(radii).Skin?.Radii?.Panel);
     }
 
     [AvaloniaFact]
-    public void SquarePanelsReachBothTheResourceAndTheDockChrome()
+    public void LegacyRadiiCannotOverrideFleetResourcesOrDockChrome()
     {
         ThemeService.Apply(new(), WithRadii("""{ "panel": 0, "control": 2 }"""));
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(new CornerRadius(0), (CornerRadius)Application.Current!.Resources["CardCornerRadius"]!);
-        Assert.Equal(new CornerRadius(2), (CornerRadius)Application.Current.Resources["ControlCornerRadius"]!);
-        Assert.Equal(0, DockChromeConverter.Radius);
+        Assert.Equal(new CornerRadius(2), (CornerRadius)Application.Current!.Resources["CardCornerRadius"]!);
+        Assert.Equal(new CornerRadius(3), (CornerRadius)Application.Current.Resources["ControlCornerRadius"]!);
+        Assert.Equal(2, DockChromeConverter.Radius);
 
         ThemeService.Apply(new(), WithRadii("""{ "panel": 14 }"""));
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(new CornerRadius(14), (CornerRadius)Application.Current.Resources["CardCornerRadius"]!);
-        Assert.Equal(14, DockChromeConverter.Radius);
+        Assert.Equal(new CornerRadius(2), (CornerRadius)Application.Current.Resources["CardCornerRadius"]!);
+        Assert.Equal(new CornerRadius(3), (CornerRadius)Application.Current.Resources["ControlCornerRadius"]!);
+        Assert.Equal(2, DockChromeConverter.Radius);
     }
 
-    /// <summary>Without skin radii the theme's own corner_radius still applies; only then the client's.</summary>
+    /// <summary>Theme corner_radius and absent world metadata both retain the same Fleet corners.</summary>
     [AvaloniaFact]
-    public void ASkinWithoutRadiiFallsBackToTheThemeThenTheClient()
+    public void ASkinWithoutRadiiAndNoWorldBothUseFleetCorners()
     {
-        var theme = WithRadii(null);
+        var theme = WithRadii(null) with { CornerRadius = 14 };
         ThemeService.Apply(new(), theme);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(theme.CornerRadius, DockChromeConverter.Radius);
+        Assert.Equal(2, DockChromeConverter.Radius);
 
         ThemeService.Apply(new(), null);
         Dispatcher.UIThread.RunJobs();
-        // With no world at all, the radius is the client's own default skin's.
-        Assert.Equal(DefaultSkin.Radii.Panel, DockChromeConverter.Radius);
+        Assert.Equal(2, DockChromeConverter.Radius);
     }
 
     /// <summary>
-    /// The one that matters: the panel the reader sees has to actually change shape. The converter feeds a
-    /// binding, and a binding does not re-run because a static moved, so this is the assertion that would
-    /// catch a radius that is set correctly and never painted.
+    /// Check real dock header borders, including the square edge facing the document, so a correct
+    /// resource value cannot hide stale or missing visual bindings.
     /// </summary>
     [AvaloniaFact]
-    public async Task TheDockedPanelItselfBecomesSquare()
+    public async Task DockHeadersKeepFleetCornersWhenLegacyThemeRequestsSquarePanels()
     {
         await using var harness = await DockHarness.OpenAsync(WithRadii("""{ "panel": 0 }"""));
         Dispatcher.UIThread.RunJobs();
 
-        var corners = harness.Window.GetVisualDescendants().OfType<Border>()
-            .Where(b => b.Name is "PART_Border")
-            .Select(b => b.CornerRadius)
-            .Where(r => r != default)
+        var borders = harness.Window.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Name == "PART_Border" && b.TemplatedParent is ToolChromeControl)
             .ToList();
-        Assert.All(corners, r => Assert.True(
-            r.TopLeft == 0 && r.TopRight == 0 && r.BottomLeft == 0 && r.BottomRight == 0,
-            $"a docked panel kept a rounded corner the theme asked to square: {r}"));
+        Assert.NotEmpty(borders);
+        Assert.All(borders, border =>
+        {
+            var dock = Assert.IsAssignableFrom<IToolDock>(border.DataContext);
+            var expected = dock.Alignment switch
+            {
+                Alignment.Left => new CornerRadius(2, 0, 0, 0),
+                Alignment.Right => new CornerRadius(0, 2, 0, 0),
+                _ => new CornerRadius(2, 2, 0, 0),
+            };
+            Assert.Equal(expected, border.CornerRadius);
+        });
     }
 }

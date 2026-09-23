@@ -28,9 +28,9 @@ internal sealed class ThemeSkinResources
 
     public static ThemeSkinResources? FromApplied()
     {
-        var theme = ThemeService.AppliedWorldTheme;
         var images = ThemeService.AppliedImages;
-        if (theme?.Skin is not { HasContent: true } skin || images is null) return null;
+        if (ThemeService.AppliedSkin is not { HasContent: true } skin || images is null ||
+            (skin.Window is null && skin.Panels is null)) return null;
         return From(skin, images);
     }
 

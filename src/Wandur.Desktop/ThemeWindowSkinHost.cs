@@ -160,8 +160,8 @@ internal sealed class ThemeWindowSkinHost : Decorator
             context.FillRectangle(band, new Rect(0, 0, Bounds.Width, BandHeight));
             if (FleetSkin.IsActive && Bounds.Width > 12)
             {
-                var dark = new Pen(Brush.Parse("#596260"), 1);
-                var lip = new Pen(Brush.Parse("#F8FAF7"), 1);
+                var dark = new Pen(FleetSkin.RimEdge, 1);
+                var lip = new Pen(FleetSkin.RimHighlight, 1);
                 var cap = new Rect(5.5, 2.5, Bounds.Width - 11, Math.Max(0, BandHeight - 3));
                 context.DrawRectangle(FleetSkin.Metal, dark, cap, 4, 4);
                 context.DrawRectangle(null, lip, cap.Deflate(1), 3, 3);

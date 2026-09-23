@@ -85,8 +85,9 @@ public sealed class DockChromeTests
             var centre = Frame(document, window);
             var left = Frame(leftContent, window);
             var right = Frame(rightContent, window);
-            Assert.InRange(centre.Left - left.Right, 0, 6);
-            Assert.InRange(right.Left - centre.Right, 0, 6);
+            // Measure from the outside of Fleet's 3-DIP rim, not its inset content edge.
+            Assert.InRange(centre.Left - (left.Right + 3), 0, 6);
+            Assert.InRange((right.Left - 3) - centre.Right, 0, 6);
             Assert.Equal(Frame(leftHeader, window).Right, left.Right);
             Assert.Equal(Frame(rightHeader, window).Left, right.Left);
             var channels = Frame(channelsContent, window);
@@ -156,9 +157,9 @@ public sealed class DockChromeTests
             var map = Frame(mapContent, window);
             var channels = Frame(channelsContent, window);
             Assert.True(channels.Top >= map.Bottom, "the channels sit below the map on the right edge");
-            Assert.InRange(map.Left - centre.Right, 0, 6);
+            Assert.InRange((map.Left - 3) - centre.Right, 0, 6);
             var library = Frame(libraryContent, window);
-            Assert.InRange(centre.Left - library.Right, 0, 6);
+            Assert.InRange(centre.Left - (library.Right + 3), 0, 6);
             if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { } directory)
             {
                 using var frame = window.CaptureRenderedFrame();

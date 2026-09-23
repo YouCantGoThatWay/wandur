@@ -54,27 +54,27 @@
     <Setter Property="Width" Value="22" />
     <Setter Property="Padding" Value="3" />
     <Setter Property="Foreground" Value="{DynamicResource InstrumentTextBrush}" />
-    <Setter Property="Background" Value="#24333A" />
-    <Setter Property="BorderBrush" Value="#596A71" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentFaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentEdgeBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector="Window.fleet Border#Composer">
     <Setter Property="BoxShadow" Value="inset 0 2 2 0 #080E12, inset 0 -1 0 0 #6D7A7E" />
   </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar ToggleButton:checked">
-    <Setter Property="Background" Value="#44616B" />
-    <Setter Property="BorderBrush" Value="#80C3CE" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentSelectedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:pointerover">
-    <Setter Property="Background" Value="#405962" />
-    <Setter Property="BorderBrush" Value="#96BDC5" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentHoverBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:pressed">
-    <Setter Property="Background" Value="#182B34" />
-    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentPressedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button:focus-visible">
-    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar TextBlock.muted">
     <Setter Property="Foreground" Value="{DynamicResource TerminalPlaceholderForeground}" />
@@ -100,36 +100,36 @@
     </Setter>
   </Style>
   <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:selected">
-    <Setter Property="Background" Value="#344B55" />
-    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentSelectedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,2" />
   </Style>
   <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:pointerover">
-    <Setter Property="Background" Value="#445B65" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentHoverBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet ListBox#ChannelTabs ListBoxItem:focus-visible">
-    <Setter Property="BorderBrush" Value="#80D3E1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetInstrumentAccentBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider">
-    <Setter Property="Foreground" Value="#497E8D" />
-    <Setter Property="Background" Value="#8D999B" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Background" Value="{DynamicResource LineBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider /template/ Thumb">
-    <Setter Property="Background" Value="#78B7C1" />
-    <Setter Property="BorderBrush" Value="#476570" />
+    <Setter Property="Background" Value="{DynamicResource FleetInstrumentAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
     <Setter Property="BorderThickness" Value="1" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pointerover /template/ Thumb">
-    <Setter Property="Background" Value="#9EDCE5" />
+    <Setter Property="Background" Value="{DynamicResource TextBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pressed /template/ Thumb">
-    <Setter Property="Background" Value="#61A5B6" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider:pointerover /template/ RepeatButton#PART_DecreaseButton, :is(Control).fleet Slider#MapZoomSlider:pressed /template/ RepeatButton#PART_DecreaseButton">
-    <Setter Property="Background" Value="#497E8D" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
   </Style>
   <Style Selector=":is(Control).fleet Slider#MapZoomSlider:disabled /template/ Thumb">
-    <Setter Property="Background" Value="#7E9399" />
+    <Setter Property="Background" Value="{DynamicResource MutedBrush}" />
   </Style>
 </Styles>

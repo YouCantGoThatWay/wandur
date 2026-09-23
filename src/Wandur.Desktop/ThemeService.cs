@@ -75,9 +75,8 @@ public static class ThemeService
     /// <summary>The world theme currently on screen, for tests that assert what the palette came from.</summary>
     internal static WorldTheme? AppliedWorldTheme => _lastAppearance?.World;
     /// <summary>
-    /// The skin actually on screen: the world's own sections where it has them, the client's default for
-    /// the rest, with the default's colours taken from the palette in force. Read this rather than the
-    /// world theme's skin, or a world without one paints nothing and a world with part of one paints half.
+    /// The skin actually on screen: shared Fleet geometry with the active palette and world materials.
+    /// Read this rather than raw world metadata, whose legacy geometry is no longer rendered.
     /// </summary>
     internal static WorldThemeSkin? AppliedSkin { get; private set; }
     internal static bool UsesFleetSkin { get; private set; }
@@ -107,15 +106,9 @@ public static class ThemeService
         if (_resources is null || !ReferenceEquals(_resources.App, app))
         { _resources = new(app); _lastFluentPalette = null; _gripColor = null; }
         var resources = _resources;
-        // A world theme flattens the scale to its own radius, but it cannot make the dense inline
-        // chrome blobby, so the small token is capped at its default. Card tracks the dock chrome.
-        // A skin states its corners per slot; a theme without one keeps its single corner_radius, and a
-        // world without either keeps the client's own.
-        // Precedence is the world's skin radii, then the world's single corner_radius, then the client's
-        // default skin. A world that states a radius in either form has said what it wants.
-        var skinRadii = worldTheme?.Skin?.Radii;
-        var panelRadius = skinRadii?.Panel ?? worldTheme?.CornerRadius ?? DefaultSkin.Radii.Panel ?? Converters.DockChromeConverter.DefaultRadius;
-        var controlRadius = skinRadii?.Control ?? worldTheme?.CornerRadius ?? DefaultSkin.Radii.Control ?? ControlRadius;
+        // Themes customize materials, never the shared Fleet corner geometry.
+        var panelRadius = DefaultSkin.Radii.Panel!.Value;
+        var controlRadius = DefaultSkin.Radii.Control!.Value;
         Converters.DockChromeConverter.Radius = panelRadius;
         resources.Value("SmallCornerRadius", new CornerRadius(Math.Min(controlRadius, SmallRadius)));
         resources.Value("ControlCornerRadius", new CornerRadius(controlRadius));
@@ -177,8 +170,9 @@ public static class ThemeService
         // A world whose chrome is a texture keeps it: the default's shaded surfaces would paint straight
         // over the material the world chose, which is the one thing a textured theme exists to show.
         var textured = worldTheme?.Surface == "metallic" || worldTheme?.Images?.Chrome is not null;
-        UsesFleetSkin = settings.Theme == "Hull" && worldTheme is null && personal is null;
-        var fallback = UsesFleetSkin
+        UsesFleetSkin = true;
+        var referencePalette = settings.Theme == "Hull" && worldTheme is null && personal is null;
+        var fallback = referencePalette
             ? FleetSkin.Create() : DefaultSkin.For(panel, text, background, terminalText, accent);
         var skin = DefaultSkin.Merge(worldTheme?.Skin, fallback,
             keepSurfaces: textured);
@@ -230,7 +224,7 @@ public static class ThemeService
         // Panel header slot. The panel skin insets the whole panel so its body clears the painted
         // border; the header row is pulled back out of that inset so it sits in the art's own header
         // band and its title gets the panel's full width instead of the body's.
-        var panelInset = worldTheme?.Skin?.Panels?.Default?.Inset ?? default;
+        var panelInset = default(SkinBox);
         if (skin.Layout?.PanelHeader is { } panelHeader)
         {
             resources.Value("DockHeaderHeight", panelHeader.Height);
@@ -255,12 +249,7 @@ public static class ThemeService
         resources.Value("DockDocumentContentBorderThickness", new Thickness(0));
         if (!app.Resources.ContainsKey("DockDocumentControlTabStripVisible")) app.Resources["DockDocumentControlTabStripVisible"] = false;
         resources.Value("DockDocumentTabStripSeparatorVisible", false);
-        // Skin panels need extra air from bevels and cyan lamps; keep chrome buttons consistent size.
-        resources.Value("DockToolChromeHeaderMargin", new Thickness(
-            worldTheme?.Skin?.Panels?.Default is not null ? 12 : 12,
-            worldTheme?.Skin?.Panels?.Default is not null ? 8 : 9,
-            worldTheme?.Skin?.Panels?.Default is not null ? 10 : 6,
-            worldTheme?.Skin?.Panels?.Default is not null ? 6 : 9));
+        resources.Value("DockToolChromeHeaderMargin", new Thickness(12, 9, 6, 9));
         resources.Value("DockToolChromeTitleMargin", new Thickness(0));
         resources.Value("DockChromeButtonWidth", 24d);
         resources.Value("DockChromeButtonHeight", 24d);
@@ -286,8 +275,9 @@ public static class ThemeService
         // Titlebar icons: flat, a touch darker than ChromeBrush so they sit quietly on the bar.
         var chrome = Color.Parse(personal?.Colors["Chrome"] ?? panel);
         resources.Color("ToolbarIconBrush", Mix(chrome, Colors.Black, light ? .16 : .28));
-        if (FleetSkin.IsActive && worldTheme is null && personal is null) FleetSkin.Apply(resources);
-        resources.Brush("InstrumentBarBrush", FleetSkin.IsActive ? FleetSkin.Instrument : resources.Read("ChromeBrush"));
+        if (referencePalette) FleetSkin.Apply(resources);
+        FleetSkin.SynchronizeMaterials(resources, skin, referencePalette);
+        resources.Brush("InstrumentBarBrush", FleetSkin.Instrument);
         resources.Brush("InstrumentTextBrush", resources.Read(FleetSkin.IsActive ? "TerminalTextBrush" : "TextBrush"));
         resources.Brush("ChannelBodyBrush", resources.Read(FleetSkin.IsActive ? "TerminalBrush" : "PanelBrush"));
         _lastAppearance = appearance;

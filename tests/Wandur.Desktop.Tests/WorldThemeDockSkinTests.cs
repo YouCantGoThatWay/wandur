@@ -17,7 +17,7 @@ namespace Wandur.Desktop.Tests;
 public sealed class WorldThemeDockSkinTests
 {
     [AvaloniaFact]
-    public async Task PanelSkinWrapsToolDocksWithoutResettingLayout()
+    public async Task LegacyPanelAssetsKeepFleetChromeWithoutResettingLayout()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
@@ -30,7 +30,16 @@ public sealed class WorldThemeDockSkinTests
 
         var skins = harness.Window.GetVisualDescendants().OfType<ThemeDockSkinHost>().ToList();
         Assert.True(skins.Count >= 3, $"expected left/map/channels skin hosts, got {skins.Count}");
-        Assert.Contains(skins, s => s.IsSkinActive && s.BorderBitmap is not null);
+        Assert.All(skins, s =>
+        {
+            Assert.False(s.IsSkinActive);
+            Assert.Null(s.BorderBitmap);
+            Assert.Null(s.BorderMeta);
+            Assert.Equal(default, s.Inset);
+            Assert.Contains("fleet", s.Classes);
+        });
+        Assert.Equal(38d, Application.Current!.Resources["DockHeaderHeight"]);
+        Assert.Equal(new Thickness(8, 0, 8, 0), Application.Current.Resources["DockHeaderMargin"]);
 
         var library = Assert.IsAssignableFrom<IToolDock>(harness.Window.Workspace.WorldsTool!.Owner);
         var layout = Assert.IsAssignableFrom<IProportionalDock>(library.Owner);
@@ -50,7 +59,7 @@ public sealed class WorldThemeDockSkinTests
     }
 
     [AvaloniaFact]
-    public async Task SkinHostPreservesCloseAndTitleParts()
+    public async Task FleetHostPreservesCloseTitleAndGripPartsWithLegacyAssets()
     {
         var theme = JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "world-theme-skin-contract.json")))!;
@@ -68,7 +77,10 @@ public sealed class WorldThemeDockSkinTests
         Assert.NotNull(leftChrome.GetVisualDescendants().OfType<Button>().SingleOrDefault(b => b.Name == "PART_CloseButton"));
         Assert.NotNull(leftChrome.GetVisualDescendants().OfType<TextBlock>().SingleOrDefault(t => t.Name == "PART_Title"));
         Assert.NotNull(leftChrome.GetVisualDescendants().OfType<Grid>().SingleOrDefault(g => g.Name == "PART_Grip"));
-        Assert.Contains(leftChrome.GetSelfAndVisualAncestors().OfType<ThemeDockSkinHost>(), h => h.IsSkinActive);
+        var host = Assert.Single(leftChrome.GetSelfAndVisualAncestors().OfType<ThemeDockSkinHost>());
+        Assert.Contains("fleet", host.Classes);
+        Assert.False(host.IsSkinActive);
+        Assert.Null(host.BorderBitmap);
     }
 
     private static string[] LayoutShape(IDock dock) =>

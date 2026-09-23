@@ -10,8 +10,7 @@ namespace Wandur.Desktop;
 ///
 /// It carries structure only. Every colour is derived from the palette in force, so the same default is
 /// right on a light theme and a dark one, and a world changes how it looks by naming colours rather than
-/// by shipping a skin. A world that does ship one wins section by section: whatever it states is used,
-/// and whatever it leaves out comes from here.
+/// by shipping a replacement frame. World skin metadata can override paint per surface, not geometry.
 /// </summary>
 internal static class DefaultSkin
 {
@@ -42,19 +41,19 @@ internal static class DefaultSkin
                 {
                     // The controls keep their own row beneath the band, as on the design: the band holds the
                     // traffic lights and the nameplate and nothing else.
-                    HostsToolbar = false, ToolbarAlign = "right", TitleAlign = "center", Height = 52,
-                    Padding = new SkinBox(96, 6, 16, 6),
+                    HostsToolbar = false, ToolbarAlign = "right", TitleAlign = "center", Height = 50,
+                    Padding = default,
                     Plaque = new WorldThemeSkinPlaque
                     {
-                        Shape = "chamfer", Cap = 5,
+                        Shape = "fleet", Cap = 3,
                         Fill = Hex(Mix(term, termText, 0.14)), Edge = Hex(term),
                         Accent = Hex(Readable(Color.Parse(accent), Mix(term, termText, 0.14))),
-                        Padding = new SkinBox(22, 0, 22, 0),
-                        Wings = new WorldThemeSkinWings { Extend = 46, Fill = Lit(0.10), Edge = outline },
+                        Padding = new SkinBox(64, 0, 64, 0),
+                        Wings = new WorldThemeSkinWings { Extend = 32, Fill = Lit(0.10), Edge = outline },
                         Shadow = new WorldThemeSkinShadow { Color = "#000000", Opacity = 0.30, Blur = 4, Y = 2 },
                     },
                 },
-                PanelHeader = new WorldThemeSkinPanelHeader { Height = 30, Inset = new SkinBox(10, 0, 10, 0) },
+                PanelHeader = new WorldThemeSkinPanelHeader { Height = 38, Inset = new SkinBox(8, 0, 8, 0) },
             },
             Surfaces = new WorldThemeSkinSurfaces
             {
@@ -71,26 +70,48 @@ internal static class DefaultSkin
                 // The dark chassis the panels rest on. Flat: it is a gap, not a face.
                 Ground = new() { From = Toward(0.66), To = Toward(0.66) },
             },
-            Edge = new WorldThemeSkinEdge { Color = panel, Outline = outline, Thickness = 6 },
+            Edge = new WorldThemeSkinEdge { Color = panel, Outline = outline, Thickness = 6,
+                Accent = Hex(Readable(Color.Parse(accent), p)) },
             Radii = Radii,
         };
     }
 
     /// <summary>
-    /// The world's skin where it says something, the default where it does not. A world with its own window
-    /// art keeps its frame to itself: the default band and edge would sit on top of that art, not beside it.
+    /// Merge world paint into the fixed chassis. Textured chrome keeps its material unless a world
+    /// explicitly overrides that surface. Legacy bitmap frames and layout dimensions are ignored.
     /// </summary>
     public static WorldThemeSkin Merge(WorldThemeSkin? world, WorldThemeSkin fallback, bool keepSurfaces = false)
     {
-        var defaults = keepSurfaces ? fallback with { Surfaces = null } : fallback;
-        if (world is null) return defaults;
-        var hasArt = world.Window is not null;
-        return world with
+        var surfaces = keepSurfaces ? null : fallback.Surfaces;
+        var paint = world?.Surfaces;
+        var plate = fallback.Layout!.TitleBar!.Plaque!;
+        var platePaint = world?.Layout?.TitleBar?.Plaque;
+        return fallback with
         {
-            Layout = world.Layout ?? (hasArt ? null : fallback.Layout),
-            Surfaces = world.Surfaces ?? defaults.Surfaces,
-            Edge = world.Edge ?? (hasArt ? null : fallback.Edge),
-            Radii = world.Radii ?? fallback.Radii,
+            // Themes paint the shared chassis. Legacy shapes, dimensions, bitmaps and radii
+            // remain readable metadata, but cannot replace the client's geometry.
+            Layout = fallback.Layout with { TitleBar = fallback.Layout.TitleBar with
+            {
+                Plaque = plate with
+                {
+                    Fill = platePaint?.Fill ?? plate.Fill, Edge = platePaint?.Edge ?? plate.Edge,
+                    Accent = platePaint?.Accent ?? plate.Accent,
+                    Wings = plate.Wings! with { Fill = platePaint?.Wings?.Fill ?? plate.Wings.Fill,
+                        Edge = platePaint?.Wings?.Edge ?? plate.Wings.Edge }
+                }
+            } },
+            Surfaces = new()
+            {
+                TitleBar = paint?.TitleBar ?? surfaces?.TitleBar,
+                Toolbar = paint?.Toolbar ?? surfaces?.Toolbar,
+                PanelHeader = paint?.PanelHeader ?? surfaces?.PanelHeader,
+                PanelBody = paint?.PanelBody ?? surfaces?.PanelBody,
+                Footer = paint?.Footer ?? surfaces?.Footer,
+                Ground = paint?.Ground ?? surfaces?.Ground
+            },
+            Edge = fallback.Edge! with { Color = world?.Edge?.Color ?? fallback.Edge.Color,
+                Outline = world?.Edge?.Outline ?? fallback.Edge.Outline,
+                Accent = world?.Edge?.Accent ?? fallback.Edge.Accent },
         };
     }
 

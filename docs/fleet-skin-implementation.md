@@ -3,7 +3,9 @@
 ## Safety and scope
 
 Implementation was developed in the separate `wandur-client-fleet` worktree on
-`codex/fleet-skin-reference`. The original `wandur-client` checkout is unchanged.
+`codex/fleet-skin-reference`, then integrated into local `main`. The follow-up
+native crash fix and universal geometry correction use `fix/fleet-theme-switch`
+in that same separate worktree.
 Commit `3e7c520`, also named by `backup/fleet-skin-start`, checkpoints the existing
 source changes before this implementation. Retain that checkpoint for comparison
 and rollback. Local integration includes the preceding world-skin support on
@@ -14,9 +16,10 @@ the `wandur-site` schema editor or publish a world theme.
 
 ## Selecting and understanding the skin
 
-Select the built-in Hull theme. World themes take precedence when enabled; turn
-off world themes to review Hull independently. Personal themes are not replaced.
-Hull is the default for new settings, not a forced migration of existing choices.
+Fleet is the base appearance for every theme, not a mode selected with Hull.
+Hull supplies the reference silver-gray palette and dark work areas. Other
+presets, personal palettes and enabled world themes retain their colors while
+using the same Fleet chassis. Existing palette preferences are not migrated.
 
 All new skin decoration is drawn in Avalonia, without bitmap assets. The frame
 uses continuous cyan side accents, restrained pale-gray gradients and fixed-size
@@ -38,7 +41,7 @@ not just a rectangle behind the plaque. A continuous dark channel follows the
 titlebar seam, descends around both shoulders, and runs beneath the plaque's
 lower lip. A reflected highlight follows the receiving edge. The socket tracks
 the title's measured width and actual arranged position. Its geometry is cached
-and normal theme backgrounds are restored when leaving Fleet.
+and refreshed when the palette or window arrangement changes.
 
 Fleet toolbar buttons use original vector icons and localized labels, with
 labels hidden below 1100 DIP. The new Settings button opens the existing
@@ -69,8 +72,10 @@ the reference illustration's exact content density is not imposed on users.
 - `src/Wandur.Desktop/Views/TerminalView.cs`: readable composer icons and theme reattachment.
 - `src/Wandur.Core/Discovery/WorldThemeSkin*.cs`: optional edge accent and reusable `fleet` plaque shape.
 
-World-defined Fleet plaques retain their own band height, colors and metadata;
-using the shape does not enable the whole built-in Hull layout.
+Every theme uses the same 50-DIP title band, 60-DIP projecting plaque, 38-DIP dock
+headers, 6-DIP frame and 2/3-DIP panel/control radii. Legacy frame bitmaps,
+ornaments, shape names, dimensions and radii remain readable metadata but do not
+replace the chassis. This applies even when their images have already loaded.
 
 ## Customization boundary
 
@@ -79,21 +84,22 @@ muted, accent, secondary accent, border and terminal text). Skin metadata adds
 per-surface gradients, gloss, bevel strength, grain and accent rules, plus plaque,
 wing and frame colors. Personal themes have additional control and ANSI colors.
 
-The built-in Fleet renderer still contains fixed gradient stops and detail
-colors. Applying a world or personal theme leaves the built-in Fleet mode;
-these controls are not yet an override layer that preserves its entire shape,
-toolbar socket and styling.
+Palette changes now recolor Fleet without disabling its geometry, toolbar
+socket, vector icons or docking frames. `DefaultSkin.Merge` accepts world paint
+per surface and plaque/wing/frame colors, while ignoring replacement geometry.
+`FleetSkin.SynchronizeMaterials` publishes the current materials and interaction
+state colors. Hull retains its reference gradient stops; fine lighting details
+still contain fixed shading colors rather than exposing every pixel as a token.
 
 The existing `images.chrome` material supports low-opacity tiled PNG textures
-on shared chrome. It is not a dedicated Fleet-titlebar texture slot. A future
-extension can select Fleet as a base skin, expose its material colors, and clip
-an optional directory-hosted texture to the existing titlebar/plaque geometry,
-then paint its bevels, shadows, lamps and text above that texture. This preserves
-the shape and stretch behavior without requiring a replacement frame image.
-Such an extension needs matching client parsing/rendering and site schema/editor
-support; it has not been implemented or published by this change.
+on shared chrome, including the titlebar and plaque wings, within the fixed
+geometry. Explicit `skin.surfaces` values override those materials per slot.
+It is not a dedicated plaque-face texture slot. That narrower override still
+needs matching client and site schema/editor support; no site changes or theme
+publication are part of this correction. The legacy image cache remains
+compatible, although replacement frame and ornament images are not rendered.
 
-## Verification on 2026-09-23
+## Original reference-render verification on 2026-09-23
 
 `dotnet test Wandur.sln -c Release -m:1` completed successfully:
 
@@ -157,3 +163,28 @@ An isolated native run reproduced the original stack overflow; after the fix,
 startup and eight live Paper/Hull switches through the Preferences view model,
 with resizing after each switch, completed and shut down with exit code 0.
 The probe used temporary data and an offline directory URL, not user profiles.
+
+Native decoration-margin and resize notifications are now coalesced onto a
+later dispatcher pass, never a recursive call back into the current title
+layout stack. The resolved native height stays 50 DIP across palette switches.
+
+## Universal geometry regression coverage
+
+`FleetPaletteTests` exercises every preset against the same plaque bounds,
+recessed toolbar and docking chrome, plus personal colors, world paint,
+legacy artwork rejection and a chrome texture applied to the fixed shape.
+Legacy frame tests now assert shared Fleet geometry while retaining docking,
+close/collapse and asset-cache checks. Existing Hull pixel-level recess tests
+still protect the reference header and toolbar join.
+
+Verification: Core 725 passed; Desktop 496 passed. The native macOS probe
+switched through all 11 presets twice via Preferences and resized after each
+switch, retaining a 50-DIP titlebar throughout and exiting successfully.
+Review renders cover every preset; the Hull reference pixel checks still pass.
+An additional regression isolates plaque color from terminal instrument bars.
+
+One intermediate Desktop run exposed a map-reconnect test race: connection
+completion does not imply background map restoration has completed. The test
+now awaits the existing `MapReady` task before asserting restored rooms; no
+production mapping code changed. The updated test and all palette tests passed
+together in a 16-test focused run. Native Windows remains unverified.

@@ -116,7 +116,7 @@ public sealed class FleetReferenceCaptureTests
             Assert.True(window.IsMapVisible && window.IsChannelsVisible && window.IsPanelVisible());
             window.Sessions.PreviewAppearanceSettings(new ClientSettings { Theme = "Paper" });
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-            Assert.False(header.IsEffectivelyVisible);
+            Assert.True(header.IsEffectivelyVisible);
             window.Sessions.EndAppearanceSettingsPreview();
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             Assert.True(header.IsEffectivelyVisible);

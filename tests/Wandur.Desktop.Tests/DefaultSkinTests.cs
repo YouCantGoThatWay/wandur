@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Wandur.Core.Discovery;
 using Wandur.Core.Settings;
 using Wandur.Desktop.Terminal;
 
@@ -42,7 +43,8 @@ public sealed class DefaultSkinTests
         try
         {
             var host = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().First();
-            Assert.True(host.BandHeight > 0, "the title band was not applied on open");
+            Assert.Equal(50, host.BandHeight);
+            Assert.Equal(6, host.EdgeThickness);
             Assert.NotNull(host.EdgeOutline);
             Assert.True(host.Child!.Bounds.Top >= host.BandHeight, "content sits under the band instead of below it");
 
@@ -70,18 +72,55 @@ public sealed class DefaultSkinTests
         }
     }
 
-    /// <summary>A world's own sections win; what it leaves out comes from the default.</summary>
+    /// <summary>World paint wins while Fleet dimensions and shape remain fixed.</summary>
     [AvaloniaFact]
-    public void AWorldSkinWinsSectionBySection()
+    public void WorldPaintOverridesPreserveFleetGeometryAndUnspecifiedSurfaces()
     {
         var fallback = DefaultSkin.For("#D1D3D1", "#22282B", "#0E181F", "#CBD6E2", "#115C73");
-        var world = new Wandur.Core.Discovery.WorldThemeSkin
+        var world = new WorldThemeSkin
         {
-            Edge = new Wandur.Core.Discovery.WorldThemeSkinEdge { Color = "#FF0000", Thickness = 2 },
+            Edge = new() { Color = "#FF0000", Outline = "#112233", Accent = "#00FFFF", Thickness = 2 },
+            Radii = new() { Panel = 14, Control = 12 },
+            Layout = new()
+            {
+                TitleBar = new()
+                {
+                    Height = 96, HostsToolbar = true, Padding = new(20, 10, 20, 10),
+                    Plaque = new()
+                    {
+                        Shape = "chamfer", Cap = 12, Padding = new(4, 4, 4, 4),
+                        Fill = "#223344", Edge = "#445566", Accent = "#66CCFF",
+                        Wings = new() { Extend = 80, Fill = "#778899", Edge = "#334455" },
+                    },
+                },
+                PanelHeader = new() { Height = 64, Inset = new(20, 12, 18, 6) },
+            },
+            Surfaces = new() { TitleBar = new() { From = "#112233", To = "#445566" } },
         };
         var merged = DefaultSkin.Merge(world, fallback);
         Assert.Equal("#FF0000", merged.Edge!.Color);
-        Assert.Same(fallback.Layout, merged.Layout);
-        Assert.Same(fallback.Surfaces, merged.Surfaces);
+        Assert.Equal("#112233", merged.Edge.Outline);
+        Assert.Equal("#00FFFF", merged.Edge.Accent);
+        Assert.Equal(6, merged.Edge.Thickness);
+        Assert.Equal(2, merged.Radii!.Panel);
+        Assert.Equal(3, merged.Radii.Control);
+        var bar = merged.Layout!.TitleBar!;
+        Assert.Equal(50, bar.Height);
+        Assert.False(bar.HostsToolbar);
+        Assert.Equal(default, bar.Padding);
+        Assert.Equal(38, merged.Layout.PanelHeader!.Height);
+        Assert.Equal(new SkinBox(8, 0, 8, 0), merged.Layout.PanelHeader.Inset);
+        var plaque = bar.Plaque!;
+        Assert.Equal("fleet", plaque.Shape);
+        Assert.Equal(3, plaque.Cap);
+        Assert.Equal(new SkinBox(64, 0, 64, 0), plaque.Padding);
+        Assert.Equal("#223344", plaque.Fill);
+        Assert.Equal("#445566", plaque.Edge);
+        Assert.Equal("#66CCFF", plaque.Accent);
+        Assert.Equal(32, plaque.Wings!.Extend);
+        Assert.Equal("#778899", plaque.Wings.Fill);
+        Assert.Equal("#334455", plaque.Wings.Edge);
+        Assert.Same(world.Surfaces.TitleBar, merged.Surfaces!.TitleBar);
+        Assert.Equal(fallback.Surfaces! with { TitleBar = world.Surfaces.TitleBar }, merged.Surfaces);
     }
 }

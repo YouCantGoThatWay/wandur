@@ -168,9 +168,9 @@ public sealed class ThemeDockSkinHost : Decorator
         base.Render(context);
         if (_fleet && !IsSkinActive && Bounds.Width > 6 && Bounds.Height > 6)
         {
-            context.DrawRectangle(FleetSkin.Metal, new Pen(Brush.Parse("#424743"), 1), new Rect(Bounds.Size).Deflate(.5), 3, 3);
-            context.DrawRectangle(null, new Pen(Brush.Parse("#F3F3EC"), 1), new Rect(Bounds.Size).Deflate(1.5), 2, 2);
-            context.DrawRectangle(null, new Pen(Brush.Parse("#687572"), 1), new Rect(Bounds.Size).Deflate(2.5), 1, 1);
+            context.DrawRectangle(FleetSkin.DockMetal, new Pen(FleetSkin.RimEdge, 1), new Rect(Bounds.Size).Deflate(.5), 3, 3);
+            context.DrawRectangle(null, new Pen(FleetSkin.RimHighlight, 1), new Rect(Bounds.Size).Deflate(1.5), 2, 2);
+            context.DrawRectangle(null, new Pen(FleetSkin.RimShadow, 1), new Rect(Bounds.Size).Deflate(2.5), 1, 1);
         }
         if (!IsSkinActive || BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;
         var size = Bounds.Size;

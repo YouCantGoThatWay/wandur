@@ -36,8 +36,7 @@ public sealed class FleetSkinTests
             var band = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().Single().BandHeight;
             Assert.Equal(50, band);
             Assert.Equal(band, window.ExtendClientAreaTitleBarHeightHint);
-            Assert.NotEmpty(requestedHeights);
-            Assert.All(requestedHeights, height => Assert.Equal(band, height));
+            Assert.Empty(requestedHeights); // A palette switch must not change native frame geometry.
             preferences.SaveCommand.Execute(null);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
@@ -92,7 +91,7 @@ public sealed class FleetSkinTests
             Assert.True(settings.IsEffectivelyVisible);
             window.Sessions.PreviewAppearanceSettings(new ClientSettings { Theme = "Paper" });
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-            Assert.False(settings.IsEffectivelyVisible);
+            Assert.True(settings.IsEffectivelyVisible);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }
@@ -118,7 +117,7 @@ public sealed class FleetSkinTests
     }
 
     [AvaloniaFact]
-    public async Task CachedTerminalResynchronizesSpacingWhenReattached()
+    public async Task CachedTerminalKeepsFleetSpacingAcrossPaletteChangesAndReattachment()
     {
         var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-fleet-reattach-" + Guid.NewGuid(), "settings.json"));
         await using var sessions = new SessionWorkspace(new TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
@@ -129,7 +128,7 @@ public sealed class FleetSkinTests
         {
             host.Show();
             ThemeService.Apply(new ClientSettings { Theme = "Paper" });
-            Assert.Equal(new Thickness(4, 2, 2, 2), sessions.Active.Controller.Display.View.Margin);
+            Assert.Equal(new Thickness(12, 12, 8, 8), sessions.Active.Controller.Display.View.Margin);
             host.Content = null;
             ThemeService.Apply(new ClientSettings { Theme = "Hull" });
             host.Content = view;

@@ -12,9 +12,8 @@ namespace Wandur.Desktop.Tests;
 public sealed class WorldThemeSkinResourceTests
 {
     /// <summary>
-    /// The contract fixture, not a shipped theme: these exercise panel and overlay skinning, which a live
-    /// theme is free to stop using. Pointing them at whatever wandur.net serves today made them fail when
-    /// the art was retuned, which says nothing about the code under test.
+    /// A stable contract fixture exercises retained legacy asset loading and the raw resource utility.
+    /// The active Fleet shell does not consume these borders or overlays.
     /// </summary>
     private static WorldTheme Industrial =>
         JsonSerializer.Deserialize<WorldTheme>(File.ReadAllText(
@@ -35,9 +34,9 @@ public sealed class WorldThemeSkinResourceTests
         Assert.True(ThemeService.AppliedImages!.ContainsKey(ThemeSkinResources.PanelDefaultKey));
         Assert.True(ThemeService.AppliedImages.ContainsKey(ThemeSkinResources.WindowBorderKey));
         Assert.False(ThemeService.AppliedImages.ContainsKey("frame-border"));
-        var skin = ThemeSkinResources.FromApplied();
-        Assert.NotNull(skin);
-        Assert.True(skin!.WindowReady);
+        Assert.Null(ThemeSkinResources.FromApplied());
+        var skin = ThemeSkinResources.From(theme.Skin, ThemeService.AppliedImages);
+        Assert.True(skin.WindowReady);
         Assert.True(skin.PanelReady);
         Assert.Equal(SkinAssetMap.OverlayCount(theme), skin.Overlays.Count);
     }
@@ -51,7 +50,7 @@ public sealed class WorldThemeSkinResourceTests
             handler.Map(fragment, TestPng.Rgba(w, h));
         // Serve the window border at a size the skin did not declare; its siblings stay intact.
         handler.Map(theme.Skin!.Window!.Border.Url.Split('/')[^1], TestPng.Rgba(64, 64));
-        // Legacy fallback still present on the theme.
+        // The legacy fallback is still downloaded, though Fleet never renders it.
         handler.Map("imperial-bezel", TestPng.Rgba(96, 96));
 
         await using var harness = await SkinHarness.OpenAsync(theme, handler);
@@ -76,8 +75,7 @@ public sealed class WorldThemeSkinResourceTests
         var handler = new SkinHandler();
         foreach (var (fragment, w, h) in SkinAssetMap.Declared(theme))
             handler.Map(fragment, TestPng.Rgba(w, h));
-        // The shipped skin has no overlays (its band is its title area), so this test supplies one and
-        // serves it at a size the skin did not declare: the frame must not wait on it.
+        // Replace the fixture's overlays with a wrongly sized one: border loading must not wait on it.
         var overlay = new WorldThemeSkinOverlay
         {
             Id = "header", Url = "themes/industrial-v2/bogus-overlay.png",
