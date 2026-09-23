@@ -251,6 +251,17 @@ surfaces; `images.shell` can separately decorate the outer shell. LOTJ uses only
 `chrome`. Each image contains `url` and an optional `opacity` (default 0.12,
 maximum 0.35). Invalid image entries are ignored without losing the palette.
 
+Optional `frame` adds window chrome around the shell. Only `kind` `bezel` is
+understood today: a nine-slice `assets.border` PNG plus `inset` margins (8–96 px
+each, or a client default when omitted), optional `content_radius` (0–16, else the
+theme `corner_radius`), optional `accent` (`#RRGGBB`) and optional `plaque` (at
+most 40 characters). Border `url` follows the same absolute-HTTPS or relative
+rules as `images.chrome`; `slice` holds nine-slice margins (0–256 px each).
+Relative frame URLs resolve against the directory API origin (for example
+`https://api.wandur.net/themes/imperial-bezel/border.png`). A missing, malformed
+or unknown `frame` is ignored; the palette still applies. Personal presets never
+carry a frame.
+
 Use versioned HTTPS URLs or paths relative to the directory service, not embedded
 base64. The desktop caches images by resolved URL in SQLite and reuses them
 offline. A new filename refreshes the material without repeatedly downloading it.

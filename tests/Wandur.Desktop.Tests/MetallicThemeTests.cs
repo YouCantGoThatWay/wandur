@@ -35,16 +35,19 @@ public sealed class MetallicThemeTests
             window.Show(); Dispatcher.UIThread.RunJobs();
             var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
             // The world theme arrives with its session, not with a highlighted directory row.
-            Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
+            Assert.False(HasImage(toolbar.Background));
             await window.Sessions.OpenAsync(world.ToProfile()); Dispatcher.UIThread.RunJobs();
-            Assert.IsType<DrawingBrush>(toolbar.Background);
+            // The toolbar sits transparent inside the title band, so the chrome's texture is painted by the
+            // band, not by the toolbar. That is where a textured theme's material has to survive.
+            var band = window.GetVisualDescendants().OfType<ThemeWindowSkinHost>().First();
+            Assert.IsType<DrawingBrush>(band.BandBrush);
             var end = DateTime.UtcNow.AddSeconds(5);
-            while (!HasImage(toolbar.Background) && DateTime.UtcNow < end) { await Task.Delay(15); Dispatcher.UIThread.RunJobs(); }
-            Assert.True(HasImage(toolbar.Background)); Assert.Equal(1, handler.ImageRequests);
+            while (!HasImage(band.BandBrush) && DateTime.UtcNow < end) { await Task.Delay(15); Dispatcher.UIThread.RunJobs(); }
+            Assert.True(HasImage(band.BandBrush)); Assert.Equal(1, handler.ImageRequests);
             var dockHeaders = window.GetVisualDescendants().OfType<Grid>().Where(g => g.Name == "PART_Grip").ToArray();
             Assert.NotEmpty(dockHeaders);
             Assert.All(dockHeaders, header => Assert.True(HasImage(header.Background)));
-            var texture = ((DrawingGroup)((DrawingBrush)toolbar.Background!).Drawing!).Children
+            var texture = ((DrawingGroup)((DrawingBrush)band.BandBrush!).Drawing!).Children
                 .OfType<GeometryDrawing>().Select(d => d.Brush).OfType<ImageBrush>().Single();
             Assert.Equal(narrowImage ? 8 : 1024, Assert.IsType<Bitmap>(texture.Source).PixelSize.Width);
             Assert.IsAssignableFrom<ISolidColorBrush>(Application.Current!.Resources["TerminalBrush"]);
@@ -58,12 +61,12 @@ public sealed class MetallicThemeTests
             { Directory.CreateDirectory(captures); frame.Save(Path.Combine(captures, "metallic-workspace.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions()); }
             var themed = window.Sessions.Active;
             await window.Sessions.CloseAsync(themed); Dispatcher.UIThread.RunJobs();
-            Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
+            Assert.False(HasImage(toolbar.Background));   // the texture is gone; the toolbar's own shading is not a texture
             // Reopening and closing at once has to cancel the queued texture load before it runs.
             await window.Sessions.OpenAsync(world.ToProfile());
             await window.Sessions.CloseAsync(window.Sessions.Active);
             Dispatcher.UIThread.RunJobs(); await Task.Delay(25); Dispatcher.UIThread.RunJobs();
-            Assert.IsAssignableFrom<ISolidColorBrush>(toolbar.Background);
+            Assert.False(HasImage(toolbar.Background));   // the texture is gone; the toolbar's own shading is not a texture
         }
         finally { window.Close(); await window.Sessions.DisposeAsync(); }
     }

@@ -1880,4 +1880,10 @@ Stop after receiving one inventory listing.</value></data>
   <data name="ChannelRuleChannel" xml:space="preserve"><value>Channel</value></data>
   <data name="ChannelRulePattern" xml:space="preserve"><value>Pattern</value></data>
   <data name="ChannelRuleReply" xml:space="preserve"><value>Reply command</value></data>
+  <data name="DeleteSavedWorldPrompt" xml:space="preserve">
+    <value>Delete this saved world? Its login, protocol mapping and scripts go with it.</value>
+  </data>
+  <data name="ThemeHull" xml:space="preserve">
+    <value>Hull</value>
+  </data>
 </root>

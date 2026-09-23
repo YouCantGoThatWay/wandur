@@ -55,6 +55,7 @@ internal static class ContrastProbe
         {
             var background = v switch
             {
+                ThemePlaque plate => plate.Fill,   // drawn, not a Background: the title sits on the plate
                 Border b => b.Background, Panel p => p.Background, TemplatedControl c => c.Background, _ => null
             };
             if (Opaque(background) is { } painted) return painted;

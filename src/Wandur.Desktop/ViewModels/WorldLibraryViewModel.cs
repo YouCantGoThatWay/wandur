@@ -91,7 +91,8 @@ public sealed partial class WorldLibraryViewModel : ObservableObject
     // Selecting a saved world only chooses what Connect will open; its theme arrives with the session.
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
-        EditCommand.NotifyCanExecuteChanged(); ConnectCommand.NotifyCanExecuteChanged(); DeleteCommand.NotifyCanExecuteChanged();
+        EditCommand.NotifyCanExecuteChanged(); ConnectCommand.NotifyCanExecuteChanged();
+        RequestDeleteCommand.NotifyCanExecuteChanged(); DeleteCommand.NotifyCanExecuteChanged();
     }
     private bool CanEdit() => _editProfile is not null && SelectedProfile is not null;
     private bool CanConnect() => SelectedProfile is not null;
@@ -101,13 +102,43 @@ public sealed partial class WorldLibraryViewModel : ObservableObject
     private void EditProfile(ConnectionProfile? profile) { if (profile is null) return; SelectedProfile = profile; Edit(); }
     [RelayCommand(CanExecute = nameof(CanConnect))]
     private async Task ConnectAsync() { if (SelectedProfile is { } profile) await _sessions.OpenAsync(profile); }
-    [RelayCommand(CanExecute = nameof(CanConnect))]
-    private Task DeleteAsync() => DeleteProfileAsync(SelectedProfile);
-    [RelayCommand]
-    private async Task DeleteProfileAsync(ConnectionProfile? clickedProfile)
+    /// <summary>
+    /// The world pending deletion, or null when nothing is. Removing a saved world throws away its
+    /// credentials, its protocol mapping and its scripts, and the button sits in a toolbar beside the ones
+    /// that add and edit, so a single stray click used to be enough to lose all of it with no way back.
+    /// Same two-step the script and macro libraries use.
+    /// </summary>
+    [ObservableProperty] private ConnectionProfile? _pendingDelete;
+    public bool ConfirmDelete => PendingDelete is not null;
+    /// <summary>
+    /// The name in the prompt. The prompt and the deletion both read the pending world rather than the
+    /// selection, so they cannot disagree even when a row is right-clicked and the selection then moves.
+    /// </summary>
+    public string PendingDeleteName => PendingDelete?.Name ?? "";
+
+    partial void OnPendingDeleteChanged(ConnectionProfile? value)
     {
+        OnPropertyChanged(nameof(ConfirmDelete));
+        OnPropertyChanged(nameof(PendingDeleteName));
+        DeleteCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanConnect))]
+    private void RequestDelete() => PendingDelete = SelectedProfile;
+    [RelayCommand]
+    private void RequestDeleteProfile(ConnectionProfile? profile) => PendingDelete = profile;
+    [RelayCommand]
+    private void CancelDelete() => PendingDelete = null;
+
+    private bool CanDelete() => PendingDelete is not null;
+
+    [RelayCommand(CanExecute = nameof(CanDelete))]
+    private async Task DeleteAsync()
+    {
+        var clicked = PendingDelete;
+        PendingDelete = null;
         var controller = _sessions.Active.Controller;
-        var profile = controller.Settings.Profiles.FirstOrDefault(p => p.Id == clickedProfile?.Id);
+        var profile = controller.Settings.Profiles.FirstOrDefault(p => p.Id == clicked?.Id);
         if (profile is null) return;
         try { await controller.RemoveWorldAsync(profile); Refresh(); }
         catch (Exception ex) { controller.ShowNotice(ex.Message); }

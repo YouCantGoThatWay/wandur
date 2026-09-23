@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Wandur.Core.Settings;
@@ -67,12 +68,21 @@ public static class ThemeService
     /// <summary>Inputs, list rows and the primary buttons that sit inside a card.</summary>
     public const double ControlRadius = 8;
     /// <summary>How far disabled chrome is dimmed towards its surface. See DisabledOpacity.</summary>
-    public const double LightDisabledOpacity = 0.55, DarkDisabledOpacity = 0.45;
+    public const double LightDisabledOpacity = 0.60, DarkDisabledOpacity = 0.45;
     /// <summary>Raised once per applied palette, for views that read brush colors rather than binding them.</summary>
     public static event Action? Applied;
     private static (Application App, string Theme, string? Foreground, string? Background, WorldTheme? World, UserTheme? Personal, UserTheme? AnsiTheme, IReadOnlyDictionary<string, Bitmap>? Images)? _lastAppearance;
     /// <summary>The world theme currently on screen, for tests that assert what the palette came from.</summary>
     internal static WorldTheme? AppliedWorldTheme => _lastAppearance?.World;
+    /// <summary>
+    /// The skin actually on screen: the world's own sections where it has them, the client's default for
+    /// the rest, with the default's colours taken from the palette in force. Read this rather than the
+    /// world theme's skin, or a world without one paints nothing and a world with part of one paints half.
+    /// </summary>
+    internal static WorldThemeSkin? AppliedSkin { get; private set; }
+    internal static bool UsesFleetSkin { get; private set; }
+    /// <summary>Decoded theme bitmaps for the appearance on screen (chrome, shell, frame-border).</summary>
+    internal static IReadOnlyDictionary<string, Bitmap>? AppliedImages => _lastAppearance?.Images;
     private static ThemeResources? _resources;
     private static (string Accent, string Panel, string Text, string Muted, string Shell, string Line)? _lastFluentPalette;
 
@@ -99,9 +109,17 @@ public static class ThemeService
         var resources = _resources;
         // A world theme flattens the scale to its own radius, but it cannot make the dense inline
         // chrome blobby, so the small token is capped at its default. Card tracks the dock chrome.
-        resources.Value("SmallCornerRadius", new CornerRadius(Math.Min(worldTheme?.CornerRadius ?? SmallRadius, SmallRadius)));
-        resources.Value("ControlCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? ControlRadius));
-        resources.Value("CardCornerRadius", new CornerRadius(worldTheme?.CornerRadius ?? Converters.DockChromeConverter.Radius));
+        // A skin states its corners per slot; a theme without one keeps its single corner_radius, and a
+        // world without either keeps the client's own.
+        // Precedence is the world's skin radii, then the world's single corner_radius, then the client's
+        // default skin. A world that states a radius in either form has said what it wants.
+        var skinRadii = worldTheme?.Skin?.Radii;
+        var panelRadius = skinRadii?.Panel ?? worldTheme?.CornerRadius ?? DefaultSkin.Radii.Panel ?? Converters.DockChromeConverter.DefaultRadius;
+        var controlRadius = skinRadii?.Control ?? worldTheme?.CornerRadius ?? DefaultSkin.Radii.Control ?? ControlRadius;
+        Converters.DockChromeConverter.Radius = panelRadius;
+        resources.Value("SmallCornerRadius", new CornerRadius(Math.Min(controlRadius, SmallRadius)));
+        resources.Value("ControlCornerRadius", new CornerRadius(controlRadius));
+        resources.Value("CardCornerRadius", new CornerRadius(panelRadius));
         var presetTheme = UserTheme.FromPreset(settings.Theme);
         bool light = worldTheme is null ? presetTheme.IsLight : worldTheme.Variant == "light";
         // Avalonia ignores a repeated variant; the Fluent palettes are rebuilt only when they change.
@@ -132,12 +150,16 @@ public static class ThemeService
         }
         void Set(string key, string color) => resources.Color(key, color);
         var background = settings.Background ?? terminal;
+        var terminalText = settings.Foreground ?? worldTheme?.Colors.TerminalText ?? preset["TerminalText"];
+        // ANSI and terminal-adjacent chrome follow the surface the glyphs sit on, not the outer shell
+        // variant: a light industrial frame can still host a dark transcript.
+        var terminalLight = UserTheme.IsLightBackground(background);
         // A preset's sixteen colors are chosen for its own terminal background. A world theme or a custom
         // background color can invert that lightness, and the preset palette would then be illegible, so
         // the colors come from a preset that suits the background actually in use. A custom theme keeps
         // the colors its editor shows, including over a world theme.
         var readable = UserTheme.PaletteForBackground(background);
-        var presetPalette = UserTheme.IsLightBackground(preset["Terminal"]) == UserTheme.IsLightBackground(background)
+        var presetPalette = UserTheme.IsLightBackground(preset["Terminal"]) == terminalLight
             ? presetTheme.AnsiColors : null;
         for (var i = 0; i < Wandur.Core.Terminal.AnsiPalette.Defaults.Count; i++)
             Set($"AnsiColor{i}Brush", ansiTheme is not null
@@ -145,18 +167,37 @@ public static class ThemeService
                 : presetPalette?.GetValueOrDefault(i) ?? readable[i]);
         Set("ShellBrush", shell); Set("PanelBrush", panel); Set("TextBrush", text);
         Set("TerminalBrush", background);
-        Set("TerminalTextBrush", settings.Foreground ?? worldTheme?.Colors.TerminalText ?? text);
+        Set("TerminalTextBrush", terminalText);
         Set("MapCanvasBrush", worldTheme?.Colors.Terminal ?? preset["MapBackground"]);
         Set("MapGridBrush", worldTheme?.Colors.Border ?? preset["MapGrid"]);
         Set("MutedBrush", muted); Set("AccentBrush", accent); Set("LineBrush", line);
+        Set("DockHeaderGlyphBrush", muted);
+        // The status strip paints the shell unless a skin shades it; unpainted it showed the chassis through.
+        Set("FooterBrush", shell);
+        // A world whose chrome is a texture keeps it: the default's shaded surfaces would paint straight
+        // over the material the world chose, which is the one thing a textured theme exists to show.
+        var textured = worldTheme?.Surface == "metallic" || worldTheme?.Images?.Chrome is not null;
+        UsesFleetSkin = settings.Theme == "Hull" && worldTheme is null && personal is null;
+        var fallback = UsesFleetSkin
+            ? FleetSkin.Create() : DefaultSkin.For(panel, text, background, terminalText, accent);
+        var skin = DefaultSkin.Merge(worldTheme?.Skin, fallback,
+            keepSurfaces: textured);
+        skin = skin with { Radii = new WorldThemeSkinRadii { Panel = panelRadius, Control = controlRadius } };
+        AppliedSkin = skin;
         // Dimming by opacity costs far more contrast over a light surface than a dark one: the same 0.35
-        // that still reads as text on Midnight washes out to pale grey on Daylight.
+        // that still reads as text on Midnight washes out to pale grey on Daylight. Shell chrome follows
+        // the outer variant; terminal fields use the terminal surface via TerminalDisabledOpacity.
         resources.Value("DisabledOpacity", light ? LightDisabledOpacity : DarkDisabledOpacity);
+        // Prefer a higher floor for terminal-field disabled opacity so contrast probes still pass on dark transcripts.
+        resources.Value("TerminalDisabledOpacity", terminalLight ? LightDisabledOpacity : 0.72);
         // Fluent draws every placeholder at a fixed half opacity it writes onto the template element, so no
         // colour can reach 4.5:1 over a light surface. Pushing the text colour to the end of its own range
-        // buys back what is left: roughly 2.1:1 to 3.8:1 on Daylight.
+        // buys back what is left: roughly 2.1:1 to 3.8:1 on Daylight. Shell inputs keep the chrome
+        // placeholder; terminal fields override with TerminalPlaceholderForeground locally.
         resources.Color("TextControlPlaceholderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
         resources.Color("ComboBoxPlaceHolderForeground", Mix(Color.Parse(text), light ? Colors.Black : Colors.White, .85));
+        resources.Color("TerminalPlaceholderForeground",
+            Mix(Color.Parse(terminalText), terminalLight ? Colors.Black : Colors.White, .55));
         Set("SecondaryAccentBrush", worldTheme?.Colors.AccentSecondary ?? accent);
         Set("EditorBackgroundBrush", worldTheme?.Colors.Terminal ?? preset["EditorBackground"]);
         Set("EditorTextBrush", worldTheme?.Colors.Text ?? preset["EditorText"]);
@@ -186,6 +227,24 @@ public static class ThemeService
         foreach (var key in new[] { "DockSurfacePanelBrush", "DockSurfaceSidebarBrush", "DockSurfaceWorkbenchBrush", "DockSurfaceHeaderBrush", "DockSurfaceHeaderActiveBrush", "DockTabBackgroundBrush", "DockDocumentTabStripBackgroundBrush", "DockWindowChromeBackgroundBrush", "DockWindowChromeTitleBarBackgroundBrush" }) Set(key, shell);
         foreach (var key in new[] { "DockBorderSubtleBrush", "DockBorderStrongBrush", "DockDocumentContentBorderBrush", "DockWindowChromeBorderBrush", "DockSplitterHoverBrush" }) Set(key, line);
         foreach (var key in new[] { "DockTabForegroundBrush", "DockChromeButtonForegroundBrush", "DockWindowChromeForegroundBrush" }) Set(key, muted);
+        // Panel header slot. The panel skin insets the whole panel so its body clears the painted
+        // border; the header row is pulled back out of that inset so it sits in the art's own header
+        // band and its title gets the panel's full width instead of the body's.
+        var panelInset = worldTheme?.Skin?.Panels?.Default?.Inset ?? default;
+        if (skin.Layout?.PanelHeader is { } panelHeader)
+        {
+            resources.Value("DockHeaderHeight", panelHeader.Height);
+            resources.Value("DockHeaderMargin", new Thickness(
+                panelHeader.Inset.Left - panelInset.Left,
+                panelHeader.Inset.Top - panelInset.Top,
+                panelHeader.Inset.Right - panelInset.Right,
+                0));
+        }
+        else
+        {
+            resources.Value("DockHeaderHeight", double.NaN);
+            resources.Value("DockHeaderMargin", default(Thickness));
+        }
         Set("DockTabActiveBackgroundBrush", terminal); Set("DockTabHoverBackgroundBrush", panel);
         Set("DockDocumentTabSelectedForegroundBrush", text); Set("DockDocumentTabPointerOverForegroundBrush", text);
         Set("DockApplicationAccentBrushHigh", panel); Set("DockApplicationAccentBrushMed", panel); Set("DockApplicationAccentBrushLow", panel);
@@ -196,12 +255,20 @@ public static class ThemeService
         resources.Value("DockDocumentContentBorderThickness", new Thickness(0));
         if (!app.Resources.ContainsKey("DockDocumentControlTabStripVisible")) app.Resources["DockDocumentControlTabStripVisible"] = false;
         resources.Value("DockDocumentTabStripSeparatorVisible", false);
-        resources.Value("DockToolChromeHeaderMargin", new Thickness(12, 9, 6, 9));
+        // Skin panels need extra air from bevels and cyan lamps; keep chrome buttons consistent size.
+        resources.Value("DockToolChromeHeaderMargin", new Thickness(
+            worldTheme?.Skin?.Panels?.Default is not null ? 12 : 12,
+            worldTheme?.Skin?.Panels?.Default is not null ? 8 : 9,
+            worldTheme?.Skin?.Panels?.Default is not null ? 10 : 6,
+            worldTheme?.Skin?.Panels?.Default is not null ? 6 : 9));
         resources.Value("DockToolChromeTitleMargin", new Thickness(0));
         resources.Value("DockChromeButtonWidth", 24d);
         resources.Value("DockChromeButtonHeight", 24d);
         resources.Value("DockFontSizeNormal", 12d);
         ThemeMaterials.Apply(resources, worldTheme, images, panel);
+        // After materials: a skin that names a surface is stating what that surface is, and must win over
+        // the palette-derived brush the client would otherwise paint there.
+        ThemeSkinSurfaces.Apply(skin, resources);
         Set("ButtonTextBrush", personal?.Colors["ButtonText"] ?? text);
         Set("PrimaryTextBrush", personal?.Colors["PrimaryText"] ?? "#242424");
         if (personal is not null)
@@ -212,9 +279,17 @@ public static class ThemeService
             Set("MapCanvasBrush", overrides["MapBackground"]); Set("MapGridBrush", overrides["MapGrid"]);
             Set("EditorBackgroundBrush", overrides["EditorBackground"]); Set("EditorTextBrush", overrides["EditorText"]);
         }
+        // The toolbar row follows the title bar unless a skin shades it apart. Set last, after every other
+        // writer of ChromeBrush, so it can never be left holding an earlier theme's bar.
+        if (skin.Surfaces?.Toolbar is null)
+            resources.Brush("ToolbarBrush", resources.Read("ChromeBrush"));
         // Titlebar icons: flat, a touch darker than ChromeBrush so they sit quietly on the bar.
         var chrome = Color.Parse(personal?.Colors["Chrome"] ?? panel);
         resources.Color("ToolbarIconBrush", Mix(chrome, Colors.Black, light ? .16 : .28));
+        if (FleetSkin.IsActive && worldTheme is null && personal is null) FleetSkin.Apply(resources);
+        resources.Brush("InstrumentBarBrush", FleetSkin.IsActive ? FleetSkin.Instrument : resources.Read("ChromeBrush"));
+        resources.Brush("InstrumentTextBrush", resources.Read(FleetSkin.IsActive ? "TerminalTextBrush" : "TextBrush"));
+        resources.Brush("ChannelBodyBrush", resources.Read(FleetSkin.IsActive ? "TerminalBrush" : "PanelBrush"));
         _lastAppearance = appearance;
         Applied?.Invoke();
     }
@@ -233,5 +308,20 @@ public static class ThemeService
                     Geometry = new EllipseGeometry(new Rect(column * 5, row * 5, 2, 2))
                 });
         resources.Brush("DockChromeGripBrush", new DrawingBrush { Drawing = grip, Stretch = Stretch.Uniform });
+    }
+
+    /// <summary>
+    /// Command and channel reply boxes sit on <see cref="TerminalBrush"/>, so their caret, text and
+    /// Fluent placeholder must follow the terminal surface rather than the outer shell chrome.
+    /// </summary>
+    internal static void SyncTerminalField(TextBox box)
+    {
+        box.Classes.Add("terminal-field");
+        if (Application.Current?.Resources.TryGetValue("TerminalPlaceholderForeground", out var brush) == true)
+            box.Resources["TextControlPlaceholderForeground"] = brush!;
+        // Fluent multiplies disabled chrome by DisabledOpacity; terminal fields need a milder factor
+        // so placeholders and glyphs stay readable on dark transcript surfaces.
+        if (Application.Current?.Resources.TryGetValue("TerminalDisabledOpacity", out var opacity) == true)
+            box.Resources["DisabledOpacity"] = opacity!;
     }
 }

@@ -54,7 +54,7 @@ public sealed class WorldLibraryView : UserControl
                 ItemsSource = new[]
                 {
                     new MenuItem { [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.Edit2)), Name = "EditWorldMenu", Command = _model.EditProfileCommand, CommandParameter = profile },
-                    new MenuItem { [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.DeleteSavedWorld)), Name = "DeleteWorldMenu", Command = _model.DeleteProfileCommand, CommandParameter = profile }
+                    new MenuItem { [!MenuItem.HeaderProperty] = LocalizedText.Binding(nameof(L.DeleteSavedWorld)), Name = "DeleteWorldMenu", Command = _model.RequestDeleteProfileCommand, CommandParameter = profile }
                 }
             };
             item.ContextMenu.Opening += (_, _) => { menuOpen = true; _model.SelectedProfile = profile; };
@@ -83,7 +83,7 @@ public sealed class WorldLibraryView : UserControl
         var connect = ActionButton(nameof(L.ConnectToSelectedWorld), "ConnectSavedWorld", _model.ConnectCommand, "M 4,2 L 13,8 L 4,14 Z");
         var add = ActionButton(nameof(L.AddAWorld), "AddSavedWorld", _model.AddCommand, "M 8,2 V 14 M 2,8 H 14");
         var edit = ActionButton(nameof(L.Edit), "EditSavedWorld", _model.EditCommand, "M 2,10 L 10,2 L 14,6 L 6,14 L 2,14 Z M 8,4 L 12,8");
-        var delete = ActionButton(nameof(L.DeleteSavedWorld), "DeleteSavedWorld", _model.DeleteCommand, "M 2,4 H 14 M 6,4 V 2 H 10 V 4 M 4,4 L 5,14 H 11 L 12,4 M 7,7 V 11 M 9,7 V 11");
+        var delete = ActionButton(nameof(L.DeleteSavedWorld), "DeleteSavedWorld", _model.RequestDeleteCommand, "M 2,4 H 14 M 6,4 V 2 H 10 V 4 M 4,4 L 5,14 H 11 L 12,4 M 7,7 V 11 M 9,7 V 11");
         var browse = ActionButton(nameof(L.FindAMUDInTheDirectory), "BrowseWorlds", _model.BrowseCommand, "M 11,6 A 5,5 0 1 1 1,6 A 5,5 0 1 1 11,6 M 10,10 L 15,15");
         browse.IsVisible = _model.CanBrowse;
         var actions = new WrapPanel { Orientation = Orientation.Horizontal, Children = { connect, add, edit, delete, browse } };
@@ -92,8 +92,36 @@ public sealed class WorldLibraryView : UserControl
         empty.Margin = new Thickness(14); empty.VerticalAlignment = VerticalAlignment.Top;
         empty.Bind(IsVisibleProperty, new Binding(nameof(_model.IsEmpty)));
         var content = new Grid { Children = { worlds, empty } };
-        var panel = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { toolbar, content } };
-        Grid.SetRow(content, 1); Content = panel;
+
+        // The prompt names the world, because the toolbar button acts on the selection and the reader
+        // cannot otherwise be sure which row it caught.
+        var prompt = Ui.TextKey(nameof(L.DeleteSavedWorldPrompt), 12);
+        prompt.TextWrapping = TextWrapping.Wrap;
+        var named = Ui.Text("", 12); named.FontWeight = FontWeight.SemiBold;
+        named.Bind(TextBlock.TextProperty, new Binding(nameof(_model.PendingDeleteName)));
+        var confirmDelete = new Button { Name = "ConfirmDeleteWorld", Command = _model.DeleteCommand };
+        confirmDelete.Bind(ContentControl.ContentProperty, LocalizedText.Binding(nameof(L.DeleteSavedWorld)));
+        var cancelDelete = new Button { Name = "CancelDeleteWorld", Command = _model.CancelDeleteCommand };
+        cancelDelete.Bind(ContentControl.ContentProperty, LocalizedText.Binding(nameof(L.Cancel)));
+        var confirm = new StackPanel
+        {
+            Name = "DeleteWorldConfirm",
+            Spacing = 6,
+            Margin = new Thickness(10, 8),
+            Children =
+            {
+                named, prompt,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 8,
+                    Children = { confirmDelete, cancelDelete }
+                }
+            }
+        };
+        confirm.Bind(IsVisibleProperty, new Binding(nameof(_model.ConfirmDelete)));
+
+        var panel = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*"), Children = { toolbar, confirm, content } };
+        Grid.SetRow(confirm, 1); Grid.SetRow(content, 2); Content = panel;
     }
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); _model.Attach(); }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { _model.Detach(); base.OnDetachedFromVisualTree(e); }

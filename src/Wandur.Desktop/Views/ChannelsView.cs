@@ -43,10 +43,17 @@ public sealed class ChannelsView : UserControl
         tabs.Bind(SelectingItemsControl.SelectedIndexProperty, new Binding(nameof(model.SelectedIndex)) { Mode = BindingMode.TwoWay });
         var messages = new ChannelMessageList(model) { Name = "ChannelMessages" };
         var reply = new TextBox { Name = "ChannelReply", MaxLength = 1024, FontSize = 12, MinHeight = 30, AcceptsReturn = false };
+        // The reply bar sits on the transcript surface, so the field takes the terminal's own field chrome
+        // and placeholder. With the chrome placeholder it was a light-chrome grey on a dark transcript.
+        reply.Classes.Add("terminal-field");
         reply.Bind(TextBox.TextProperty, new Binding(nameof(model.Draft)) { Mode = BindingMode.TwoWay });
         reply.Bind(TextBox.PlaceholderTextProperty, new Binding(nameof(model.ReplyHint)));
         reply.Bind(IsEnabledProperty, new Binding(nameof(model.CanReply)));
         reply.Bind(Avalonia.Automation.AutomationProperties.NameProperty, new Binding(nameof(model.ReplyHint)));
+        ThemeService.SyncTerminalField(reply);
+        ThemeService.Applied += SyncReplyField;
+        DetachedFromVisualTree += (_, _) => ThemeService.Applied -= SyncReplyField;
+        void SyncReplyField() => ThemeService.SyncTerminalField(reply);
         reply.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None) return;
@@ -62,11 +69,14 @@ public sealed class ChannelsView : UserControl
             Name = "ChannelReplyBar", Padding = new Thickness(8, 6), BorderThickness = new Thickness(0, 1, 0, 0),
             Child = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 6, Children = { reply, send } }
         };
-        replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("ShellBrush"));
+        replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("TerminalBrush"));
         replyRow.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
         var header = Ui.Toolbar(tabs, "ChannelsToolbar");
+        header.Bind(Border.BackgroundProperty, new DynamicResourceExtension("InstrumentBarBrush"));
         Grid.SetRow(note, 1); Grid.SetRow(messages, 2); Grid.SetRow(replyRow, 3);
-        Content = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, note, messages, replyRow } };
+        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, note, messages, replyRow } };
+        body.Bind(BackgroundProperty, new DynamicResourceExtension("ChannelBodyBrush"));
+        Content = body;
     }
 
     /// <summary>A tab wears its unread count until the reader looks at it.</summary>

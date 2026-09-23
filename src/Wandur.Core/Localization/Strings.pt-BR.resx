@@ -1880,4 +1880,10 @@ Pare após receber uma lista do inventário.</value></data>
   <data name="ChannelRuleChannel" xml:space="preserve"><value>Canal</value></data>
   <data name="ChannelRulePattern" xml:space="preserve"><value>Padrão</value></data>
   <data name="ChannelRuleReply" xml:space="preserve"><value>Comando de resposta</value></data>
+  <data name="DeleteSavedWorldPrompt" xml:space="preserve">
+    <value>Excluir este mundo salvo? O login, o mapeamento de protocolo e os scripts vão junto.</value>
+  </data>
+  <data name="ThemeHull" xml:space="preserve">
+    <value>Casco</value>
+  </data>
 </root>

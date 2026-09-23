@@ -33,6 +33,7 @@ public sealed class TerminalView : UserControl
     private bool _movingSplit;
     private int? _dragTop;
     private readonly Border _welcome;
+    private readonly Border _connecting;
     private readonly ResourceBarsView _resources = new();
     private readonly ScriptPanelRailView _panelRail = new()
     {
@@ -128,6 +129,7 @@ public sealed class TerminalView : UserControl
             if (controller.Pages.IsPlay && args.KeyModifiers == KeyModifiers.None && args.Key >= Key.F1 && args.Key <= Key.F12)
                 args.Handled = controller.ScriptLibrary.HandleShortcut(args.Key.ToString());
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        ThemeService.SyncTerminalField(_input);
         _input.KeyDown += async (_, args) =>
         {
             if (args.Key == Key.Enter && args.KeyModifiers == KeyModifiers.None) { args.Handled = true; await Send(); }
@@ -151,13 +153,19 @@ public sealed class TerminalView : UserControl
                 Ui.TextKey(nameof(L.ReturnToAWorldYouLoveOrFollowA), 14, "muted"),
                 Ui.ButtonKey(nameof(L.TakeAWalkThroughTheDemo), async () => { await controller.StartAsync(); _input.Focus(); }, "primary"))
         };
+        _connecting = new Border
+        {
+            Name = "ConnectingOverlay", Padding = new Thickness(36), VerticalAlignment = VerticalAlignment.Center,
+            MaxWidth = 520, IsHitTestVisible = false,
+            Child = Ui.Stack(Ui.TextKey(nameof(L.Connecting), 28))
+        };
         var display = controller.Display.View;
         if (display.Parent is Panel oldParent) oldParent.Children.Remove(display);
-        display.Margin = new Thickness(8, 4, 4, 4);
+        SyncCommandField();
         var output = new Grid
         {
             RowDefinitions = new RowDefinitions { _transcriptRow, new RowDefinition(GridLength.Auto), _liveRow },
-            Children = { display, _welcome, _latest, _divider, _tail }
+            Children = { display, _welcome, _connecting, _latest, _divider, _tail }
         };
         Grid.SetRow(_divider, 1); Grid.SetRow(_tail, 2);
         output.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
@@ -173,6 +181,7 @@ public sealed class TerminalView : UserControl
         Grid.SetColumn(_send, 2); entry.Children.Add(_send);
         var composer = new Border { Name = "Composer", Padding = new Thickness(4, 4), BorderThickness = new Thickness(0, 1, 0, 0), Child = entry };
         composer.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
+        composer.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalBrush"));
         var diagnostics = new ProtocolDiagnosticsView(controller.Diagnostics, controller.ConsoleLog) { Name = "ProtocolDiagnostics" };
         diagnostics.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsDiagnostics)) { Source = controller.Pages });
         output.Bind(IsVisibleProperty, new Binding(nameof(controller.Pages.IsPlay)) { Source = controller.Pages });
@@ -250,6 +259,8 @@ public sealed class TerminalView : UserControl
     private Button ComposerButton(Button button, string geometry, string key)
     {
         Ui.ToolbarIconKey(button, geometry, key);
+        // This control sits on the terminal, not the light chrome around it.
+        button.Bind(ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TerminalTextBrush"));
         button.Width = 36; button.Height = 36; button.MinHeight = 0; button.Padding = new Thickness(0);
         _liveButtons.Add(button);
         return button;
@@ -311,12 +322,15 @@ public sealed class TerminalView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        ThemeService.Applied += SyncCommandField;
+        SyncCommandField();
         _controller.Changed += Refresh; _controller.Display.ViewportChanged += RefreshScroll; _controller.Display.MenuRequested += ShowTranscriptMenu;
         Refresh();
         if (_focusWanted) PostFocus();
     }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        ThemeService.Applied -= SyncCommandField;
         _focusWanted = false; _pressed = null; _controller.Changed -= Refresh; _controller.Display.ViewportChanged -= RefreshScroll; _controller.Display.MenuRequested -= ShowTranscriptMenu;
         _menu?.Close(); base.OnDetachedFromVisualTree(e);
     }
@@ -428,6 +442,12 @@ public sealed class TerminalView : UserControl
     }
 
 
+    private void SyncCommandField()
+    {
+        ThemeService.SyncTerminalField(_input);
+        _controller.Display.View.Margin = FleetSkin.IsActive ? new Thickness(12, 12, 8, 8) : new Thickness(4, 2, 2, 2);
+    }
+
     private void Refresh()
     {
         SessionOpenTrace.Count("terminal view refresh");
@@ -441,6 +461,7 @@ public sealed class TerminalView : UserControl
         if (_focusWanted && _input.IsEnabled) PostFocus();
         _input.PasswordChar = _controller.IsPrivate ? '●' : '\0';
         _welcome.IsVisible = _controller.Terminal.PlainText.Length == 0 && !_controller.IsConnected && !_controller.IsConnecting;
+        _connecting.IsVisible = _controller.IsConnecting && _controller.Terminal.PlainText.Length == 0;
         _resources.Update(_controller.GameState, _controller.IsConnected);
         _syncingPrivate = true;
         _privateToggle.IsChecked = _controller.ManualPrivate;

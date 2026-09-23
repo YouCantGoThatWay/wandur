@@ -104,7 +104,7 @@ public sealed partial class WorldBrowserView
         if (world.Population.LatestCount.HasValue) Fact(L.PlayersObserved, world.Population.ObservedAt?.ToLocalTime().ToString("g"));
         Fact(L.StatusChecked, world.Availability.CheckedAt?.ToLocalTime().ToString("g"));
         Fact(L.LastReached, world.Availability.LastOnlineAt?.ToLocalTime().ToString("g"));
-        if (world.Availability.Archived) Fact(L.ArchiveReason, world.Availability.ArchiveReason);
+        if (world.Availability.Archived == true) Fact(L.ArchiveReason, world.Availability.ArchiveReason);
         var source = world.Source.Name.Length > 0 ? world.Source.Name : L.Directory;
         Fact(L.Format(L.SourceReviews, source), world.Community.ReviewCount?.ToString());
         Fact(L.Format(L.SourceRank, source), world.Community.Rank is { } rank ? "#" + rank : null);

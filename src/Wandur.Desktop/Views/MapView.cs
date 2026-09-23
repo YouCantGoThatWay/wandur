@@ -43,6 +43,7 @@ public sealed partial class MapView : UserControl
         header.Children.Add(Field(nameof(L.MapArea), area));
         header.Children.Add(Check(nameof(L.MapGridMode), "MapGridMode", nameof(model.IsGridMode)));
         var floorLabel = Label(nameof(model.FloorLabel), 12, null);
+        floorLabel.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("InstrumentTextBrush"));
         floorLabel.VerticalAlignment = VerticalAlignment.Center;
         var floorUp = Ui.ToolbarIconKey(new Button { Name = "MapFloorUp", Command = model.FloorUpCommand }, "M 3,8 L 8,3 L 13,8 M 8,3 V 14", nameof(L.MapFloorUp));
         var floorDown = Ui.ToolbarIconKey(new Button { Name = "MapFloorDown", Command = model.FloorDownCommand }, "M 3,8 L 8,13 L 13,8 M 8,13 V 2", nameof(L.MapFloorDown));
@@ -163,6 +164,7 @@ public sealed partial class MapView : UserControl
         var toolbarContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { searchRow, buttons } };
         Grid.SetColumn(buttons, 1);
         var toolbar = Ui.Toolbar(toolbarContent, "MapToolbar");
+        toolbar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("InstrumentBarBrush"));
         var protocols = Label(nameof(model.ProtocolStatus), 10);
         protocols.Name = "MapProtocolStatus";
         protocols.TextWrapping = TextWrapping.NoWrap;

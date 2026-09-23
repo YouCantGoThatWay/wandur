@@ -124,7 +124,8 @@ public sealed class ThemeContrastTests
         // preset, and the palette then comes from this fallback instead of from the preset itself.
         var theme = UserTheme.FromPreset(name);
         var background = theme.Colors["Terminal"];
-        Assert.Equal(theme.IsLight, UserTheme.IsLightBackground(background));
+        // A preset's variant follows its chrome, not its transcript: Hull pairs light chrome with a dark
+        // transcript on purpose, which is precisely the case this fallback palette exists to serve.
         var palette = UserTheme.PaletteForBackground(background);
         Assert.Equal(16, palette.Count);
         for (var index = 0; index < 16; index++)

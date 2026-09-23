@@ -43,6 +43,10 @@ public sealed record UserTheme
     ];
     private static readonly Preset[] Presets =
     [
+        // The client's own look: pale hull plating around a dark transcript, measured off the design it
+        // was drawn from. Light chrome with dark content panes is the one combination no other preset has.
+        new("Hull", true, "#D1D4D2", "#DCDEDC", "#11171B", "#202629", "#404B50", "#115C73", "#7E8788",
+            "#11171B", "#26333C", "#F4F5F6", "#202622", DarkAnsi),
         new("Ember", false, "#141519", "#212328", "#1A1C21", "#E3E4E8", "#979BA6", "#DBBFA0", "#2B2E35",
             "#10191F", "#1D2B34", "#161B22", "#E6EDF3", DarkAnsi),
         new("Moonlight", false, "#12141C", "#1C1F2B", "#171A24", "#E3E6F1", "#969CAF", "#B9B6F2", "#292D3C",
@@ -111,18 +115,27 @@ public sealed record UserTheme
     /// <summary>Localized display name for a preset. Other identifiers are returned unchanged.</summary>
     public static string DisplayName(string? name) => name switch
     {
-        "Ember" => L.ThemeEmber, "Moonlight" => L.ThemeMoonlight, "Forest" => L.ThemeForest, "Paper" => L.ThemePaper,
+        "Hull" => L.ThemeHull, "Ember" => L.ThemeEmber, "Moonlight" => L.ThemeMoonlight, "Forest" => L.ThemeForest, "Paper" => L.ThemePaper,
         "Midnight" => L.ThemeMidnight, "Slate" => L.ThemeSlate, "Rose" => L.ThemeRose,
         "Parchment" => L.ThemeParchment, "Daylight" => L.ThemeDaylight, "Linen" => L.ThemeLinen,
         _ => name ?? ""
     };
+    /// <summary>
+    /// What is typed and read on the transcript. For most presets that is the interface text, because the
+    /// transcript is the same lightness as the chrome. A preset that pairs light chrome with a dark transcript
+    /// (Hull) needs light text there, or everything typed into it is dark on dark.
+    /// </summary>
+    private static string TerminalTextFor(Preset preset) =>
+        IsLightBackground(preset.Terminal) == preset.IsLight ? preset.Text
+        : preset.IsLight ? "#CBD6E2" : "#1F2933";
+
     public static UserTheme FromPreset(string name)
     {
         var preset = Presets.FirstOrDefault(p => p.Name == name) ?? Presets[0];
         return new() { Name = name, IsLight = preset.IsLight, Colors = new()
         {
             ["Shell"] = preset.Shell, ["Panel"] = preset.Panel, ["Terminal"] = preset.Terminal, ["Text"] = preset.Text, ["Muted"] = preset.Muted,
-            ["Accent"] = preset.Accent, ["AccentSecondary"] = preset.Accent, ["Border"] = preset.Border, ["TerminalText"] = preset.Text,
+            ["Accent"] = preset.Accent, ["AccentSecondary"] = preset.Accent, ["Border"] = preset.Border, ["TerminalText"] = TerminalTextFor(preset),
             ["Chrome"] = preset.Panel, ["Selection"] = preset.Border, ["Button"] = preset.Panel, ["ButtonText"] = preset.Text, ["PrimaryText"] = "#242424",
             ["MapBackground"] = preset.MapBackground, ["MapGrid"] = preset.MapGrid,
             ["EditorBackground"] = preset.EditorBackground, ["EditorText"] = preset.EditorText

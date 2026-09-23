@@ -25,7 +25,9 @@ public sealed class DockChromeTests
 {
     private static MainWindow CreateWindow()
     {
-        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-dock-" + Guid.NewGuid(), "settings.json")), new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
+        var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-dock-" + Guid.NewGuid(), "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper" });
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(), new MemoryRoomMapStore(), new RecordingScriptFactory(), new MemoryScriptLibraryStore());
         window.Width = 1200; window.Height = 800;
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -57,15 +59,17 @@ public sealed class DockChromeTests
             var rightContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "map-dock"));
             var channelsContent = ChromeBorder<ToolControl>(window, control => AlignedTo(control, Alignment.Right, "channels-dock"));
 
+            // The rounding pattern is the client's; how much is the skin's, so read what is in force.
+            var r = Wandur.Desktop.Converters.DockChromeConverter.Radius;
             Assert.Equal(new CornerRadius(0), document.CornerRadius);
             Assert.Equal(new Thickness(1), document.BorderThickness);
-            Assert.Equal(new CornerRadius(10, 0, 0, 0), leftHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 0, 10), leftContent.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 10, 0, 0), rightHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 10, 0), rightContent.CornerRadius);
+            Assert.Equal(new CornerRadius(r, 0, 0, 0), leftHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, r), leftContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, r, 0, 0), rightHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, r, 0), rightContent.CornerRadius);
             // The Channels panel shares the right edge below the map, rounded on that edge the same way.
-            Assert.Equal(new CornerRadius(0, 10, 0, 0), channelsHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 10, 0), channelsContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, r, 0, 0), channelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, r, 0), channelsContent.CornerRadius);
 
             // The header drags as a whole, but only its grip glyph says so with the cursor; the title shows an arrow.
             var chrome = (ToolChromeControl)leftHeader.TemplatedParent!;
@@ -105,7 +109,9 @@ public sealed class DockChromeTests
         Directory.CreateDirectory(path);
         using var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
         var profile = new ConnectionProfile { Name = "Panel world", Host = "127.0.0.1", Port = ((IPEndPoint)listener.LocalEndpoint).Port };
-        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), new SettingsStore(Path.Combine(path, "settings.json")), new MemoryPasswordVault(),
+        var store = new SettingsStore(Path.Combine(path, "settings.json"));
+        store.Save(new ClientSettings { Theme = "Paper" });
+        var window = new MainWindow(new Wandur.Desktop.Terminal.TranscriptDisplayFactory(), store, new MemoryPasswordVault(),
             new MemoryRoomMapStore(), new InlineScriptFactory(), new MemoryScriptLibraryStore()) { Width = 1200, Height = 800 };
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         try
@@ -137,13 +143,14 @@ public sealed class DockChromeTests
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<ToolControl>(), control => AlignedTo(control, Alignment.Right, "panels-dock"));
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<ToolControl>(), control => AlignedTo(control, Alignment.Left, "panels-left-dock"));
 
+            var r = Wandur.Desktop.Converters.DockChromeConverter.Radius;
             Assert.Equal(new CornerRadius(0), document.CornerRadius);
-            Assert.Equal(new CornerRadius(10, 0, 0, 0), libraryHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 0, 10), libraryContent.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 10, 0, 0), mapHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 10, 0), mapContent.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 10, 0, 0), channelsHeader.CornerRadius);
-            Assert.Equal(new CornerRadius(0, 0, 10, 0), channelsContent.CornerRadius);
+            Assert.Equal(new CornerRadius(r, 0, 0, 0), libraryHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, 0, r), libraryContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, r, 0, 0), mapHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, r, 0), mapContent.CornerRadius);
+            Assert.Equal(new CornerRadius(0, r, 0, 0), channelsHeader.CornerRadius);
+            Assert.Equal(new CornerRadius(0, 0, r, 0), channelsContent.CornerRadius);
 
             var centre = Frame(document, window);
             var map = Frame(mapContent, window);

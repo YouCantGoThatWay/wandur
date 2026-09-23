@@ -28,6 +28,7 @@
     <StyleInclude Source="avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml" />
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <dock:DockFluentTheme />
+    <StyleInclude Source="avares://Wandur/Styles/ThemeDockSkin.axaml" />
     <Style Selector="Window">
       <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
       <Setter Property="FontSize" Value="13" />
@@ -112,6 +113,14 @@
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
     </Style>
+    <Style Selector="TextBox.terminal-field">
+      <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource TerminalTextBrush}" />
+      <Setter Property="SelectionBrush" Value="{DynamicResource TranscriptSelectionBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
     <Style Selector="TextBox:focus, TextBox:pointerover">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>
@@ -123,6 +132,21 @@
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
       <Setter Property="BorderThickness" Value="1" />
     </Style>
+    <!-- Terminal fields must win over the shell template styles above: Fluent paints PART_BorderElement
+         on focus/hover/disabled, and a later shell setter would otherwise bleach a dark transcript input. -->
+    <Style Selector="TextBox.terminal-field:focus, TextBox.terminal-field:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-field /template/ Border#PART_BorderElement, TextBox.terminal-field:pointerover /template/ Border#PART_BorderElement, TextBox.terminal-field:focus /template/ Border#PART_BorderElement, TextBox.terminal-field:disabled /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-field:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="TextBox.terminal-field:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    </Style>
     <!-- Placeholders are not styled here. Fluent writes the foreground and a fixed 0.5 opacity straight
          onto the template element, and a local value outranks every style setter, so a selector for
          PART_Placeholder or PlaceholderTextBlock silently matches nothing. ThemeService reaches the colour
@@ -131,6 +155,9 @@
     <Style Selector="TextBox:disabled">
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
+    <Style Selector="TextBox.terminal-field:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
+    </Style>
     <Style Selector="ComboBox">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
     </Style>
@@ -138,7 +165,7 @@
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
     <Style Selector="dc|ToolChromeControl /template/ Button">
-      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource DockHeaderGlyphBrush}" />
     </Style>
     <Style Selector="ListBoxItem">
       <Setter Property="Padding" Value="10" />
@@ -279,6 +306,13 @@
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Window.fleet TabStripItem.output-footer-tab:selected">
+      <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="BorderBrush" Value="#35D3E8" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+      <Setter Property="CornerRadius" Value="0" />
     </Style>
     <Style Selector="TabStripItem.output-footer-tab:focus-visible">
       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -433,5 +467,6 @@
     <Style Selector="ToolTip">
       <Setter Property="MaxWidth" Value="320" />
     </Style>
+    <StyleInclude Source="avares://Wandur/Styles/Fleet.axaml" />
   </Application.Styles>
 </Application>

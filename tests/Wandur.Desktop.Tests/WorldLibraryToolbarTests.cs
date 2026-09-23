@@ -41,9 +41,13 @@ public sealed class WorldLibraryToolbarTests
             edit.Command!.Execute(edit.CommandParameter);
             Assert.Equal(second, edited);
             var delete = row.ContextMenu.Items.OfType<MenuItem>().Single(m => m.Name == "DeleteWorldMenu");
-            // The command retains the clicked world even if selection changes before execution.
+            // The menu asks first, and the prompt keeps the clicked world even when the selection moves
+            // between the question and the answer.
+            delete.Command!.Execute(delete.CommandParameter);
             list.SelectedItem = first;
-            await Assert.IsAssignableFrom<IAsyncRelayCommand>(delete.Command).ExecuteAsync(delete.CommandParameter);
+            Dispatcher.UIThread.RunJobs();
+            await Assert.IsAssignableFrom<IAsyncRelayCommand>(panel.GetVisualDescendants()
+                .OfType<Button>().Single(b => b.Name == "ConfirmDeleteWorld").Command).ExecuteAsync(null);
             Assert.Equal(first, Assert.Single(store.Load().Settings.Profiles));
         }
         finally { window.Close(); }
@@ -78,7 +82,11 @@ public sealed class WorldLibraryToolbarTests
                 Directory.CreateDirectory(captures); frame.Save(Path.Combine(captures, "worlds-toolbar.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
             }
             if (failSave) { File.Delete(store.FilePath); Directory.CreateDirectory(store.FilePath); }
-            await Assert.IsAssignableFrom<IAsyncRelayCommand>(delete.Command).ExecuteAsync(null);
+            // The toolbar button only asks now; confirming is what removes anything.
+            delete.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            await Assert.IsAssignableFrom<IAsyncRelayCommand>(panel.GetVisualDescendants()
+                .OfType<Button>().Single(b => b.Name == "ConfirmDeleteWorld").Command).ExecuteAsync(null);
             Assert.True(controller.IsConnected);
             Assert.Single(sessions.Tabs);
             Assert.Equal("first-secret", await vault.ReadAsync(PasswordVault.Key(first)));
@@ -93,7 +101,11 @@ public sealed class WorldLibraryToolbarTests
                 Assert.Equal(first, Assert.Single(store.Load().Settings.Profiles));
                 Assert.Null(await vault.ReadAsync(PasswordVault.Key(second)));
                 Assert.Equal(first, list.SelectedItem);
-                await Assert.IsAssignableFrom<IAsyncRelayCommand>(delete.Command).ExecuteAsync(null);
+            // Removing the last world also goes through the prompt.
+            delete.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            await Assert.IsAssignableFrom<IAsyncRelayCommand>(panel.GetVisualDescendants()
+                .OfType<Button>().Single(b => b.Name == "ConfirmDeleteWorld").Command).ExecuteAsync(null);
                 Assert.Empty(controller.Settings.Profiles);
                 Assert.False(delete.IsEffectivelyEnabled);
                 Assert.False(panel.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "EditSavedWorld").IsEffectivelyEnabled);

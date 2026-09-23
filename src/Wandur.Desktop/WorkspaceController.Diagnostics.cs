@@ -28,8 +28,15 @@ public sealed partial class WorkspaceController
     internal void ApplyCatalogProfile(Wandur.Core.Settings.ConnectionProfile profile)
     {
         if (_disposed || _mapProfile is null || !new Wandur.Models.WorldEndpoint(_mapProfile.Host, _mapProfile.Port, _mapProfile.UseTls)
-            .Matches(new(profile.Host, profile.Port, profile.UseTls))) return;
+            .Matches(new(profile.Host, profile.Port, profile.UseTls)))
+        {
+            Wandur.Core.Diagnostics.ThemeTrace.Write("tab.catalogProfile",
+                $"ignored for {profile.Host}:{profile.Port}: disposed={_disposed} mapProfile={(_mapProfile is null ? "null" : $"{_mapProfile.Host}:{_mapProfile.Port}")}");
+            return;
+        }
         WorldTheme = profile.Theme is { IsValid: true } theme ? theme : null;
+        Wandur.Core.Diagnostics.ThemeTrace.Write("tab.catalogProfile",
+            $"{profile.Host}:{profile.Port} -> theme={WorldTheme?.Id ?? "(none)"}");
         if (profile.GetProtocolMapping() is { } mapping)
         {
             var changed = _protocolBindings is null || _protocolBindings.UpdateMapping(mapping);
