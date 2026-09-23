@@ -20,8 +20,9 @@ internal static class DefaultSkin
     {
         var p = Color.Parse(panel);
         var t = Color.Parse(text);
-        var term = Color.Parse(terminal);
-        var termText = Color.Parse(terminalText);
+        // Frame material does not change when a player customizes transcript colors.
+        var dark = !UserTheme.IsLightBackground(panel);
+        var plate = Mix(Color.Parse("#20292D"), p, .10);
         // Toward the text colour is darker on a light theme and lighter on a dark one, so shading by it is
         // the one direction that reads as depth either way.
         string Toward(double amount) => Hex(Mix(p, t, amount));
@@ -30,7 +31,7 @@ internal static class DefaultSkin
         // on, on every dark preset.
         var away = UserTheme.IsLightBackground(text) ? Colors.Black : Colors.White;
         string Lit(double amount) => Hex(Mix(p, away, amount));
-        var outline = Toward(0.55);
+        var outline = Hex(Mix(p, Colors.Black, dark ? .55 : .58));
 
         return new WorldThemeSkin
         {
@@ -46,8 +47,8 @@ internal static class DefaultSkin
                     Plaque = new WorldThemeSkinPlaque
                     {
                         Shape = "fleet", Cap = 3,
-                        Fill = Hex(Mix(term, termText, 0.14)), Edge = Hex(term),
-                        Accent = Hex(Readable(Color.Parse(accent), Mix(term, termText, 0.14))),
+                        Fill = Hex(plate), Edge = "#10191D",
+                        Accent = Hex(Readable(Color.Parse(accent), plate)),
                         Padding = new SkinBox(64, 0, 64, 0),
                         Wings = new WorldThemeSkinWings { Extend = 32, Fill = Lit(0.10), Edge = outline },
                         Shadow = new WorldThemeSkinShadow { Color = "#000000", Opacity = 0.30, Blur = 4, Y = 2 },
@@ -57,18 +58,15 @@ internal static class DefaultSkin
             },
             Surfaces = new WorldThemeSkinSurfaces
             {
-                TitleBar = new() { From = Lit(0.12), To = Toward(0.04), Bevel = "raised", BevelStrength = 0.30 },
-                Toolbar = new() { From = Toward(0.06), To = Toward(0.12), Bevel = "raised", BevelStrength = 0.25 },
-                // Held close to the panel colour: the header's buttons draw in the muted colour, which only just
-                // clears contrast on a flat panel on several presets, so the header can barely move before they
-                // stop being readable. The bevel carries the definition instead.
-                // Darker than the panel, as on the design: the header glyphs switch to the text colour when a
-                // header surface is present, which is what makes that legible.
-                PanelHeader = new() { From = Toward(0.08), To = Toward(0.15), Bevel = "raised", BevelStrength = 0.30 },
+                TitleBar = new() { From = dark ? Toward(.10) : Lit(.12), To = Lit(.04), Bevel = "raised", BevelStrength = 0.18 },
+                Toolbar = new() { From = Toward(.04), To = dark ? Lit(.06) : Toward(.08), Bevel = "raised", BevelStrength = 0.15 },
+                // Restrained shading keeps headers quieter than the main title band.
+                // Their glyphs use the text color, while a hairline carries the bevel.
+                PanelHeader = new() { From = Toward(.07), To = Toward(.02), Bevel = "raised", BevelStrength = 0.15 },
                 PanelBody = new() { From = panel, To = Toward(0.02) },
-                Footer = new() { From = Lit(0.08), To = Toward(0.05), Bevel = "raised", BevelStrength = 0.30 },
+                Footer = new() { From = panel, To = Lit(.04), Bevel = "raised", BevelStrength = 0.12 },
                 // The dark chassis the panels rest on. Flat: it is a gap, not a face.
-                Ground = new() { From = Toward(0.66), To = Toward(0.66) },
+                Ground = new() { From = outline, To = outline },
             },
             Edge = new WorldThemeSkinEdge { Color = panel, Outline = outline, Thickness = 6,
                 Accent = Hex(Readable(Color.Parse(accent), p)) },

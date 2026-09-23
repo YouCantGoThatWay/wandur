@@ -44,9 +44,10 @@ public sealed class SessionContentView : UserControl
     {
         var fleet = FleetSkin.IsActive;
         _fleetHeader.IsVisible = fleet && _content.Content is TerminalView;
-        _frame.Padding = fleet ? new Thickness(2) : default;
-        _frame.Background = fleet ? FleetSkin.Metal : Brushes.Transparent;
-        _frame.BorderBrush = fleet ? Brush.Parse("#F3F3EC") : Brushes.Transparent;
+        _frame.Padding = fleet ? new Thickness(1) : default;
+        _frame.Background = fleet ? FleetSkin.DockMetal : Brushes.Transparent;
+        _frame.BorderBrush = fleet ? FleetSkin.RimEdge : Brushes.Transparent;
+        _fleetHeader.BorderBrush = FleetSkin.RimEdge;
         _frame.BorderThickness = fleet ? new Thickness(1) : default;
         _frame.CornerRadius = fleet ? new CornerRadius(2) : default;
     }

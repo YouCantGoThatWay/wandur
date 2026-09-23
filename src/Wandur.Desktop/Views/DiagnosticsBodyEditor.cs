@@ -31,10 +31,10 @@ public sealed class DiagnosticsBodyEditor : TextEditor
         ShowLineNumbers = false;
         WordWrap = wordWrap;
         FontFamily = new FontFamily("Menlo, Consolas, DejaVu Sans Mono");
-        FontSize = 12;
+        FontSize = 14;
         Padding = new Thickness(14);
         BorderThickness = new Thickness(0);
-        HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
+        HorizontalScrollBarVisibility = wordWrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
         VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         ActualThemeVariantChanged += (_, _) => ApplySyntax();
         ApplySyntax();

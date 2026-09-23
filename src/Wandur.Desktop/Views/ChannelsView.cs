@@ -42,7 +42,7 @@ public sealed class ChannelsView : UserControl
         tabs.Bind(ItemsControl.ItemsSourceProperty, new Binding(nameof(model.Tabs)));
         tabs.Bind(SelectingItemsControl.SelectedIndexProperty, new Binding(nameof(model.SelectedIndex)) { Mode = BindingMode.TwoWay });
         var messages = new ChannelMessageList(model) { Name = "ChannelMessages" };
-        var reply = new TextBox { Name = "ChannelReply", MaxLength = 1024, FontSize = 12, MinHeight = 30, AcceptsReturn = false };
+        var reply = new TextBox { Name = "ChannelReply", MaxLength = 1024, FontSize = 13, MinHeight = 36, AcceptsReturn = false };
         // The reply bar sits on the transcript surface, so the field takes the terminal's own field chrome
         // and placeholder. With the chrome placeholder it was a light-chrome grey on a dark transcript.
         reply.Classes.Add("terminal-field");
@@ -60,7 +60,7 @@ public sealed class ChannelsView : UserControl
             e.Handled = true;
             if (model.SendCommand.CanExecute(null)) model.SendCommand.Execute(null);
         };
-        var send = new Button { Name = "ChannelSend", Command = model.SendCommand, FontSize = 11, Padding = new Thickness(10, 6) };
+        var send = new Button { Name = "ChannelSend", Command = model.SendCommand, FontSize = 13, MinHeight = 36, MinWidth = 64, Padding = new Thickness(10, 6) };
         send.Classes.Add("app-button");
         send.Bind(ContentControl.ContentProperty, LocalizedText.Binding(nameof(L.ChannelsSend)));
         Grid.SetColumn(send, 1);
@@ -82,7 +82,7 @@ public sealed class ChannelsView : UserControl
     /// <summary>A tab wears its unread count until the reader looks at it.</summary>
     private static Control TabHeader(ChannelTabViewModel tab)
     {
-        var title = new TextBlock { FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+        var title = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
         title.Bind(TextBlock.TextProperty, new Binding(nameof(tab.Title)));
         if (tab.IsPrivate) title.FontWeight = FontWeight.SemiBold;
         var count = new TextBlock { FontSize = 9, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, -1, 0, 0) };
@@ -181,7 +181,7 @@ internal sealed class ChannelMessageList : Border
 
     private static TextBlock NewRow() => new()
     {
-        FontFamily = new FontFamily(TerminalPalette.Monospace), FontSize = 12,
+        FontFamily = new FontFamily(TerminalPalette.Monospace), FontSize = 14,
         TextWrapping = TextWrapping.Wrap, Inlines = []
     };
 
@@ -189,7 +189,7 @@ internal sealed class ChannelMessageList : Border
     {
         var inlines = block.Inlines!;
         inlines.Clear();
-        var stamp = new Run(message.Timestamp.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) + " ") { FontSize = 10 };
+        var stamp = new Run(message.Timestamp.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) + " ") { FontSize = 12 };
         if (GetValue(MutedProperty) is { } muted) stamp.Foreground = muted;
         inlines.Add(stamp);
         if (message.Speaker.Length > 0) inlines.Add(new Run(message.Speaker + ": ") { FontWeight = FontWeight.Bold });

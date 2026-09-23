@@ -64,7 +64,7 @@ public sealed class ThemeDockSkinHost : Decorator
     }
 
     private bool _fleet;
-    private Thickness ActiveInset => IsSkinActive ? Inset : _fleet ? new Thickness(3) : default;
+    private Thickness ActiveInset => IsSkinActive ? Inset : _fleet ? new Thickness(2) : default;
 
     /// <summary>
     /// The shape each panel border was templated with. The corners come through a converter on a binding
@@ -169,8 +169,7 @@ public sealed class ThemeDockSkinHost : Decorator
         if (_fleet && !IsSkinActive && Bounds.Width > 6 && Bounds.Height > 6)
         {
             context.DrawRectangle(FleetSkin.DockMetal, new Pen(FleetSkin.RimEdge, 1), new Rect(Bounds.Size).Deflate(.5), 3, 3);
-            context.DrawRectangle(null, new Pen(FleetSkin.RimHighlight, 1), new Rect(Bounds.Size).Deflate(1.5), 2, 2);
-            context.DrawRectangle(null, new Pen(FleetSkin.RimShadow, 1), new Rect(Bounds.Size).Deflate(2.5), 1, 1);
+            context.DrawLine(new Pen(FleetSkin.RimHighlight, 1), new(2, 1.5), new(Bounds.Width - 2, 1.5));
         }
         if (!IsSkinActive || BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;
         var size = Bounds.Size;

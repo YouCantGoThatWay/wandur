@@ -60,7 +60,7 @@ internal sealed class ThemeWindowSkinHost : Decorator
         var t = EdgeThickness;
         var fill = new SolidColorBrush(metal);
         var dark = new SolidColorBrush(outline);
-        var lip = new SolidColorBrush(Lighten(metal, 0.55));
+        var lip = FleetSkin.IsActive ? FleetSkin.RimHighlight : new SolidColorBrush(Lighten(metal, 0.55));
         var (w, h) = (size.Width, size.Height);
         var top = Math.Max(0, BorderBitmap is null ? BandHeight : 0);
         if (w < t * 2 || h <= top + t) return;

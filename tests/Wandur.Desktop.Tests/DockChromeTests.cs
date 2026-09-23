@@ -85,9 +85,9 @@ public sealed class DockChromeTests
             var centre = Frame(document, window);
             var left = Frame(leftContent, window);
             var right = Frame(rightContent, window);
-            // Measure from the outside of Fleet's 3-DIP rim, not its inset content edge.
-            Assert.InRange(centre.Left - (left.Right + 3), 0, 6);
-            Assert.InRange((right.Left - 3) - centre.Right, 0, 6);
+            // Measure from the outside of Fleet's 2-DIP rim, not its inset content edge.
+            Assert.InRange(centre.Left - (left.Right + 2), 0, 6);
+            Assert.InRange((right.Left - 2) - centre.Right, 0, 6);
             Assert.Equal(Frame(leftHeader, window).Right, left.Right);
             Assert.Equal(Frame(rightHeader, window).Left, right.Left);
             var channels = Frame(channelsContent, window);

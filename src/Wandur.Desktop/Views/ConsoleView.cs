@@ -33,11 +33,10 @@ public sealed class ConsoleView : UserControl
     public ConsoleView(ConsoleLog log)
     {
         _log = log;
-        _count = Ui.Text("", 11, "muted");
+        _count = Ui.Text("", 13, "muted");
         _count.VerticalAlignment = VerticalAlignment.Center;
-        var hint = Ui.TextKey(nameof(L.ConsolePrivate), 11, "muted");
-        hint.VerticalAlignment = VerticalAlignment.Center; hint.TextTrimming = TextTrimming.CharacterEllipsis;
-        var labels = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { _count, hint } };
+        var hint = Ui.TextKey(nameof(L.ConsolePrivate), 12, "muted");
+        hint.TextWrapping = TextWrapping.Wrap; hint.Margin = new Thickness(0, 6, 0, 0);
         _pause = TextToggle("ConsolePause", nameof(L.ConsolePause));
         _pause.IsCheckedChanged += (_, _) => { if (_pause.IsChecked != true) Refresh(); };
         var wrap = TextToggle("ConsoleWrap", nameof(L.ConsoleWrap));
@@ -46,10 +45,12 @@ public sealed class ConsoleView : UserControl
             "M 5,5 V 2 H 14 V 11 H 11 M 2,5 H 11 V 14 H 2 Z", nameof(L.ConsoleCopy));
         var clear = Ui.ToolbarIconKey(new Button { Name = "ConsoleClear" },
             "M 3,4 H 13 M 6,4 V 2 H 10 V 4 M 4,4 L 5,14 H 11 L 12,4 M 7,6 V 12 M 9,6 V 12", nameof(L.ConsoleClear));
+        copy.Width = clear.Width = 32; copy.Height = clear.Height = 32;
         clear.Click += (_, _) => _log.Clear();
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _pause, wrap, copy, clear } };
-        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(12, 4), Children = { labels, actions } };
+        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(12, 8), Children = { _count, actions, hint } };
         Grid.SetColumn(actions, 1);
+        Grid.SetRow(hint, 1); Grid.SetColumnSpan(hint, 2);
         _editor = new DiagnosticsBodyEditor(wordWrap: true, plain: true) { Name = "ConsoleText" };
         copy.Click += async (_, _) =>
         {
@@ -72,7 +73,7 @@ public sealed class ConsoleView : UserControl
 
     private static ToggleButton TextToggle(string name, string key)
     {
-        var toggle = new ToggleButton { Name = name, Width = double.NaN, Height = 26, MinHeight = 0, Padding = new Thickness(6, 0), FontSize = 11 };
+        var toggle = new ToggleButton { Name = name, Width = double.NaN, Height = 32, MinHeight = 32, Padding = new Thickness(10, 4), FontSize = 13 };
         toggle.Classes.Add("command-bar-button");
         toggle.Bind(ContentControl.ContentProperty, LocalizedText.Binding(key));
         toggle.Bind(ToolTip.TipProperty, LocalizedText.Binding(key));

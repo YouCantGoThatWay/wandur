@@ -19,9 +19,9 @@ internal static class FleetIcons
         label.Bind(TextBlock.TextProperty, binding);
         label.Classes.Add("fleet-action-label");
         label.VerticalAlignment = VerticalAlignment.Center;
-        var glyph = Ui.ChromeGlyph(geometry, filled, 18);
+        var glyph = Ui.ChromeGlyph(geometry, filled, 16);
         glyph.VerticalAlignment = VerticalAlignment.Center;
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10,
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8,
             VerticalAlignment = VerticalAlignment.Center, Children = { glyph, label } };
     }
 }

@@ -31,8 +31,8 @@ public sealed class MainWindow : Window
     public WorkspaceFactory Workspace { get; private set; }
     private readonly DockControl _dock;
     private readonly Avalonia.Threading.DispatcherTimer _catalogRefreshTimer;
-    private readonly TextBlock _status = Ui.TextKey(nameof(L.ReadyToWander), 11, "muted");
-    private readonly TextBlock _toolbarStatus = Ui.TextKey(nameof(L.ReadyToWander), 11, "muted");
+    private readonly TextBlock _status = Ui.TextKey(nameof(L.ReadyToWander), 12, "muted");
+    private readonly TextBlock _toolbarStatus = Ui.TextKey(nameof(L.ReadyToWander), 12, "muted");
     private readonly TextBlock _noticeText = Ui.Text("", 12);
     private readonly Border _notice;
     private readonly Border _toolbar;
@@ -62,7 +62,7 @@ public sealed class MainWindow : Window
     private readonly Button _browse;
     private readonly Button _fleetSettings;
     private readonly DesktopMenus _menus;
-    private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 28, Height = 28, FontSize = 12, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
+    private readonly ComboBox _worldPicker = new() { Name = "ToolbarWorlds", Width = 220, MinHeight = 32, Height = 32, FontSize = 14, Padding = new Thickness(9, 3), [!ComboBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.ChooseAWorld)) };
     private List<ConnectionProfile>? _profiles;
     private Guid? _pickerSessionProfileId;
     private bool? _channelsPreference;

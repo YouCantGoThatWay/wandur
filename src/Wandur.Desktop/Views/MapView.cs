@@ -49,10 +49,14 @@ public sealed partial class MapView : UserControl
         var floorDown = Ui.ToolbarIconKey(new Button { Name = "MapFloorDown", Command = model.FloorDownCommand }, "M 3,8 L 8,13 L 13,8 M 8,13 V 2", nameof(L.MapFloorDown));
         var canvas = new RoomMapControl { Name = "RoomMap", Model = model, MinHeight = 180, ClipToBounds = true };
         canvas.SizeChanged += (_, args) => model.SetViewportSize(args.NewSize.Width, args.NewSize.Height);
-        var empty = Ui.TextKey(nameof(L.MapEmpty), 12, "muted"); empty.HorizontalAlignment = HorizontalAlignment.Center; empty.VerticalAlignment = VerticalAlignment.Center; empty.Margin = new Thickness(18);
+        var empty = Ui.TextKey(nameof(L.MapEmpty), 13); empty.Name = "MapEmptyLabel";
+        empty.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("MapLabelBrush"));
+        empty.Opacity = .72;
+        empty.HorizontalAlignment = HorizontalAlignment.Center; empty.VerticalAlignment = VerticalAlignment.Center; empty.Margin = new Thickness(18);
         empty.Bind(IsVisibleProperty, new Binding(nameof(model.IsEmpty)));
         var searchDropdown = CreateRoomSearchOtherFloorDropdown();
         var map = new Grid { Children = { canvas, empty, searchDropdown } };
+        map.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("MapCanvasBrush"));
         var autoCenter = Ui.ToolbarIconKey(new ToggleButton { Name = "MapAutoCenterToggle" },
             "M 8,2 V 5 M 8,11 V 14 M 2,8 H 5 M 11,8 H 14 M 8,6 A 2,2 0 1 0 8,10 A 2,2 0 1 0 8,6", nameof(L.MapAutoCenter));
         autoCenter.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.AutoCenter)) { Mode = BindingMode.TwoWay });
@@ -164,6 +168,8 @@ public sealed partial class MapView : UserControl
         var toolbarContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { searchRow, buttons } };
         Grid.SetColumn(buttons, 1);
         var toolbar = Ui.Toolbar(toolbarContent, "MapToolbar");
+        // The grid option remains available in Tools at compact dock widths.
+        toolbar.SizeChanged += (_, args) => gridToggle.IsVisible = args.NewSize.Width >= 300;
         toolbar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("InstrumentBarBrush"));
         var protocols = Label(nameof(model.ProtocolStatus), 10);
         protocols.Name = "MapProtocolStatus";

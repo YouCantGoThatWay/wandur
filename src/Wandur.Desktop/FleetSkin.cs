@@ -44,6 +44,8 @@ internal static class FleetSkin
         ("#FAFCFA", 0), ("#E8EAE8", .06), ("#D5D8D6", .36), ("#BEC3C1", .90), ("#A3AAA7", .97), ("#616B69", 1));
     private static readonly IBrush ReferenceToolbar = Gradient(
         ("#F4F5F3", 0), ("#DFE1DF", .05), ("#D5D8D6", .38), ("#C3C7C5", .95), ("#6D7775", 1));
+    private static readonly IBrush ReferenceDock = Gradient(
+        ("#E5E8E5", 0), ("#D8DCDA", .18), ("#C7CECA", 1));
     private static readonly IBrush ReferenceInstrument = Gradient(
         ("#48575D", 0), ("#2E3A40", .12), ("#253138", .92), ("#172229", 1));
 
@@ -67,13 +69,20 @@ internal static class FleetSkin
         Plaque = referencePalette ? ReferenceInstrument : Shade(Color.Parse(plaque.Fill!));
         var panel = ((ISolidColorBrush)resources.Read("PanelBrush")).Color;
         RimEdge = Brush.Parse(skin.Edge!.Outline!);
-        RimHighlight = new SolidColorBrush(Mix(panel, Colors.White, .55));
+        var light = Wandur.Core.Settings.UserTheme.IsLightBackground($"#{panel.R:X2}{panel.G:X2}{panel.B:X2}");
+        RimHighlight = new SolidColorBrush(Mix(panel, Colors.White, light ? .45 : .15));
         RimShadow = new SolidColorBrush(Mix(panel, Colors.Black, .72));
+        resources.Brush("FleetRimEdgeBrush", RimEdge);
+        resources.Value("FleetHeaderShadow", new BoxShadows(new BoxShadow
+        {
+            OffsetY = 1, IsInset = true, Color = ((ISolidColorBrush)RimHighlight).Color
+        }));
         // Icon and control states follow their actual surfaces, including light terminal palettes.
         var terminal = ((ISolidColorBrush)resources.Read("TerminalBrush")).Color;
         var terminalText = ((ISolidColorBrush)resources.Read("TerminalTextBrush")).Color;
         // Plaque paint is independent of work-area chrome, whose text follows the terminal palette.
-        Instrument = referencePalette ? ReferenceInstrument : Shade(Mix(terminal, terminalText, .14));
+        var referenceTerminal = referencePalette && terminal == Color.Parse("#11171B") && terminalText == Color.Parse("#CBD6E2");
+        Instrument = referenceTerminal ? ReferenceInstrument : Shade(Mix(terminal, terminalText, .14));
         var accent = ((ISolidColorBrush)resources.Read("AccentBrush")).Color;
         resources.Brush("ToolbarIconBrush", resources.Read("TextBrush"));
         resources.Brush("DockHeaderGlyphBrush", resources.Read("TextBrush"));
@@ -82,7 +91,7 @@ internal static class FleetSkin
         resources.Color("FleetInstrumentHoverBrush", Mix(terminal, terminalText, .18));
         resources.Color("FleetInstrumentPressedBrush", Mix(terminal, terminalText, .04));
         resources.Color("FleetInstrumentSelectedBrush", Mix(terminal, accent, .26));
-        resources.Color("FleetInstrumentEdgeBrush", Mix(terminal, terminalText, .40));
+        resources.Color("FleetInstrumentEdgeBrush", Mix(terminal, terminalText, .22));
         resources.Brush("FleetInstrumentAccentBrush", resources.Read("SecondaryAccentBrush"));
         if (referencePalette) resources.Color("FleetInstrumentAccentBrush", "#80D3E1");
     }
@@ -114,6 +123,9 @@ internal static class FleetSkin
                      "DockWindowChromeTitleBarBackgroundBrush", "DockDocumentTabStripBackgroundBrush", "FooterBrush" })
             resources.Brush(key, ReferenceMetal);
         resources.Brush("ToolbarBrush", ReferenceToolbar);
+        foreach (var key in new[] { "DockHeaderBrush", "DockSurfaceHeaderBrush", "DockSurfaceHeaderActiveBrush",
+                     "DockWindowChromeTitleBarBackgroundBrush" })
+            resources.Brush(key, ReferenceDock);
         resources.Color("ToolbarIconBrush", "#36464E");
         resources.Color("WorldSelectionBrush", "#A4DBE6");
         resources.Color("DockHeaderGlyphBrush", "#283942");

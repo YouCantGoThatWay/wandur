@@ -112,8 +112,8 @@ public sealed class ThemePlaque : Decorator
 
     private Size _fleetSize;
     private StreamGeometry? _fleetOutline;
-    private static readonly IBrush FleetLip = Brush.Parse("#F5F8F6");
-    private static readonly IBrush FleetShadow = Brush.Parse("#485352");
+    private static IBrush FleetLip => FleetSkin.RimHighlight;
+    private static IBrush FleetShadow => FleetSkin.RimShadow;
 
     internal static Rect FleetPlate(Size size)
     {

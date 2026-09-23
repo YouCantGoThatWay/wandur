@@ -6,15 +6,7 @@ namespace Wandur.Desktop;
 /// <summary>The receiving half of the title joint, drawn in the toolbar's own background layer.</summary>
 internal static class FleetToolbarSurface
 {
-    private static readonly IBrush Channel = new LinearGradientBrush
-    {
-        StartPoint = new RelativePoint(0, 0, RelativeUnit.Absolute),
-        EndPoint = new RelativePoint(0, 20, RelativeUnit.Absolute),
-        GradientStops = { new(Color.Parse("#303C3F"), 0), new(Color.Parse("#78827F"), 1) }
-    };
     private static readonly Pen Shadow = new(Brush.Parse("#453F4B4D"), 5);
-    private static readonly Pen Edge = new(Brush.Parse("#3C494B"), 1);
-    private static readonly Pen Highlight = new(Brush.Parse("#F6F9F5"), 1);
 
     public static IBrush Create(Size size, Rect title)
     {
@@ -44,12 +36,12 @@ internal static class FleetToolbarSurface
             path.EndFigure(true);
         }
         var shine = new DrawingGroup { Transform = new TranslateTransform(0, 1.5) };
-        shine.Children.Add(new GeometryDrawing { Geometry = edge, Pen = Highlight });
+        shine.Children.Add(new GeometryDrawing { Geometry = edge, Pen = new Pen(FleetSkin.RimHighlight, 1) });
         var drawing = new DrawingGroup { ClipGeometry = new RectangleGeometry(new Rect(size)) };
-        drawing.Children.Add(new GeometryDrawing { Geometry = new RectangleGeometry(new Rect(size)), Brush = Channel });
+        drawing.Children.Add(new GeometryDrawing { Geometry = new RectangleGeometry(new Rect(size)), Brush = FleetSkin.RimShadow });
         drawing.Children.Add(new GeometryDrawing { Geometry = face, Brush = FleetSkin.Toolbar });
         drawing.Children.Add(new GeometryDrawing { Geometry = edge, Pen = Shadow });
-        drawing.Children.Add(new GeometryDrawing { Geometry = edge, Pen = Edge });
+        drawing.Children.Add(new GeometryDrawing { Geometry = edge, Pen = new Pen(FleetSkin.RimEdge, 1) });
         drawing.Children.Add(shine);
         return new DrawingBrush { Drawing = drawing, Stretch = Stretch.Fill,
             SourceRect = new RelativeRect(new Rect(size), RelativeUnit.Absolute) };

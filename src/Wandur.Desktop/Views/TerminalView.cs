@@ -115,8 +115,8 @@ public sealed class TerminalView : UserControl
         _divider.DragCompleted += (_, _) => { KeepPlace(); StoreShare(); _dragTop = null; };
         _send = Ui.ButtonKey(nameof(L.Send), async () => await Send(), "primary");
         _send.Name = "SendCommand";
-        _send.Height = 36;
-        _send.MinHeight = 0;
+        _send.MinHeight = 36;
+        _send.MinWidth = 76;
         _send.VerticalAlignment = VerticalAlignment.Stretch;
         _look = ComposerButton(new Button { Name = "LookButton" }, EyeGeometry, nameof(L.LookAround));
         _look.Click += async (_, _) => await controller.SendAsync("look");

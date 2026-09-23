@@ -213,8 +213,8 @@ public static class ThemeService
         resources.Gradient("ButtonEdgeBrush", Mix(surface, Colors.White, light ? .1 : .2), Mix(surface, Colors.Black, .1));
         resources.Color("ToolbarHoverBrush", Mix(surface, light ? Colors.Black : Colors.White, .07));
         resources.Color("ToolbarPressedBrush", Mix(surface, light ? Colors.Black : Colors.White, .13));
-        resources.Gradient("PrimaryFaceBrush", Mix(highlight, Colors.White, .25), Mix(highlight, Colors.Black, .08));
-        resources.Gradient("PrimaryHoverBrush", Mix(highlight, Colors.White, .4), highlight);
+        resources.Gradient("PrimaryFaceBrush", Mix(highlight, Colors.White, .06), Mix(highlight, Colors.Black, .04));
+        resources.Gradient("PrimaryHoverBrush", Mix(highlight, Colors.White, .12), highlight);
         resources.Gradient("PrimaryEdgeBrush", Mix(highlight, Colors.White, .55), Mix(highlight, Colors.Black, .25));
 
         // Dock shares the application's palette, including detached tool windows.
@@ -259,7 +259,8 @@ public static class ThemeService
         // the palette-derived brush the client would otherwise paint there.
         ThemeSkinSurfaces.Apply(skin, resources);
         Set("ButtonTextBrush", personal?.Colors["ButtonText"] ?? text);
-        Set("PrimaryTextBrush", personal?.Colors["PrimaryText"] ?? "#242424");
+        Set("PrimaryTextBrush", personal?.Colors["PrimaryText"] ??
+            ReadableInk(Mix(highlight, Colors.White, .12), Mix(highlight, Colors.Black, .04)));
         if (personal is not null)
         {
             var overrides = personal.Colors;
@@ -277,11 +278,30 @@ public static class ThemeService
         resources.Color("ToolbarIconBrush", Mix(chrome, Colors.Black, light ? .16 : .28));
         if (referencePalette) FleetSkin.Apply(resources);
         FleetSkin.SynchronizeMaterials(resources, skin, referencePalette);
+        var mapBackground = ((ISolidColorBrush)resources.Read("MapCanvasBrush")).Color;
+        resources.Color("MapLabelBrush", ReadableInk(mapBackground, mapBackground));
         resources.Brush("InstrumentBarBrush", FleetSkin.Instrument);
         resources.Brush("InstrumentTextBrush", resources.Read(FleetSkin.IsActive ? "TerminalTextBrush" : "TextBrush"));
         resources.Brush("ChannelBodyBrush", resources.Read(FleetSkin.IsActive ? "TerminalBrush" : "PanelBrush"));
         _lastAppearance = appearance;
         Applied?.Invoke();
+    }
+
+    // Choose one ink for the entire gradient, including hover, not just its midpoint.
+    private static string ReadableInk(Color top, Color bottom)
+    {
+        static double Luminance(Color color)
+        {
+            static double Channel(byte value)
+            {
+                var channel = value / 255d;
+                return channel <= .04045 ? channel / 12.92 : Math.Pow((channel + .055) / 1.055, 2.4);
+            }
+            return .2126 * Channel(color.R) + .7152 * Channel(color.G) + .0722 * Channel(color.B);
+        }
+        var high = Math.Max(Luminance(top), Luminance(bottom));
+        var low = Math.Min(Luminance(top), Luminance(bottom));
+        return 1.05 / (high + .05) > (low + .05) / .05 ? "#FFFFFF" : "#000000";
     }
 
     // The grip is a drawing rather than a single brush, so it is rebuilt only when its color moves.

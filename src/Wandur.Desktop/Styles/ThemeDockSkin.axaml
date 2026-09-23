@@ -67,12 +67,12 @@
   </Style>
   <!-- Code-drawn Fleet panels use the real Dock template, independent of bitmap readiness. -->
   <Style Selector="local|ThemeDockSkinHost.fleet">
-    <Setter Property="Margin" Value="2,0,2,0" />
+    <Setter Property="Margin" Value="1,0,1,0" />
   </Style>
   <Style Selector="local|ThemeDockSkinHost.fleet dc|ToolChromeControl /template/ Border#PART_Border">
     <Setter Property="Margin" Value="0" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="BorderBrush" Value="#424743" />
+    <Setter Property="BorderBrush" Value="{DynamicResource FleetRimEdgeBrush}" />
   </Style>
   <Style Selector="local|ThemeDockSkinHost.fleet dc|ToolChromeControl /template/ Grid#PART_Grip">
     <Setter Property="Height" Value="{DynamicResource DockHeaderHeight}" />

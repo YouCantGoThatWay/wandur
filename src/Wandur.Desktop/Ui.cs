@@ -8,14 +8,14 @@ namespace Wandur.Desktop;
 
 internal static class Ui
 {
-    public static TextBlock Text(string text, double size = 13, string? cssClass = null)
+    public static TextBlock Text(string text, double size = 14, string? cssClass = null)
     {
         var block = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap };
         if (cssClass is not null) block.Classes.Add(cssClass);
         return block;
     }
 
-    public static TextBlock TextKey(string key, double size = 13, string? cssClass = null)
+    public static TextBlock TextKey(string key, double size = 14, string? cssClass = null)
     {
         var block = Text("", size, cssClass);
         block.Bind(TextBlock.TextProperty, LocalizedText.Binding(key));

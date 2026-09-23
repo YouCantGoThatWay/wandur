@@ -31,14 +31,14 @@
     <StyleInclude Source="avares://Wandur/Styles/ThemeDockSkin.axaml" />
     <Style Selector="Window">
       <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
-      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontSize" Value="14" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
     </Style>
     <Style Selector="Button.app-button">
       <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-      <Setter Property="Padding" Value="14,10" />
-      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="MinHeight" Value="32" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}" />
       <Setter Property="Background" Value="{DynamicResource ButtonFaceBrush}" />
@@ -90,21 +90,21 @@
       <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     </Style>
     <Style Selector="Button.app-button.quiet">
-      <Setter Property="Padding" Value="12,8" />
-      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="TextBlock.muted">
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
     <Style Selector="TextBlock.eyebrow">
-      <Setter Property="FontSize" Value="10" />
+      <Setter Property="FontSize" Value="11" />
       <Setter Property="LetterSpacing" Value="1.2" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
     </Style>
     <Style Selector="TextBox">
       <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="Padding" Value="10,6" />
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
       <!-- Fluent derives these from palette brushes the control resolves once, so they kept the previous
            theme's colour across a switch: the caret vanished entirely on a dark world. -->
@@ -119,7 +119,7 @@
       <Setter Property="CaretBrush" Value="{DynamicResource TerminalTextBrush}" />
       <Setter Property="SelectionBrush" Value="{DynamicResource TranscriptSelectionBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Padding" Value="10,6" />
     </Style>
     <Style Selector="TextBox:focus, TextBox:pointerover">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -277,9 +277,9 @@
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="MinWidth" Value="0" />
       <Setter Property="Height" Value="26" />
-      <Setter Property="Padding" Value="14,3" />
+      <Setter Property="Padding" Value="10,3" />
       <Setter Property="Margin" Value="0,-1,2,0" />
-      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontSize" Value="12" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
@@ -303,7 +303,7 @@
     </Style>
     <Style Selector="TabStripItem.output-footer-tab:selected">
       <Setter Property="Background" Value="{DynamicResource TerminalBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource TerminalTextBrush}" />
       <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
@@ -359,7 +359,7 @@
     <Style Selector=":is(Button).command-bar-button:disabled /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pointerover /template/ ContentPresenter#PART_ContentPresenter, :is(Button).command-bar-button:pressed /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.command-bar-button:checked /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+      <Setter Property="Foreground" Value="{ReflectionBinding $parent[Button].Foreground}" />
     </Style>
     <Style Selector="ComboBox.toolbar-world-picker">
       <Setter Property="Background" Value="{DynamicResource ShellBrush}" />
