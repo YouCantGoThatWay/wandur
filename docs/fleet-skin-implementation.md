@@ -308,3 +308,46 @@ port collision) and
 `SessionWorkerTests.ALibraryWithThreeEnabledScriptsStartsOneWorkerAndFansEachEventOutOnce`
 (the existing script-worker disposal null reference). Both passed on isolated
 reruns. Independent review found no actionable implementation issues.
+
+## Titlebar theme menu and fullscreen
+
+`ThemeMenuButton` adds a palette-and-chevron menu in the title band's right
+corner, beside the fullscreen button and clear of Windows caption controls.
+It lists preset and saved custom palettes with swatches and checked selections.
+Choosing a palette saves it and turns off world overrides. Follow MUD theme
+toggles that policy without losing the saved fallback palette. The menu reads
+the current session/settings when opened and again on selection; failures are
+reported through the existing notice area. The two new labels are translated
+in all five resource files. Regenerating the facade also corrected its existing
+member-order drift without changing those members.
+
+`MainWindow.TitleActions.cs` handles fullscreen chrome. The native fullscreen
+state hides the title, plaque, title actions and decorative band, releasing
+their layout space rather than covering it. The connection toolbar stays at
+the top. Exit Fullscreen is placed there, or in the existing footer if View >
+Hide Toolbar is active. The normal/maximized state and toolbar preference are
+preserved. Existing Control-Command-F on macOS and F11 elsewhere use the same
+toggle; Escape is not intercepted from terminal/editor interactions.
+
+The isolated native arm64 Mac probe in `artifacts/fullscreen-probe/` checked
+the AppKit fullscreen flag through entry, theme switching, exit, maximized
+restoration and toolbar-hidden entry/exit. With the toolbar visible the dock
+top moved from 104 to 43 DIP, reclaiming 61 DIP; with the toolbar hidden it
+moved to zero. Windowed title height returned to 50 DIP. No live user sessions
+were used. Native Windows transitions have not been exercised on this Mac.
+Headless control captures are under `artifacts/title-actions/`.
+
+The final rendered-menu test caught a first-opening empty presenter that
+selection-only checks missed. The opening handler now publishes the rebuilt
+item snapshot to the presenter. The regression asserts actual visual menu
+items, not just `IsOpen`, on every run. Native Mac first-opening menu layout
+also passed after this fix.
+
+Verification: all 13 new tests pass; localization generation and whitespace
+checks pass. The final full run passed all 725 Core tests and 551 of 552 Desktop
+tests. The failure was the previously observed script-login timing test
+`ScriptConnectionTests.AValueReportedInThePacketThatEndsThePasswordPromptReachesARunningPackScript`,
+which passed when rerun alone.
+An earlier full run hit the existing worker-disposal null reference in
+`WorldScriptLibraryTests.AliasesUseLibraryOrderAndEveryRunningScriptReceivesPublicLines`,
+which passed in its focused rerun. Neither script subsystem was changed.

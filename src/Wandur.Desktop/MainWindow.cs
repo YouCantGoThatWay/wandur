@@ -23,7 +23,7 @@ using Wandur.Desktop.ViewModels;
 
 namespace Wandur.Desktop;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     public SessionWorkspace Sessions { get; }
     public WorldCatalog Catalog { get; }
@@ -77,7 +77,7 @@ public sealed class MainWindow : Window
     private readonly IProfileAutomationFactory _profileAutomationFactory;
     private readonly IAgentClientServices? _agents;
     public ConnectionProfile? SelectedProfile => _worldPicker.SelectedItem as ConnectionProfile;
-    public bool ToolbarVisible { get => _toolbar?.IsVisible ?? true; set { _toolbar.IsVisible = value; if (FleetSkin.IsActive) UpdateTitleBarInsets(); _menus.Refresh(); } }
+    public bool ToolbarVisible { get => _toolbar?.IsVisible ?? true; set { _toolbar.IsVisible = value; if (FleetSkin.IsActive) UpdateTitleBarInsets(); RequestTitleChromeUpdate(); _menus.Refresh(); } }
 
     public MainWindow(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, WorldCatalog? catalog = null, IProfileAutomationFactory? profileAutomationFactory = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null)
     {
@@ -204,10 +204,14 @@ public sealed class MainWindow : Window
         chrome.Children.Add(_metalDrag);
         chrome.Children.Add(_ornaments);
         chrome.Children.Add(_plaqueTitleHost);
+        InitializeTitleActions();
         chrome.SizeChanged += (_, _) => RequestTitleChromeUpdate();
         Content = chrome;
         PropertyChanged += (_, e) =>
         {
+            if (e.Property == WindowStateProperty && e.NewValue is WindowState.FullScreen &&
+                e.OldValue is WindowState previous && previous is WindowState.Normal or WindowState.Maximized)
+                _beforeFullScreen = previous;
             if (e.Property == WindowStateProperty || e.Property == WindowDecorationMarginProperty)
                 RequestTitleChromeUpdate();
         };
@@ -468,6 +472,12 @@ public sealed class MainWindow : Window
 
     private void ApplyTitleChrome()
     {
+        if (WindowState == WindowState.FullScreen)
+        {
+            ApplyFullScreenChrome();
+            return;
+        }
+        RestoreWindowedChrome();
         _appTitle.FontWeight = FontWeight.SemiBold;
         SkinSize? header = null;
         SkinRect? headerText = null;
@@ -619,6 +629,14 @@ public sealed class MainWindow : Window
 
     private void UpdateTitleBarInsets()
     {
+        if (WindowState == WindowState.FullScreen)
+        {
+            _toolbar.Padding = new Thickness(12, 5);
+            _toolbar.MinHeight = 42;
+            _windowHeader.MinHeight = 0;
+            _headerStack.Margin = default;
+            return;
+        }
         if (FleetSkin.IsActive)
         {
             _toolbar.Padding = new Thickness(12, 13, 12, 5);
@@ -672,7 +690,8 @@ public sealed class MainWindow : Window
         // OS traffic lights are native, not Avalonia children. Reserve their platform-safe span;
         // decoration margins can enlarge it (for example when the native frame changes).
         var left = Math.Max(WindowDecorationMargin.Left, OperatingSystem.IsMacOS() && WindowState != WindowState.FullScreen ? 88 : 0);
-        var right = Math.Max(WindowDecorationMargin.Right, OperatingSystem.IsWindows() ? 144 : 0);
+        var right = TitleActionsRightInset + TitleActionsWidth;
+        PositionTitleActions();
         var place = FleetTitleLayout.Calculate(width, left, right, measure.DesiredSize.Width);
         _windowSkin.TitleModuleBounds = place.Bounds;
         ApplyFleetToolbarSurface();
@@ -699,6 +718,11 @@ public sealed class MainWindow : Window
 
     private void ApplyFleetToolbarSurface()
     {
+        if (WindowState == WindowState.FullScreen)
+        {
+            _toolbar.Background = FleetSkin.Toolbar;
+            return;
+        }
         if (!FleetSkin.IsActive || _chrome is null || _windowSkin is null ||
             _toolbar.TranslatePoint(default, _chrome) is not { } origin) return;
         var title = _windowSkin.TitleModuleBounds.Translate(new Vector(-origin.X, -origin.Y));

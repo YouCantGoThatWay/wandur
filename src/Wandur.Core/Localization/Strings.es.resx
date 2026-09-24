@@ -1886,4 +1886,6 @@ Detente después de recibir una lista del inventario.</value></data>
   <data name="ThemeHull" xml:space="preserve">
     <value>Casco</value>
   </data>
+  <data name="FollowMudTheme" xml:space="preserve"><value>Usar el tema del MUD</value></data>
+  <data name="ExitFullScreen" xml:space="preserve"><value>Salir de pantalla completa</value></data>
 </root>

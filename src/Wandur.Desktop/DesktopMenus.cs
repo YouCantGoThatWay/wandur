@@ -83,7 +83,7 @@ internal sealed class DesktopMenus
             Action(nameof(L.NextWorkspaceItem), () => { window.Workspace.SelectNextDocument(1); return Task.CompletedTask; }, Key.Tab, modifiers: KeyModifiers.Control, enabled: () => window.Workspace.Navigation.Entries.Count > 1),
             Action(nameof(L.PreviousWorkspaceItem), () => { window.Workspace.SelectNextDocument(-1); return Task.CompletedTask; }, Key.Tab, modifiers: KeyModifiers.Control | KeyModifiers.Shift, enabled: () => window.Workspace.Navigation.Entries.Count > 1), null,
             Action(nameof(L.Minimize), () => { window.WindowState = WindowState.Minimized; return Task.CompletedTask; }, OperatingSystem.IsMacOS() ? Key.M : null),
-            Action(nameof(L.FullScreen), () => { window.WindowState = window.WindowState == WindowState.FullScreen ? WindowState.Normal : WindowState.FullScreen; return Task.CompletedTask; }, OperatingSystem.IsMacOS() ? Key.F : Key.F11, modifiers: OperatingSystem.IsMacOS() ? KeyModifiers.Meta | KeyModifiers.Control : KeyModifiers.None));
+            Action(nameof(L.FullScreen), () => { window.ToggleFullScreen(); return Task.CompletedTask; }, OperatingSystem.IsMacOS() ? Key.F : Key.F11, modifiers: OperatingSystem.IsMacOS() ? KeyModifiers.Meta | KeyModifiers.Control : KeyModifiers.None));
         Group(nameof(L.Help), Action(nameof(L.GettingStarted), () => window.ShowInformationAsync(L.WandurHelp, L.GettingStarted2, L.Format(L.GettingStartedHelp, OperatingSystem.IsMacOS() ? "⌘W" : "Ctrl+W"))), about);
         NativeMenu.SetMenu(window, Native);
         Native.NeedsUpdate += (_, _) => Refresh();

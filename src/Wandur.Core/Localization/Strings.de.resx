@@ -1886,4 +1886,6 @@ Stoppe nach einer Inventarliste.</value></data>
   <data name="ThemeHull" xml:space="preserve">
     <value>Rumpf</value>
   </data>
+  <data name="FollowMudTheme" xml:space="preserve"><value>MUD-Design verwenden</value></data>
+  <data name="ExitFullScreen" xml:space="preserve"><value>Vollbildmodus verlassen</value></data>
 </root>

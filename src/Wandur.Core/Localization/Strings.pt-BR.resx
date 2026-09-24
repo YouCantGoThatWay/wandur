@@ -1886,4 +1886,6 @@ Pare após receber uma lista do inventário.</value></data>
   <data name="ThemeHull" xml:space="preserve">
     <value>Casco</value>
   </data>
+  <data name="FollowMudTheme" xml:space="preserve"><value>Usar tema do MUD</value></data>
+  <data name="ExitFullScreen" xml:space="preserve"><value>Sair da tela cheia</value></data>
 </root>

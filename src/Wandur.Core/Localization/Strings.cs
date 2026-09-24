@@ -347,7 +347,6 @@ public static class Strings
     public static string SystemLanguage => Get(nameof(SystemLanguage));
     public static string UnsupportedLanguage => Get(nameof(UnsupportedLanguage));
     public static string ThemeEmber => Get(nameof(ThemeEmber));
-    public static string ThemeHull => Get(nameof(ThemeHull));
     public static string ThemeMoonlight => Get(nameof(ThemeMoonlight));
     public static string ThemeForest => Get(nameof(ThemeForest));
     public static string ThemePaper => Get(nameof(ThemePaper));
@@ -597,7 +596,6 @@ public static class Strings
     public static string MapEditorTitle => Get(nameof(MapEditorTitle));
     public static string WorldThemeCouldNotBeSaved => Get(nameof(WorldThemeCouldNotBeSaved));
     public static string DeleteSavedWorld => Get(nameof(DeleteSavedWorld));
-    public static string DeleteSavedWorldPrompt => Get(nameof(DeleteSavedWorldPrompt));
     public static string SettingsTitle => Get(nameof(SettingsTitle));
     public static string SettingsGeneral => Get(nameof(SettingsGeneral));
     public static string SettingsAppearance => Get(nameof(SettingsAppearance));
@@ -917,4 +915,8 @@ public static class Strings
     public static string ChannelRuleChannel => Get(nameof(ChannelRuleChannel));
     public static string ChannelRulePattern => Get(nameof(ChannelRulePattern));
     public static string ChannelRuleReply => Get(nameof(ChannelRuleReply));
+    public static string DeleteSavedWorldPrompt => Get(nameof(DeleteSavedWorldPrompt));
+    public static string ThemeHull => Get(nameof(ThemeHull));
+    public static string FollowMudTheme => Get(nameof(FollowMudTheme));
+    public static string ExitFullScreen => Get(nameof(ExitFullScreen));
 }

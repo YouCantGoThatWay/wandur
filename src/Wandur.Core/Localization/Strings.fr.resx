@@ -1886,4 +1886,6 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   <data name="ThemeHull" xml:space="preserve">
     <value>Coque</value>
   </data>
+  <data name="FollowMudTheme" xml:space="preserve"><value>Utiliser le thème du MUD</value></data>
+  <data name="ExitFullScreen" xml:space="preserve"><value>Quitter le plein écran</value></data>
 </root>
