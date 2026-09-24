@@ -188,3 +188,44 @@ completion does not imply background map restoration has completed. The test
 now awaits the existing `MapReady` task before asserting restored rooms; no
 production mapping code changed. The updated test and all palette tests passed
 together in a 16-test focused run. Native Windows remains unverified.
+
+## Compact chrome and directory refinements (2026-09-23)
+
+These refinements remain in `wandur-client-fleet`, branch
+`design/fleet-material-polish`, and are not yet merged into the original
+`wandur-client` checkout's `main`.
+
+- Side docks physically touching the main workspace's left or right edge omit
+  that outside rim and margin. Interior edges and floating docks retain their
+  frames. The decision follows arranged bounds, not a dock's alignment label.
+- Footer shortcut hints are vertically centered. Top toolbar labels and the
+  world selector use 13-DIP text; dock/document headings retain 14-DIP text.
+- Map and Channels toolbars share Workspace's metal and ink. Map actions use
+  26-DIP targets. Search, Follow, Fit and More stay in the primary row; Stop
+  remains available during walking. Floor navigation and the single labeled
+  grid checkbox live in More, or in the editor's permanent inspector. Expanded
+  search occupies a separate row and is tested at 240 DIP.
+- Channel tabs have tighter spacing and padding without changing message or
+  reply colors. Terminal, map and channel work areas retain their palette.
+- Find a MUD has a full-width search field, a clearer page heading, and compact
+  result cards with identity tiles. Existing selected-world artwork, filtering,
+  scroll restoration and connection actions remain in place. Result cards do
+  not introduce extra artwork requests.
+- On macOS the title band's perimeter is flat metal instead of an inset bevel
+  close to the traffic lights. Native button positions are unchanged. The
+  central plaque, receiving socket and fixed 50-DIP native titlebar height are
+  preserved. Windows keeps the original cap bevel.
+
+Actual Avalonia renders are in `artifacts/refinement-round2/`, including
+`fleet-1380x900.png` and `directory-polish-{hull,slate}-{1040x680,1536x1024}.png`.
+These are control renders, not generated design images. The native Mac probe
+completed 22 preset switches and resizes with temporary data. The inspection
+tool could not resolve that standalone native process for a screenshot, so
+native traffic-light spacing and Windows appearance still need visual review.
+
+Verification: 529 Desktop tests and 725 Core tests passed. The first full
+Desktop run had one timeout in the untouched script-login packet fixture;
+it passed in the focused rerun and the final full run. Updated layout tests
+now reflect 13-DIP toolbar text and floor controls behind More. Independent
+review found no remaining product issues. The pre-existing localization
+facade drift noted above remains unchanged; no localization files were edited.

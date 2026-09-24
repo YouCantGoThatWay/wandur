@@ -162,6 +162,7 @@ public sealed class MainWindow : Window
         _noticeText.VerticalAlignment = VerticalAlignment.Center;
         var statusRight = Ui.TextKey(nameof(L.CtrlTabSwitchSessionsDragPanelHeadersToArrange), 10, "muted");
         statusRight.HorizontalAlignment = HorizontalAlignment.Right;
+        statusRight.VerticalAlignment = VerticalAlignment.Center;
         _footerHint = statusRight;
         Grid.SetColumn(statusRight, 1);
         var footerSeparator = Ui.Text("·", 10); footerSeparator.Classes.Add("muted"); footerSeparator.VerticalAlignment = VerticalAlignment.Center;
@@ -242,7 +243,7 @@ public sealed class MainWindow : Window
         _headerStack.Children.Remove(_menus.Fallback);
         _headerStack.Children.Insert(FleetSkin.IsActive ? _headerStack.Children.Count : 0, _menus.Fallback);
         _headerStack.Margin = default;
-        _worldPicker.FontSize = FleetSkin.IsActive ? 14 : 12;
+        _worldPicker.FontSize = FleetSkin.IsActive ? 13 : 12;
         _worldPicker.Height = FleetSkin.IsActive ? 32 : 28;
         if (_toolbar.Child is Grid toolbarGrid)
         {

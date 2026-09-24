@@ -43,7 +43,7 @@ public sealed partial class MapView : UserControl
         header.Children.Add(Field(nameof(L.MapArea), area));
         header.Children.Add(Check(nameof(L.MapGridMode), "MapGridMode", nameof(model.IsGridMode)));
         var floorLabel = Label(nameof(model.FloorLabel), 12, null);
-        floorLabel.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("InstrumentTextBrush"));
+        floorLabel.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("TextBrush"));
         floorLabel.VerticalAlignment = VerticalAlignment.Center;
         var floorUp = Ui.ToolbarIconKey(new Button { Name = "MapFloorUp", Command = model.FloorUpCommand }, "M 3,8 L 8,3 L 13,8 M 8,3 V 14", nameof(L.MapFloorUp));
         var floorDown = Ui.ToolbarIconKey(new Button { Name = "MapFloorDown", Command = model.FloorDownCommand }, "M 3,8 L 8,13 L 13,8 M 8,13 V 2", nameof(L.MapFloorDown));
@@ -69,9 +69,11 @@ public sealed partial class MapView : UserControl
             "M 1,6 V 1 H 6 M 10,1 H 15 V 6 M 15,10 V 15 H 10 M 6,15 H 1 V 10", nameof(L.MapFitFloor));
         var stop = Ui.ToolbarIconKey(new Button { Name = "MapStopWalkingToolbar", Command = model.StopWalkingCommand }, "M 3,3 H 13 V 13 H 3 Z", nameof(L.MapStopWalk));
         stop.Bind(IsVisibleProperty, new Binding(nameof(model.IsWalking)));
-        var gridToggle = Ui.ToolbarIconKey(new ToggleButton { Name = "MapGridToggle" },
-            "M 1,1 H 15 V 15 H 1 Z M 1,6 H 15 M 1,10 H 15 M 6,1 V 15 M 10,1 V 15", nameof(L.MapGridMode));
-        gridToggle.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.IsGridMode)) { Mode = BindingMode.TwoWay });
+        header.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 2,
+            Children = { floorDown, floorLabel, floorUp }
+        });
         var actions = new WrapPanel { Children = { recheck, exercise } };
         var next = Action(nameof(L.MapNextObservation), "NextMapObservation", model.NextExerciseCommand);
         var exercisePanel = new StackPanel { Spacing = 5, Children = { Label(nameof(model.ExerciseProgress), 10), Label(nameof(model.ExerciseInstruction), 11, null), next } };
@@ -141,9 +143,11 @@ public sealed partial class MapView : UserControl
         tools.Bind(Border.CornerRadiusProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("SmallCornerRadius"));
         tools.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));
         tools.Bind(Border.BorderBrushProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
-        var buttons = new WrapPanel { Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Children = { floorDown, floorLabel, floorUp, autoCenter, fit, gridToggle, stop } };
+        var searchToggle = Ui.ToolbarIconKey(new ToggleButton { Name = "MapSearchToggle" },
+            "M 6,2.5 A 3.5,3.5 0 1 0 6,9.5 A 3.5,3.5 0 1 0 6,2.5 M 8.5,8.5 L 13,13", nameof(L.MapRoomSearchToggle));
+        searchToggle.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(model.IsRoomSearchVisible)) { Mode = BindingMode.TwoWay });
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2,
+            Children = { searchToggle, autoCenter, fit } };
         Control workspace = map;
         if (editingWorkspace)
         {
@@ -164,13 +168,11 @@ public sealed partial class MapView : UserControl
             buttons.Children.Add(toggle);
             map.Children.Add(tools);
         }
+        buttons.Children.Add(stop);
         var searchRow = CreateRoomSearchRow();
-        var toolbarContent = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Children = { searchRow, buttons } };
-        Grid.SetColumn(buttons, 1);
+        var toolbarContent = new StackPanel { Spacing = 2, Children = { buttons, searchRow } };
         var toolbar = Ui.Toolbar(toolbarContent, "MapToolbar");
-        // The grid option remains available in Tools at compact dock widths.
-        toolbar.SizeChanged += (_, args) => gridToggle.IsVisible = args.NewSize.Width >= 300;
-        toolbar.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("InstrumentBarBrush"));
+        toolbar.Padding = new Thickness(4, 2);
         var protocols = Label(nameof(model.ProtocolStatus), 10);
         protocols.Name = "MapProtocolStatus";
         protocols.TextWrapping = TextWrapping.NoWrap;
@@ -235,13 +237,15 @@ public sealed partial class MapView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); Model.Attach(); }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e) { Model.Detach(); base.OnDetachedFromVisualTree(e); }
 
-    /// <summary>The magnifier reveals a text box, a live match count and a Next button, all in the one toolbar row.</summary>
+    /// <summary>Expanded search has its own row so it never crowds the primary actions in a narrow dock.</summary>
     private Control CreateRoomSearchRow()
     {
-        var toggle = Ui.ToolbarIconKey(new ToggleButton { Name = "MapSearchToggle" },
-            "M 6,2.5 A 3.5,3.5 0 1 0 6,9.5 A 3.5,3.5 0 1 0 6,2.5 M 8.5,8.5 L 13,13", nameof(L.MapRoomSearchToggle));
-        toggle.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(Model.IsRoomSearchVisible)) { Mode = BindingMode.TwoWay });
-        var box = new TextBox { Name = "MapSearchBox", Width = 150, FontSize = 11, MinHeight = 0, Padding = new Thickness(8, 3), VerticalAlignment = VerticalAlignment.Center };
+        var box = new TextBox { Name = "MapSearchBox", FontSize = 11, MinWidth = 0, MinHeight = 0, Height = 26,
+            Padding = new Thickness(6, 3), VerticalAlignment = VerticalAlignment.Center };
+        ThemeService.SyncTerminalField(box);
+        box.AttachedToVisualTree += (_, _) => { ThemeService.Applied += SyncSearchField; SyncSearchField(); };
+        box.DetachedFromVisualTree += (_, _) => ThemeService.Applied -= SyncSearchField;
+        void SyncSearchField() => ThemeService.SyncTerminalField(box);
         box.Bind(TextBox.PlaceholderTextProperty, LocalizedText.Binding(nameof(L.MapRoomSearchPlaceholder)));
         box.Bind(TextBox.TextProperty, new Binding(nameof(Model.RoomSearchQuery)) { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
         box.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchVisible)));
@@ -254,12 +258,18 @@ public sealed partial class MapView : UserControl
         };
         var count = Ui.Text("", 10, "muted");
         count.Name = "MapSearchCount";
+        count.TextWrapping = TextWrapping.NoWrap;
+        count.TextTrimming = TextTrimming.CharacterEllipsis;
         count.VerticalAlignment = VerticalAlignment.Center;
         count.Bind(TextBlock.TextProperty, new Binding(nameof(Model.RoomSearchCountLabel)));
         count.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchActive)));
         var next = Ui.ToolbarIconKey(new Button { Name = "MapSearchNext", Command = Model.NextRoomSearchMatchCommand }, "M 5,3 L 10,8 L 5,13", nameof(L.MapRoomSearchNext));
         next.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchVisible)));
-        return new StackPanel { Name = "MapSearchRow", Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { toggle, box, next, count } };
+        Grid.SetColumn(next, 1);
+        var fields = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 2, Children = { box, next } };
+        var row = new StackPanel { Name = "MapSearchRow", Spacing = 2, Children = { fields, count } };
+        row.Bind(IsVisibleProperty, new Binding(nameof(Model.IsRoomSearchVisible)));
+        return row;
     }
 
     /// <summary>Matches on a floor other than the one shown, reachable without stepping through every match.</summary>

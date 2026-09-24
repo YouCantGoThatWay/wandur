@@ -12,6 +12,8 @@ using Wandur.Desktop.ViewModels;
 using System.ComponentModel;
 using Avalonia.VisualTree;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Styling;
 
 namespace Wandur.Desktop.Views;
 
@@ -22,9 +24,9 @@ public sealed partial class WorldBrowserView : UserControl
     private bool _renderingResults;
     private bool _restoringScroll;
     private int _detailRenderVersion;
-    private readonly TextBox _search = new() { Name = "DirectorySearch", [!TextBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.SearchWorldsThemesOrAnAddress)), MaxLength = 150 };
+    private readonly TextBox _search = new() { Name = "DirectorySearch", [!TextBox.PlaceholderTextProperty] = LocalizedText.Binding(nameof(L.SearchWorldsThemesOrAnAddress)), MaxLength = 150, FontSize = 14, MinHeight = 36 };
     private readonly ListBox _list = new() { Name = "DirectoryResults", Background = Brushes.Transparent };
-    private readonly TextBlock _count = Ui.Text("", 11, "muted");
+    private readonly TextBlock _count = Ui.Text("", 12, "muted");
     private readonly TextBlock _status = Ui.Text("", 11, "muted");
     private readonly TextBlock _feedback = Ui.Text("", 12, "muted");
     private readonly ComboBox _connectionFilter = LocalizedChoice("DirectoryConnectionFilter", nameof(L.AllWorlds), nameof(L.MUDConnections), nameof(L.BrowserOnlyWorlds));
@@ -52,7 +54,8 @@ public sealed partial class WorldBrowserView : UserControl
     public WorldBrowserView(WorldBrowserViewModel model, WorldCatalog catalog)
     {
         _catalog = catalog; _model = model; DataContext = model;
-        var heading = Ui.TextKey(nameof(L.FindAMUD), 12);
+        var heading = Ui.TextKey(nameof(L.FindAMUD), 22);
+        heading.Name = "DirectoryHeading";
         heading.FontWeight = FontWeight.SemiBold;
         heading.VerticalAlignment = VerticalAlignment.Center;
         _refresh = Ui.ToolbarIconKey(new Button { Name = "RefreshDirectory", Command = _model.RefreshCommand },
@@ -64,6 +67,7 @@ public sealed partial class WorldBrowserView : UserControl
         _connectionFilter.SelectionChanged += (_, _) => Filter();
         _onlineFilter.IsCheckedChanged += (_, _) => Filter();
         _onlineFilter.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.BasedOnTheDirectorySLatestReportNotA)));
+        StyleResults();
         _list.ItemTemplate = new FuncDataTemplate<WorldListing>((world, _) => world is null ? null : ResultCard(world));
         _list.SelectionChanged += (_, _) =>
         {
@@ -71,14 +75,14 @@ public sealed partial class WorldBrowserView : UserControl
             _model.SelectedWorld = _list.SelectedItem as WorldListing;
             ShowSelection();
         };
-        var sortRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 10, Children = { _onlineFilter, _sort } };
+        var sortRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 4, Children = { _onlineFilter, _sort } };
         Grid.SetColumn(_sort, 1);
         _sort.Bind(ToolTip.TipProperty, LocalizedText.Binding(nameof(L.SortWorldsByRelevanceNamePopulationRatingOrDate)));
         _sort.Bind(Avalonia.Automation.AutomationProperties.NameProperty, LocalizedText.Binding(nameof(L.SortWorldsBy)));
-        var filters = Ui.Stack(_connectionFilter, sortRow);
+        var filters = new StackPanel { Spacing = 6, Children = { _connectionFilter, sortRow } };
         _sort.SelectionChanged += (_, _) => Filter();
-        var left = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"), RowSpacing = 6, Children = { _search, filters, _count, _list } };
-        Grid.SetRow(filters, 1); Grid.SetRow(_count, 2); Grid.SetRow(_list, 3);
+        var left = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*"), RowSpacing = 8, Children = { filters, _count, _list } };
+        Grid.SetRow(_count, 1); Grid.SetRow(_list, 2);
         _artFrame = Ui.Card(new Grid { Children = { _image, _artPlaceholder } }, 0);
         _artFrame.Name = "DirectoryArtworkFrame";
         _artFrame.ClipToBounds = true;
@@ -93,16 +97,44 @@ public sealed partial class WorldBrowserView : UserControl
         var detailCard = Ui.Card(detailLayout, 0);
         detailCard.ClipToBounds = true;
         Grid.SetColumn(detailCard, 1);
-        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,3*"), ColumnSpacing = 10, Children = { left, detailCard } };
-        body.ColumnDefinitions[0].MaxWidth = 300;
-        var footer = Ui.Stack(_feedback, _status);
+        var body = new Grid { ColumnDefinitions = new ColumnDefinitions("5*,7*"), ColumnSpacing = 12, Children = { left, detailCard } };
+        body.ColumnDefinitions[0].MaxWidth = 360;
+        var footer = new StackPanel { Spacing = 4, Children = { _feedback, _status } };
         var advanced = CreateAdvancedSearch();
-        var contents = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), RowSpacing = 6, Margin = new Thickness(10), Children = { advanced, body, footer } };
-        Grid.SetRow(body, 1); Grid.SetRow(footer, 2);
+        var contents = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), RowSpacing = 6, Margin = new Thickness(10), Children = { _search, advanced, body, footer } };
+        Grid.SetRow(advanced, 1); Grid.SetRow(body, 2); Grid.SetRow(footer, 3);
         Grid.SetRow(contents, 1);
         Content = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { Ui.Toolbar(header, "DirectoryTitleBar"), contents } };
         _timer.Tick += async (_, _) => { if (_bitmap is null && !_artLoading && _list.SelectedItem is WorldListing world) await LoadArtAsync(world); };
         _ready = true; ApplyQueryToControls();
+    }
+
+    private void StyleResults()
+    {
+        // Reuse the app's keyboard/focus-aware row template; keep all card styling local to this list.
+        _list.Classes.Add("world-list");
+        _list.Styles.Add(new Style(s => s.OfType<ListBox>().Class("world-list").Descendant().OfType<ListBoxItem>())
+        {
+            Setters = { new Setter(PaddingProperty, new Thickness(0)), new Setter(MarginProperty, new Thickness(0, 0, 0, 6)) }
+        });
+        _list.Styles.Add(new Style(s => s.OfType<Border>().Class("directory-result"))
+        {
+            Setters = { new Setter(Border.BackgroundProperty, new DynamicResourceExtension("PanelBrush")),
+                new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush")) }
+        });
+        _list.Styles.Add(new Style(s => s.OfType<ListBoxItem>().Class(":pointerover").Descendant().OfType<Border>().Class("directory-result"))
+        {
+            Setters = { new Setter(Border.BackgroundProperty, new DynamicResourceExtension("ButtonHoverBrush")) }
+        });
+        _list.Styles.Add(new Style(s => s.OfType<ListBoxItem>().Class(":selected").Descendant().OfType<Border>().Class("directory-result"))
+        {
+            Setters = { new Setter(Border.BackgroundProperty, new DynamicResourceExtension("WorldSelectionBrush")),
+                new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("AccentBrush")) }
+        });
+        _list.Styles.Add(new Style(s => s.OfType<ListBoxItem>().Class(":focus-visible").Descendant().OfType<Border>().Class("directory-result"))
+        {
+            Setters = { new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("TextBrush")) }
+        });
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -155,6 +187,8 @@ public sealed partial class WorldBrowserView : UserControl
         _count.Text = _model.Count;
         _status.Text = _model.Status;
         _feedback.Text = _model.Feedback;
+        _feedback.IsVisible = !string.IsNullOrWhiteSpace(_model.Feedback);
+        _status.IsVisible = !string.IsNullOrWhiteSpace(_model.Status);
         _filterSummary.Text = _model.FilterSummary;
         _filterHint.Text = _model.FilterHint;
     }

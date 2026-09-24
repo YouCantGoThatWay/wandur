@@ -57,7 +57,8 @@ public sealed class FleetReferenceCaptureTests
             Assert.True(mapToolbar.Bounds.Height <= 40, "Map controls should fit a single compact toolbar row at supported dock widths.");
             var mapTools = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MapToolsToggle");
             var mapInk = Assert.IsAssignableFrom<Avalonia.Media.ISolidColorBrush>(mapTools.Foreground);
-            Assert.True(mapInk.Color.R >= 180, "Map toolbar uses the dark instrument surface, not pale chrome.");
+            Assert.True(ContrastProbe.Contrast(mapInk.Color, ContrastProbe.Surface(mapTools, Avalonia.Media.Colors.Transparent)) >= 4.5,
+                "Map toolbar ink should contrast with the shared shell metal behind its glyph.");
             var mapHost = mapToolbar.GetVisualAncestors().OfType<ThemeDockSkinHost>().First();
             var channelHost = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "ChannelsToolbar")
                 .GetVisualAncestors().OfType<ThemeDockSkinHost>().First();

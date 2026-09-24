@@ -185,7 +185,7 @@ public sealed class MapViewTests
     }
 
     [AvaloniaFact]
-    public void ToolbarGridToggleTracksAreaSettingsAndInspector()
+    public void ToolsGridCheckboxTracksAreaSettings()
     {
         var tracker = new RoomMapTracker();
         var model = new MapViewModel(tracker);
@@ -194,25 +194,24 @@ public sealed class MapViewTests
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
-            var toggle = Assert.Single(view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>(),
-                c => c.Name == "MapGridToggle");
-            Assert.False(toggle.IsChecked);
-            var point = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left);
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(model.IsGridMode);
             view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
                 .Single(c => c.Name == "MapToolsToggle").IsChecked = true;
             Dispatcher.UIThread.RunJobs();
             var inspector = view.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Name == "MapGridMode");
+            Assert.False(inspector.IsChecked);
+            var point = inspector.TranslatePoint(new Point(inspector.Bounds.Width / 2, inspector.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(model.IsGridMode);
             Assert.True(inspector.IsChecked);
             Assert.True(Assert.Single(tracker.Snapshot.AreaSettings).GridMode);
             model.SelectedArea = "Another area";
-            Assert.False(toggle.IsChecked);
+            Assert.False(inspector.IsChecked);
             model.SelectedArea = "";
-            Assert.True(toggle.IsChecked);
+            Assert.True(inspector.IsChecked);
             inspector.IsChecked = false;
-            Assert.False(toggle.IsChecked); Assert.False(model.IsGridMode);
+            Assert.False(model.IsGridMode);
+            Assert.False(Assert.Single(tracker.Snapshot.AreaSettings, area => area.Area == "").GridMode);
         }
         finally { window.Close(); }
     }
@@ -273,8 +272,6 @@ public sealed class MapViewTests
         try
         {
             window.Show(); Dispatcher.UIThread.RunJobs();
-            Assert.NotNull(view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorUp"));
-            Assert.NotNull(view.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorDown"));
             Assert.DoesNotContain(view.GetVisualDescendants().OfType<Button>(), b => b.Name is "CenterMap" or "MapZoomIn" or "MapZoomOut");
             Assert.NotNull(view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().FirstOrDefault(b => b.Name == "MapAutoCenterToggle"));
             Assert.NotNull(view.GetVisualDescendants().OfType<Slider>().FirstOrDefault(s => s.Name == "MapZoomSlider"));
@@ -285,6 +282,8 @@ public sealed class MapViewTests
             var toggle = view.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Single(b => b.Name == "MapToolsToggle");
             toggle.IsChecked = true; Dispatcher.UIThread.RunJobs();
             Assert.True(panel.IsVisible);
+            Assert.NotNull(panel.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorUp"));
+            Assert.NotNull(panel.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Name == "MapFloorDown"));
             var controls = panel.GetVisualDescendants().OfType<Control>().ToArray();
             foreach (var name in new[] { "MapAreaChoice", "MapGridMode", "MapRouteTools" })
                 Assert.Contains(controls, c => c.Name == name);

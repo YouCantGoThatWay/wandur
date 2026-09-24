@@ -35,7 +35,7 @@ public sealed class ChannelsView : UserControl
         note.Bind(IsVisibleProperty, new Binding(nameof(model.IsMirrorNoteVisible)));
         var tabs = new ListBox
         {
-            Name = "ChannelTabs", Background = Brushes.Transparent, Padding = new Thickness(4, 2),
+            Name = "ChannelTabs", Background = Brushes.Transparent, Padding = default,
             ItemsPanel = new FuncTemplate<Panel?>(() => new WrapPanel { Orientation = Orientation.Horizontal }),
             ItemTemplate = new FuncDataTemplate<ChannelTabViewModel>((tab, _) => tab is null ? null : TabHeader(tab))
         };
@@ -72,7 +72,7 @@ public sealed class ChannelsView : UserControl
         replyRow.Bind(Border.BackgroundProperty, new DynamicResourceExtension("TerminalBrush"));
         replyRow.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
         var header = Ui.Toolbar(tabs, "ChannelsToolbar");
-        header.Bind(Border.BackgroundProperty, new DynamicResourceExtension("InstrumentBarBrush"));
+        header.Padding = new Thickness(4, 2);
         Grid.SetRow(note, 1); Grid.SetRow(messages, 2); Grid.SetRow(replyRow, 3);
         var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, note, messages, replyRow } };
         body.Bind(BackgroundProperty, new DynamicResourceExtension("ChannelBodyBrush"));
@@ -82,7 +82,7 @@ public sealed class ChannelsView : UserControl
     /// <summary>A tab wears its unread count until the reader looks at it.</summary>
     private static Control TabHeader(ChannelTabViewModel tab)
     {
-        var title = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+        var title = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         title.Bind(TextBlock.TextProperty, new Binding(nameof(tab.Title)));
         if (tab.IsPrivate) title.FontWeight = FontWeight.SemiBold;
         var count = new TextBlock { FontSize = 9, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, -1, 0, 0) };
@@ -94,7 +94,8 @@ public sealed class ChannelsView : UserControl
         };
         badge.Bind(IsVisibleProperty, new Binding(nameof(tab.HasUnread)));
         badge.Bind(Border.BackgroundProperty, new DynamicResourceExtension("AccentBrush"));
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { title, badge } };
+        count.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("PrimaryTextBrush"));
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, Children = { title, badge } };
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) { base.OnAttachedToVisualTree(e); Model.Attach(); }

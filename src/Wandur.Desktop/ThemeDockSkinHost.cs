@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.VisualTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Dock.Avalonia.Controls;
 using Wandur.Core.Discovery;
 
 namespace Wandur.Desktop;
@@ -59,12 +60,44 @@ public sealed class ThemeDockSkinHost : Decorator
 
     public ThemeDockSkinHost()
     {
-        DetachedFromVisualTree += (_, _) => ThemeService.Applied -= OnThemeApplied;
-        AttachedToVisualTree += (_, _) => { ThemeService.Applied += OnThemeApplied; OnThemeApplied(); };
+        DetachedFromVisualTree += (_, _) => { ThemeService.Applied -= OnThemeApplied; LayoutUpdated -= UpdateJoinedEdges; };
+        AttachedToVisualTree += (_, _) =>
+        {
+            ThemeService.Applied += OnThemeApplied;
+            LayoutUpdated += UpdateJoinedEdges;
+            OnThemeApplied();
+        };
     }
 
     private bool _fleet;
-    private Thickness ActiveInset => IsSkinActive ? Inset : _fleet ? new Thickness(2) : default;
+    private bool _joinsLeft;
+    private bool _joinsRight;
+    private Thickness ActiveInset => IsSkinActive ? Inset : _fleet
+        ? new Thickness(_joinsLeft ? 0 : 2, 2, _joinsRight ? 0 : 2, 2) : default;
+
+    private void UpdateJoinedEdges(object? sender, EventArgs e)
+    {
+        var left = false;
+        var right = false;
+        // Physical adjacency matters: a left-aligned dock can be nested in the middle
+        // after dragging. Floating windows always retain a complete frame.
+        if (_fleet && !IsSkinActive && TopLevel.GetTopLevel(this) is MainWindow && Bounds.Width > 0)
+        {
+            var workspace = this.GetVisualAncestors().OfType<DockControl>().FirstOrDefault(d => d.Name == "WorkspaceDock");
+            if (workspace is not null && workspace.Bounds.Width > 0 && this.TranslatePoint(default, workspace) is { } origin)
+            {
+                left = Math.Abs(origin.X) <= 1.5;
+                right = Math.Abs(workspace.Bounds.Width - origin.X - Bounds.Width) <= 1.5;
+            }
+        }
+        if (left == _joinsLeft && right == _joinsRight) return;
+        _joinsLeft = left;
+        _joinsRight = right;
+        Classes.Set("joined-left", left);
+        Classes.Set("joined-right", right);
+        InvalidateMeasure();
+        InvalidateVisual();
+    }
 
     /// <summary>
     /// The shape each panel border was templated with. The corners come through a converter on a binding
@@ -168,7 +201,17 @@ public sealed class ThemeDockSkinHost : Decorator
         base.Render(context);
         if (_fleet && !IsSkinActive && Bounds.Width > 6 && Bounds.Height > 6)
         {
-            context.DrawRectangle(FleetSkin.DockMetal, new Pen(FleetSkin.RimEdge, 1), new Rect(Bounds.Size).Deflate(.5), 3, 3);
+            var edge = new Pen(FleetSkin.RimEdge, 1);
+            if (!_joinsLeft && !_joinsRight)
+                context.DrawRectangle(FleetSkin.DockMetal, edge, new Rect(Bounds.Size).Deflate(.5), 3, 3);
+            else
+            {
+                context.FillRectangle(FleetSkin.DockMetal, new Rect(Bounds.Size));
+                context.DrawLine(edge, new(0, .5), new(Bounds.Width, .5));
+                context.DrawLine(edge, new(0, Bounds.Height - .5), new(Bounds.Width, Bounds.Height - .5));
+                if (!_joinsLeft) context.DrawLine(edge, new(.5, 0), new(.5, Bounds.Height));
+                if (!_joinsRight) context.DrawLine(edge, new(Bounds.Width - .5, 0), new(Bounds.Width - .5, Bounds.Height));
+            }
             context.DrawLine(new Pen(FleetSkin.RimHighlight, 1), new(2, 1.5), new(Bounds.Width - 2, 1.5));
         }
         if (!IsSkinActive || BorderBitmap is not { } bitmap || BorderMeta is not { } meta) return;

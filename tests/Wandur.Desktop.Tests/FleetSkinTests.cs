@@ -204,7 +204,8 @@ public sealed class FleetSkinTests
             Assert.True(toolbar.TranslatePoint(default, window)!.Value.Y >= 50);
             var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
             var documentHeader = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentHeader");
-            Assert.Equal(Assert.IsType<TextBlock>(documentHeader.Child).FontSize, picker.FontSize);
+            Assert.Equal(14, Assert.IsType<TextBlock>(documentHeader.Child).FontSize);
+            Assert.Equal(13, picker.FontSize);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }

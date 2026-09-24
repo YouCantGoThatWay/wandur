@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Wandur.Core.Discovery;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Wandur.Desktop.Services;
 
 namespace Wandur.Desktop.Views;
 
@@ -12,13 +14,30 @@ public sealed partial class WorldBrowserView
 {
     private static Control ResultCard(WorldListing world)
     {
-        var panel = new StackPanel { Spacing = 2, Margin = new Thickness(3, 4) };
-        panel.Children.Add(new TextBlock { Text = world.Name, FontSize = 12, FontWeight = FontWeight.SemiBold, MaxLines = 1, TextTrimming = TextTrimming.CharacterEllipsis });
+        var initials = new TextBlock { Text = WorldThumbnails.Initials(world.Name), FontSize = 14,
+            FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        initials.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("TextBrush"));
+        var identity = new Border { Name = "DirectoryResultIdentity", Width = 32, Height = 32, Child = initials,
+            VerticalAlignment = VerticalAlignment.Top, BorderThickness = new Thickness(1) };
+        identity.Bind(Border.BackgroundProperty, new DynamicResourceExtension("ShellBrush"));
+        identity.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("LineBrush"));
+        identity.Bind(Border.CornerRadiusProperty, new DynamicResourceExtension("SmallCornerRadius"));
+        var text = new StackPanel { Spacing = 3 };
+        text.Children.Add(new TextBlock { Text = world.Name, FontSize = 14, FontWeight = FontWeight.SemiBold,
+            MaxLines = 2, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis });
         var categories = string.Join(" · ", new[] { world.Features.Theme, world.Features.Kind, world.Features.Language }.Where(s => s.Length > 0));
-        if (categories.Length > 0) panel.Children.Add(Ui.Text(categories, 10, "muted"));
+        if (categories.Length > 0) text.Children.Add(new TextBlock { Text = categories, FontSize = 11, Classes = { "muted" },
+            MaxLines = 1, TextTrimming = TextTrimming.CharacterEllipsis });
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 8, Children = { identity, text } };
+        Grid.SetColumn(text, 1);
         var population = world.Population.LatestCount is { } n ? L.Format(L.PlayersLastObserved, n) : world.PopulationSummary;
-        panel.Children.Add(Ui.Text(population + " · " + world.StatusText, 10, "muted"));
-        return panel;
+        var metadata = Ui.Text(population + " · " + world.StatusText, 11, "muted");
+        metadata.MaxLines = 2; metadata.TextTrimming = TextTrimming.CharacterEllipsis;
+        var card = new Border { Name = "DirectoryResultCard", Classes = { "directory-result" },
+            Padding = new Thickness(9, 8), BorderThickness = new Thickness(3, 1, 1, 1),
+            Child = new StackPanel { Spacing = 6, Children = { header, metadata } } };
+        card.Bind(Border.CornerRadiusProperty, new DynamicResourceExtension("SmallCornerRadius"));
+        return card;
     }
 
     private static Control TagBadges(IEnumerable<string> tags)

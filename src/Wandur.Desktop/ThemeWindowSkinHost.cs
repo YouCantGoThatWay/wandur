@@ -162,9 +162,18 @@ internal sealed class ThemeWindowSkinHost : Decorator
             {
                 var dark = new Pen(FleetSkin.RimEdge, 1);
                 var lip = new Pen(FleetSkin.RimHighlight, 1);
-                var cap = new Rect(5.5, 2.5, Bounds.Width - 11, Math.Max(0, BandHeight - 3));
-                context.DrawRectangle(FleetSkin.Metal, dark, cap, 4, 4);
-                context.DrawRectangle(null, lip, cap.Deflate(1), 3, 3);
+                if (OperatingSystem.IsMacOS())
+                {
+                    // Native traffic lights keep their system position. Give them an
+                    // uninterrupted metal surround instead of a close-fitting bevel.
+                    context.FillRectangle(FleetSkin.Metal, new Rect(0, 0, Bounds.Width, BandHeight));
+                }
+                else
+                {
+                    var cap = new Rect(5.5, 2.5, Bounds.Width - 11, Math.Max(0, BandHeight - 3));
+                    context.DrawRectangle(FleetSkin.Metal, dark, cap, 4, 4);
+                    context.DrawRectangle(null, lip, cap.Deflate(1), 3, 3);
+                }
                 // The side rails meet the plaque shoulders instead of boxing a separate badge.
                 var railY = BandHeight - .5;
                 var leftEnd = Math.Clamp(TitleModuleBounds.Left + 6, 6, Bounds.Width - 6);

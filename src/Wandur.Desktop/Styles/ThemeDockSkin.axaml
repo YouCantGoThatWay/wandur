@@ -69,6 +69,15 @@
   <Style Selector="local|ThemeDockSkinHost.fleet">
     <Setter Property="Margin" Value="1,0,1,0" />
   </Style>
+  <Style Selector="local|ThemeDockSkinHost.fleet.joined-left">
+    <Setter Property="Margin" Value="0,0,1,0" />
+  </Style>
+  <Style Selector="local|ThemeDockSkinHost.fleet.joined-right">
+    <Setter Property="Margin" Value="1,0,0,0" />
+  </Style>
+  <Style Selector="local|ThemeDockSkinHost.fleet.joined-left.joined-right">
+    <Setter Property="Margin" Value="0" />
+  </Style>
   <Style Selector="local|ThemeDockSkinHost.fleet dc|ToolChromeControl /template/ Border#PART_Border">
     <Setter Property="Margin" Value="0" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />

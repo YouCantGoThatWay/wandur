@@ -12,7 +12,7 @@ internal static class FleetIcons
 
     public static Control Action(string geometry, string labelKey, bool filled = false)
     {
-        var label = Ui.TextKey(labelKey, 14);
+        var label = Ui.TextKey(labelKey, 13);
         // Older button captions include a text glyph; this toolbar supplies its own vector.
         var binding = LocalizedText.Binding(labelKey);
         binding.Converter = new Avalonia.Data.Converters.FuncValueConverter<string?, string?>(text => text?.TrimStart('▶', ' '));
