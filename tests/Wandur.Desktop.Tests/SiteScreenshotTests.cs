@@ -43,7 +43,7 @@ public sealed class SiteScreenshotTests
         var store = new SettingsStore(Path.Combine(path, "settings.json"));
         store.Save(new ClientSettings
         {
-            Theme = "Hull", Language = "en", FontSize = 16, UseWorldThemes = false,
+            Theme = "Slate", Language = "en", FontSize = 16, UseWorldThemes = false,
             ClassifyRoomsLocally = false,
             Profiles = [profile,
                 new() { Name = "The Verdant Roads", Host = "verdant.example" },
@@ -115,7 +115,7 @@ public sealed class SiteScreenshotTests
             if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { Length: > 0 } directory)
             {
                 Directory.CreateDirectory(directory);
-                image.Save(Path.Combine(directory, "client-hull.png"), new PngBitmapEncoderOptions());
+                image.Save(Path.Combine(directory, "client-slate.png"), new PngBitmapEncoderOptions());
             }
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
