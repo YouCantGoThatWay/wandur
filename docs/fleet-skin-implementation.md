@@ -264,3 +264,26 @@ Desktop run hit an untouched script-worker disposal race in
 the isolated rerun and final full suite passed without script-worker changes.
 Independent review found no remaining issues. Updated control renders are
 under `artifacts/header-refinement/`.
+
+## Diagnostics surface contrast
+
+The embedded Diagnostics page now paints `PanelBrush` behind its shell-colored
+labels, filters, message list and controls. Previously its transparent root
+exposed `TerminalBrush`, putting Hull's dark text on the dark transcript
+background. The transcript and the separately themed JSON/plain editors are
+unchanged.
+
+`DiagnosticsContrastTests` hosts the real `TerminalView`, not a standalone
+diagnostics control on a light test window. It checks empty and populated
+Messages, Observed fields and Console pages, the footer, and editor ink through
+Hull, Slate, Paper and back to Hull. Before the fix it measured contrast ratios
+as low as 1.11:1; the corrected visible text meets the 4.5:1 floor. Headless
+captures were visually inspected for Hull messages before/after the fix and
+the corrected console. Set `WANDUR_CAPTURE_DIR` to regenerate captures.
+
+Verification: all 29 focused diagnostics tests passed. The full solution run
+passed 725 Core tests and 537 of 538 Desktop tests; the sole failure was the
+previously observed, untouched `SessionAutomationTests.ReleasingAgentControlDoesNotReplayTopLevelScriptCommands`
+null reference during `SessionScriptWorker.DisposeAsync`. That test passed
+when rerun in isolation. Independent review found no blocking issues in this
+surface fix.

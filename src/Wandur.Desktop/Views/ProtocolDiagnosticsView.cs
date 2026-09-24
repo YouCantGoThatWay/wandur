@@ -118,6 +118,9 @@ public sealed class ProtocolDiagnosticsView : UserControl
             tabs.SelectionChanged += (_, _) => bar.IsVisible = !ReferenceEquals(tabs.SelectedItem, consoleTab);
         }
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { bar, tabs } };
+        // Diagnostics uses shell text and controls, not terminal ink. Paint its own surface
+        // so a light shell with a dark transcript cannot show dark labels on the terminal.
+        root.Bind(BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("PanelBrush"));
         Grid.SetRow(tabs, 1); Content = root;
     }
 
