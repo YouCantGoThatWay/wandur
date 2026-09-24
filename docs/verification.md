@@ -1,5 +1,33 @@
 # Client foundation verification
 
+## Local session history (2026-09-24)
+
+- Implemented on main: View > Session history, literal FTS5 keyword/phrase search,
+  world/character/date filters, paginated context, confirmed deletion and saved
+  recording/retention preferences. Default retention is 30 days. No embeddings,
+  new packages or services. See [session history](session-history.md).
+- Final Release solution tests passed: 771 Core and 574 Desktop, 1,345 total,
+  zero failures or skips. Release build: zero warnings and errors. Localization
+  facade and whitespace checks passed.
+- Regression tests use temporary SQLite databases, fictional text and a real
+  loopback TCP fixture, not user data or public MUD connections. Coverage includes
+  migration/reopen, FTS consistency, active-session deletion races, abandoned
+  session retention, stream fragments, private/login capture, cancellation,
+  queue overflow, storage failure and orderly shutdown.
+- Independent review found four issues: credential fragments across command
+  boundaries, suffixes following private received text, ANSI edits shrinking an
+  over-limit line and retention of abandoned session metadata. All four were
+  reproduced RED and fixed GREEN; focused post-review tests passed 58/58.
+- Rendered the populated history browser in all five languages and a Paper
+  deletion confirmation. Slate history and Paper confirmation were visually
+  inspected; captures are under `/private/tmp/wandur-history-ui-captures/`.
+- No running client was restarted, no existing profile/history database was
+  inspected and the macOS app bundle was not replaced. Native Windows UI and
+  real-server login are not manually verified. Storage is plain text, not
+  encrypted; private-boundary handling may omit one public line after login.
+
+## Initial foundation verification
+
 Verified on Apple Silicon macOS, using .NET SDK 10.0.101.
 
 - Release tests: 35 passed (28 core, 7 desktop), zero failures.

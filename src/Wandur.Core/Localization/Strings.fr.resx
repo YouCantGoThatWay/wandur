@@ -1888,4 +1888,40 @@ Arrêtez après réception d’une liste d’inventaire.</value></data>
   </data>
   <data name="FollowMudTheme" xml:space="preserve"><value>Utiliser le thème du MUD</value></data>
   <data name="ExitFullScreen" xml:space="preserve"><value>Quitter le plein écran</value></data>
+  <data name="SessionHistory" xml:space="preserve"><value>Historique des sessions</value></data>
+  <data name="HistoryEnabled" xml:space="preserve"><value>Enregistrer l’historique des sessions sur cet appareil</value></data>
+  <data name="HistoryPrivacyHint" xml:space="preserve"><value>L’historique reste sur cet appareil. Les saisies privées reconnues sont exclues, mais le texte du serveur peut contenir des informations sensibles.</value></data>
+  <data name="HistoryRetention" xml:space="preserve"><value>Conserver l’historique</value></data>
+  <data name="HistoryDays30" xml:space="preserve"><value>30 jours</value></data>
+  <data name="HistoryDays90" xml:space="preserve"><value>90 jours</value></data>
+  <data name="HistoryDays365" xml:space="preserve"><value>1 an</value></data>
+  <data name="HistoryForever" xml:space="preserve"><value>Indéfiniment</value></data>
+  <data name="HistoryRetentionInvalid" xml:space="preserve"><value>Choisissez 30 jours, 90 jours, 1 an ou indéfiniment.</value></data>
+  <data name="HistoryRecordingFailed" xml:space="preserve"><value>L’historique n’a pas pu être enregistré. L’enregistrement est suspendu pour cette connexion.</value></data>
+  <data name="HistoryRecordingNotice" xml:space="preserve"><value>L’historique est enregistré sur cet appareil. Modifiez l’enregistrement et la conservation dans les paramètres.</value></data>
+  <data name="HistoryLocalNotice" xml:space="preserve"><value>L’historique local est conservé 30 jours par défaut. Modifiez l’enregistrement et la conservation dans les paramètres. Le filtrage de confidentialité n’est pas infaillible. Aucune donnée d’historique ou de protocole n’est envoyée.</value></data>
+  <data name="HistoryQuery" xml:space="preserve"><value>Mots ou « expression entre guillemets »</value></data>
+  <data name="HistorySearch" xml:space="preserve"><value>Rechercher / actualiser</value></data>
+  <data name="HistoryWorld" xml:space="preserve"><value>Nom du monde ou adresse</value></data>
+  <data name="HistoryCharacter" xml:space="preserve"><value>Personnage</value></data>
+  <data name="HistoryFrom" xml:space="preserve"><value>À partir du</value></data>
+  <data name="HistoryUntil" xml:space="preserve"><value>Avant le</value></data>
+  <data name="HistorySessions" xml:space="preserve"><value>Sessions</value></data>
+  <data name="HistoryResults" xml:space="preserve"><value>Résultats de recherche</value></data>
+  <data name="HistoryPrevious" xml:space="preserve"><value>Précédent</value></data>
+  <data name="HistoryNext" xml:space="preserve"><value>Suivant</value></data>
+  <data name="HistoryPage" xml:space="preserve"><value>Page {0} · {1} affichés</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Sélectionnez une session ou un résultat pour lire son contexte.</value></data>
+  <data name="HistoryEmptySessions" xml:space="preserve"><value>Aucune session enregistrée ne correspond à ces filtres.</value></data>
+  <data name="HistoryEmptyResults" xml:space="preserve"><value>Saisissez des mots et recherchez, ou choisissez une session. Aucun résultat sur cette page.</value></data>
+  <data name="HistoryLoading" xml:space="preserve"><value>Chargement de l’historique...</value></data>
+  <data name="HistoryInvalidDates" xml:space="preserve"><value>La date de début doit précéder la date de fin.</value></data>
+  <data name="HistoryLoadFailed" xml:space="preserve"><value>Impossible de charger l’historique. Essayez d’actualiser.</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Supprimer la session</value></data>
+  <data name="HistoryDeletePrompt" xml:space="preserve"><value>Supprimer tout l’historique local de {0} ? Cette action est irréversible.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>Impossible de supprimer la session. Réessayez.</value></data>
+  <data name="HistoryReceived" xml:space="preserve"><value>Reçu</value></data>
+  <data name="HistorySent" xml:space="preserve"><value>Envoyé</value></data>
+  <data name="HistoryScript" xml:space="preserve"><value>Script</value></data>
+  <data name="HistoryPrivate" xml:space="preserve"><value>Privé</value></data>
 </root>

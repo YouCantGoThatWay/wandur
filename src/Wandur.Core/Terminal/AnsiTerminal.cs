@@ -32,6 +32,10 @@ public sealed class AnsiTerminal
     public IReadOnlyList<TerminalLine> Lines => _snapshot ??= [.. _completed, CurrentLine()];
     public event Action<string, bool>? OutputAppended;
     public event Action? Cleared;
+    /// <summary>A completed display line, before scrollback eviction. Subscribers must not mutate this parser.</summary>
+    public event Action<TerminalLine>? LineCompleted;
+    /// <summary>Sticky until newline/clear, even if cursor editing later shortens the line.</summary>
+    public bool CurrentLineTruncated { get; private set; }
     public string PlainText => string.Join('\n', Lines.Select(l => l.Text));
 
     public void AppendLocalText(string text)
@@ -59,6 +63,7 @@ public sealed class AnsiTerminal
     {
         _completed.Clear(); _current.Clear(); _sequence.Clear(); _cursor = 0;
         _completedCharacters = 0; _style = new(); _basicForegroundIndex = null; _state = ParseState.Text; _snapshot = null;
+        CurrentLineTruncated = false;
     }
 
     public void Append(string text)
@@ -103,7 +108,7 @@ public sealed class AnsiTerminal
 
     private void Put(char ch)
     {
-        if (_cursor >= 4096) return;
+        if (_cursor >= 4096) { CurrentLineTruncated = true; return; }
         var cell = new Cell(ch, _style);
         if (_cursor < _current.Count) _current[_cursor] = cell;
         else _current.Add(cell);
@@ -113,9 +118,11 @@ public sealed class AnsiTerminal
     private void NewLine()
     {
         var line = CurrentLine();
+        LineCompleted?.Invoke(line);
         _completed.Add(line);
         _completedCharacters += _current.Count;
         _current.Clear(); _cursor = 0;
+        CurrentLineTruncated = false;
         while (_completed.Count >= _maxLines || _completedCharacters > 200_000)
         {
             _completedCharacters -= _completed[0].Text.Length;

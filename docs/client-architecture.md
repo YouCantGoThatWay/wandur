@@ -45,6 +45,15 @@ The Diagnostics page has a Console tab beside the protocol Messages and Observed
 
 The Messages tab filters the protocol history without dropping it: `ProtocolDiagnosticsViewModel` stamps every entry with its kinds (the GMCP package, every variable of an MSDP message read back from the formatter's JSON body, or the telnet option name for anything else), keeps the kinds seen this session as chips sorted by protocol then name with a count each (the first 24 shown, a "{n} more" toggle for the rest), and rebuilds the `Visible` list in one pass whenever a chip toggles or the filter box changes (case-insensitive substring over kind names and the formatted body, combined with the chips); Follow latest tracks the last visible entry, a selection survives while it still matches, the count reads "shown of total" while a filter is active, and Clear (also a new session) empties the kinds together with the entries.
 
+## Session history
+
+`Wandur.Core.History` owns the SQLite FTS5 store and bounded background recorder.
+`WorkspaceController.History` connects sanitized text capture and saved retention
+settings to each connection. `HistoryViewModel` pages store reads off the UI thread;
+`HistoryWindow` is a non-modal, read-only browser opened from View. History uses
+the existing client database, not a separate service. See [session history](session-history.md)
+for search semantics, privacy boundaries, retention and deletion limits.
+
 ## Localization
 
 All client-owned natural-language labels, help, statuses and validation messages use `Wandur.Core/Localization/Strings.resx`, a strongly typed facade, and .NET ResourceManager satellite assemblies. Languages: English fallback, Spanish, French, German and Brazilian Portuguese. Preferences stores a language code; blank follows the system language. Unsupported system languages use English. Changes preview immediately, without interrupting connections. `UiLanguage.Culture` holds the selected resource culture explicitly so captured async execution contexts cannot freeze labels in an old language. `LocalizedText` provides key-based Avalonia bindings and emits a collection reset when the language changes; preferences restores the prior culture on Cancel. View models refresh computed labels through scoped subscriptions.

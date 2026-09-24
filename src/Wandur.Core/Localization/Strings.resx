@@ -1888,4 +1888,40 @@ Stop after receiving one inventory listing.</value></data>
   </data>
   <data name="FollowMudTheme" xml:space="preserve"><value>Follow MUD theme</value></data>
   <data name="ExitFullScreen" xml:space="preserve"><value>Exit Full Screen</value></data>
+  <data name="SessionHistory" xml:space="preserve"><value>Session history</value></data>
+  <data name="HistoryEnabled" xml:space="preserve"><value>Save session history on this device</value></data>
+  <data name="HistoryPrivacyHint" xml:space="preserve"><value>History stays on this device. Known private input is excluded, but server text can still contain sensitive information.</value></data>
+  <data name="HistoryRetention" xml:space="preserve"><value>Keep history</value></data>
+  <data name="HistoryDays30" xml:space="preserve"><value>30 days</value></data>
+  <data name="HistoryDays90" xml:space="preserve"><value>90 days</value></data>
+  <data name="HistoryDays365" xml:space="preserve"><value>1 year</value></data>
+  <data name="HistoryForever" xml:space="preserve"><value>Forever</value></data>
+  <data name="HistoryRetentionInvalid" xml:space="preserve"><value>Choose 30 days, 90 days, 1 year or forever.</value></data>
+  <data name="HistoryRecordingFailed" xml:space="preserve"><value>Session history could not be saved. Recording is paused for this connection.</value></data>
+  <data name="HistoryRecordingNotice" xml:space="preserve"><value>Session history is saved on this device. Change recording and retention in Settings.</value></data>
+  <data name="HistoryLocalNotice" xml:space="preserve"><value>Local history uses 30-day retention by default. Change recording and retention in Settings. Privacy filtering is best-effort. No history or protocol data is uploaded.</value></data>
+  <data name="HistoryQuery" xml:space="preserve"><value>Words or "quoted phrase"</value></data>
+  <data name="HistorySearch" xml:space="preserve"><value>Search / refresh</value></data>
+  <data name="HistoryWorld" xml:space="preserve"><value>World name or endpoint</value></data>
+  <data name="HistoryCharacter" xml:space="preserve"><value>Character</value></data>
+  <data name="HistoryFrom" xml:space="preserve"><value>From date</value></data>
+  <data name="HistoryUntil" xml:space="preserve"><value>Before date</value></data>
+  <data name="HistorySessions" xml:space="preserve"><value>Sessions</value></data>
+  <data name="HistoryResults" xml:space="preserve"><value>Search results</value></data>
+  <data name="HistoryPrevious" xml:space="preserve"><value>Previous</value></data>
+  <data name="HistoryNext" xml:space="preserve"><value>Next</value></data>
+  <data name="HistoryPage" xml:space="preserve"><value>Page {0} · {1} shown</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Select a session or search result to read its context.</value></data>
+  <data name="HistoryEmptySessions" xml:space="preserve"><value>No saved sessions match these filters.</value></data>
+  <data name="HistoryEmptyResults" xml:space="preserve"><value>Enter words and search, or choose a session. No matching results on this page.</value></data>
+  <data name="HistoryLoading" xml:space="preserve"><value>Loading history...</value></data>
+  <data name="HistoryInvalidDates" xml:space="preserve"><value>The from date must be earlier than the before date.</value></data>
+  <data name="HistoryLoadFailed" xml:space="preserve"><value>History could not be loaded. Try refreshing.</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Delete session</value></data>
+  <data name="HistoryDeletePrompt" xml:space="preserve"><value>Delete all local history for {0}? This cannot be undone.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>The session could not be deleted. Try again.</value></data>
+  <data name="HistoryReceived" xml:space="preserve"><value>Received</value></data>
+  <data name="HistorySent" xml:space="preserve"><value>Sent</value></data>
+  <data name="HistoryScript" xml:space="preserve"><value>Script</value></data>
+  <data name="HistoryPrivate" xml:space="preserve"><value>Private</value></data>
 </root>

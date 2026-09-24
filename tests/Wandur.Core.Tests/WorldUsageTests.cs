@@ -46,7 +46,7 @@ public sealed class WorldUsageTests : IDisposable
             return (Scalar("PRAGMA user_version"), Scalar("SELECT COUNT(*) FROM profiles WHERE world_id='w1'"),
                 Scalar("SELECT COUNT(*) FROM world_usage"), Scalar("SELECT COUNT(*) FROM world_connections"));
         });
-        Assert.Equal(6, version);
+        Assert.Equal(7, version);
         Assert.Equal(1, profiles);
         Assert.Equal(0, usageRows); Assert.Equal(0, logRows);
         // The pre-existing world takes a count without any further migration.
@@ -87,7 +87,7 @@ public sealed class WorldUsageTests : IDisposable
             using var rows = command.ExecuteReader(); Assert.True(rows.Read());
             return (rows.GetInt64(0), rows.GetInt64(1), rows.IsDBNull(2) ? null : rows.GetString(2), rows.GetInt64(3));
         });
-        Assert.Equal(6, version);
+        Assert.Equal(7, version);
         Assert.Equal(2, connections); Assert.Null(character); Assert.Equal(2, logRows);
         var id = Guid.Parse("7d2f5a1c-0f3e-4a6b-9c8d-1e2f3a4b5c6d");
         var store = new SqliteWorldUsageStore(database);

@@ -65,7 +65,8 @@ internal sealed class DesktopMenus
             Action(nameof(L.ChannelsPanel), () => { window.ToggleChannels(); return Task.CompletedTask; }),
             Action(nameof(L.RestorePanels), () => { window.ResetLayout(); return Task.CompletedTask; }), null,
             Action(nameof(L.ShowToolbar), () => { window.ToolbarVisible = !window.ToolbarVisible; return Task.CompletedTask; }),
-            Action(nameof(L.FocusCommandInput), () => { window.FocusCommandInput(); return Task.CompletedTask; }, Key.L));
+            Action(nameof(L.FocusCommandInput), () => { window.FocusCommandInput(); return Task.CompletedTask; }, Key.L),
+            Action(nameof(L.SessionHistory), window.ShowHistoryAsync, enabled: () => window.Sessions.HistoryStore is not null));
         Check(view, 0, () => window.IsPanelVisible());
         Check(view, 1, () => window.IsMapVisible);
         Check(view, 2, () => window.IsChannelsVisible);

@@ -1888,4 +1888,40 @@ Detente después de recibir una lista del inventario.</value></data>
   </data>
   <data name="FollowMudTheme" xml:space="preserve"><value>Usar el tema del MUD</value></data>
   <data name="ExitFullScreen" xml:space="preserve"><value>Salir de pantalla completa</value></data>
+  <data name="SessionHistory" xml:space="preserve"><value>Historial de sesiones</value></data>
+  <data name="HistoryEnabled" xml:space="preserve"><value>Guardar el historial de sesiones en este dispositivo</value></data>
+  <data name="HistoryPrivacyHint" xml:space="preserve"><value>El historial permanece en este dispositivo. Se excluye la entrada privada conocida, pero el texto del servidor puede contener información confidencial.</value></data>
+  <data name="HistoryRetention" xml:space="preserve"><value>Conservar historial</value></data>
+  <data name="HistoryDays30" xml:space="preserve"><value>30 días</value></data>
+  <data name="HistoryDays90" xml:space="preserve"><value>90 días</value></data>
+  <data name="HistoryDays365" xml:space="preserve"><value>1 año</value></data>
+  <data name="HistoryForever" xml:space="preserve"><value>Siempre</value></data>
+  <data name="HistoryRetentionInvalid" xml:space="preserve"><value>Elige 30 días, 90 días, 1 año o siempre.</value></data>
+  <data name="HistoryRecordingFailed" xml:space="preserve"><value>No se pudo guardar el historial. La grabación está en pausa para esta conexión.</value></data>
+  <data name="HistoryRecordingNotice" xml:space="preserve"><value>El historial se guarda en este dispositivo. Cambia la grabación y la conservación en Ajustes.</value></data>
+  <data name="HistoryLocalNotice" xml:space="preserve"><value>El historial local se conserva 30 días por defecto. Cambia la grabación y conservación en Ajustes. El filtro de privacidad no es infalible. No se suben datos del historial ni del protocolo.</value></data>
+  <data name="HistoryQuery" xml:space="preserve"><value>Palabras o "frase entre comillas"</value></data>
+  <data name="HistorySearch" xml:space="preserve"><value>Buscar / actualizar</value></data>
+  <data name="HistoryWorld" xml:space="preserve"><value>Nombre del mundo o dirección</value></data>
+  <data name="HistoryCharacter" xml:space="preserve"><value>Personaje</value></data>
+  <data name="HistoryFrom" xml:space="preserve"><value>Desde la fecha</value></data>
+  <data name="HistoryUntil" xml:space="preserve"><value>Antes de la fecha</value></data>
+  <data name="HistorySessions" xml:space="preserve"><value>Sesiones</value></data>
+  <data name="HistoryResults" xml:space="preserve"><value>Resultados de búsqueda</value></data>
+  <data name="HistoryPrevious" xml:space="preserve"><value>Anterior</value></data>
+  <data name="HistoryNext" xml:space="preserve"><value>Siguiente</value></data>
+  <data name="HistoryPage" xml:space="preserve"><value>Página {0} · {1} mostrados</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Selecciona una sesión o un resultado para leer su contexto.</value></data>
+  <data name="HistoryEmptySessions" xml:space="preserve"><value>No hay sesiones guardadas que coincidan con estos filtros.</value></data>
+  <data name="HistoryEmptyResults" xml:space="preserve"><value>Introduce palabras y busca, o elige una sesión. No hay resultados en esta página.</value></data>
+  <data name="HistoryLoading" xml:space="preserve"><value>Cargando historial...</value></data>
+  <data name="HistoryInvalidDates" xml:space="preserve"><value>La fecha inicial debe ser anterior a la fecha final.</value></data>
+  <data name="HistoryLoadFailed" xml:space="preserve"><value>No se pudo cargar el historial. Intenta actualizar.</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Eliminar sesión</value></data>
+  <data name="HistoryDeletePrompt" xml:space="preserve"><value>¿Eliminar todo el historial local de {0}? No se puede deshacer.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>No se pudo eliminar la sesión. Inténtalo de nuevo.</value></data>
+  <data name="HistoryReceived" xml:space="preserve"><value>Recibido</value></data>
+  <data name="HistorySent" xml:space="preserve"><value>Enviado</value></data>
+  <data name="HistoryScript" xml:space="preserve"><value>Script</value></data>
+  <data name="HistoryPrivate" xml:space="preserve"><value>Privado</value></data>
 </root>

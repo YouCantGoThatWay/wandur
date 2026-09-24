@@ -12,7 +12,19 @@ public sealed partial class WorkspaceController
     /// </summary>
     public ConsoleLog ConsoleLog { get; } = new();
 
-    private void LogConsoleReceived(string text, bool hidden) => ConsoleLog.Append(ConsoleEntryKind.Received, text, hidden, _diagnosticSecrets);
-    private void LogConsoleSent(string command, bool hidden) => ConsoleLog.Append(ConsoleEntryKind.Sent, command, hidden || _login is not null, _diagnosticSecrets);
-    private void LogConsoleScript(string text) => ConsoleLog.Append(ConsoleEntryKind.Script, text, IsPrivate || _login is not null, _diagnosticSecrets);
+    private void LogConsoleReceived(string text, bool hidden)
+    {
+        ConsoleLog.Append(ConsoleEntryKind.Received, text, hidden, _diagnosticSecrets);
+        _historyRecorder?.Received(text, hidden || IsPrivate || _login is not null, _diagnosticSecrets);
+    }
+    private void LogConsoleSent(string command, bool hidden)
+    {
+        ConsoleLog.Append(ConsoleEntryKind.Sent, command, hidden || _login is not null, _diagnosticSecrets);
+        _historyRecorder?.Sent(command, hidden || _login is not null, _diagnosticSecrets);
+    }
+    private void LogConsoleScript(string text)
+    {
+        ConsoleLog.Append(ConsoleEntryKind.Script, text, IsPrivate || _login is not null, _diagnosticSecrets);
+        _historyRecorder?.Script(text, IsPrivate || _login is not null, _diagnosticSecrets);
+    }
 }

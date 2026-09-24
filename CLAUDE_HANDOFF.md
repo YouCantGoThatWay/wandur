@@ -1,9 +1,16 @@
 # Claude handoff: Wandur client
 
-Updated September 21, 2026. This file is the entry point for a fresh session.
+Updated September 24, 2026. This file is the entry point for a fresh session.
 Read it, then `docs/verification.md` for what has been verified and when.
 The September 18 handoff about Icesus resource bars and directory refresh is
 complete and recorded in `docs/verification.md`; it no longer needs action.
+
+Local session history is implemented on main. View > Session history opens the
+read-only browser; Settings > General controls recording and 30/90/365-day or
+forever retention. SQLite schema 7 adds FTS5 keyword/phrase search, no embeddings
+or new packages. Capture is bounded and asynchronous, with conservative private
+input handling. See `docs/session-history.md` for behavior and limitations and
+the September 24 entry in `docs/verification.md` for verification evidence.
 
 Mapped vitals fix (branch `fix/mapped-vitals`): the vitals strip stopped
 following the world when a login lingered (a GMCP login the world never

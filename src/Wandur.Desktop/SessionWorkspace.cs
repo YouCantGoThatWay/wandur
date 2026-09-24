@@ -62,6 +62,7 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
     public Wandur.Core.Discovery.WorldCatalog? Catalog => _catalog;
     /// <summary>Where connections are counted, when the client has a database to count them in.</summary>
     public IWorldUsageStore? Usage => _usage;
+    public Wandur.Core.History.IHistoryStore? HistoryStore { get; }
     private WorldThumbnails? _thumbnails;
     /// <summary>The saved worlds' small pictures, kept here so a rebuilt dock does not decode them again.</summary>
     public WorldThumbnails? Thumbnails => _disposed || _catalog is null ? null : _thumbnails ??= new(_catalog);
@@ -78,9 +79,9 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
         Changed?.Invoke();
     }
 
-    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null)
+    public SessionWorkspace(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, Wandur.Core.Discovery.WorldCatalog? catalog = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, IWorldUsageStore? usage = null, Wandur.Core.History.IHistoryStore? history = null)
     {
-        _classification = classification; _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog; _usage = usage;
+        _classification = classification; _agents = agents; _displays = displays; _store = store; _knowledge = knowledge; _catalog = catalog; _usage = usage; HistoryStore = history;
         _passwords = passwords;
         _maps = maps;
         _scriptRuntimes = scriptRuntimes;
@@ -93,13 +94,14 @@ public sealed partial class SessionWorkspace : IAsyncDisposable
 
     private SessionTab CreateTab()
     {
-        var controller = new WorkspaceController(_displays, _store, _passwords, _maps, _scriptRuntimes, _scriptLibraryStore, _knowledge, _agents, _classification);
+        var controller = new WorkspaceController(_displays, _store, _passwords, _maps, _scriptRuntimes, _scriptLibraryStore, _knowledge, _agents, _classification, HistoryStore);
         var tab = new SessionTab(controller);
         controller.Changed += () => OnChanged(tab);
         controller.ScriptLibrary.Panels.Changed += () => { if (!_disposed) ScriptPanelsChanged?.Invoke(); };
         controller.SettingsSaved += settings =>
         {
-            foreach (var other in Tabs.Where(t => t != tab)) other.Controller.ApplySettings(settings);
+            foreach (var other in Tabs.Where(t => t != tab))
+            { other.Controller.ApplySettings(settings); other.Controller.ApplyHistorySettings(); }
             ApplyAppearance();
         };
         return tab;

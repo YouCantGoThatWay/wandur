@@ -1888,4 +1888,40 @@ Stoppe nach einer Inventarliste.</value></data>
   </data>
   <data name="FollowMudTheme" xml:space="preserve"><value>MUD-Design verwenden</value></data>
   <data name="ExitFullScreen" xml:space="preserve"><value>Vollbildmodus verlassen</value></data>
+  <data name="SessionHistory" xml:space="preserve"><value>Sitzungsverlauf</value></data>
+  <data name="HistoryEnabled" xml:space="preserve"><value>Sitzungsverlauf auf diesem Gerät speichern</value></data>
+  <data name="HistoryPrivacyHint" xml:space="preserve"><value>Der Verlauf bleibt auf diesem Gerät. Erkannte private Eingaben werden ausgeschlossen, doch Servertexte können weiterhin vertrauliche Informationen enthalten.</value></data>
+  <data name="HistoryRetention" xml:space="preserve"><value>Verlauf aufbewahren</value></data>
+  <data name="HistoryDays30" xml:space="preserve"><value>30 Tage</value></data>
+  <data name="HistoryDays90" xml:space="preserve"><value>90 Tage</value></data>
+  <data name="HistoryDays365" xml:space="preserve"><value>1 Jahr</value></data>
+  <data name="HistoryForever" xml:space="preserve"><value>Unbegrenzt</value></data>
+  <data name="HistoryRetentionInvalid" xml:space="preserve"><value>Wähle 30 Tage, 90 Tage, 1 Jahr oder unbegrenzt.</value></data>
+  <data name="HistoryRecordingFailed" xml:space="preserve"><value>Der Sitzungsverlauf konnte nicht gespeichert werden. Die Aufzeichnung ist für diese Verbindung pausiert.</value></data>
+  <data name="HistoryRecordingNotice" xml:space="preserve"><value>Der Sitzungsverlauf wird auf diesem Gerät gespeichert. Aufzeichnung und Aufbewahrung lassen sich in den Einstellungen ändern.</value></data>
+  <data name="HistoryLocalNotice" xml:space="preserve"><value>Der lokale Verlauf wird standardmäßig 30 Tage aufbewahrt. Aufzeichnung und Aufbewahrung lassen sich in den Einstellungen ändern. Der Datenschutzfilter ist nicht lückenlos. Es werden keine Verlaufs- oder Protokolldaten hochgeladen.</value></data>
+  <data name="HistoryQuery" xml:space="preserve"><value>Wörter oder "Ausdruck in Anführungszeichen"</value></data>
+  <data name="HistorySearch" xml:space="preserve"><value>Suchen / aktualisieren</value></data>
+  <data name="HistoryWorld" xml:space="preserve"><value>Weltname oder Adresse</value></data>
+  <data name="HistoryCharacter" xml:space="preserve"><value>Charakter</value></data>
+  <data name="HistoryFrom" xml:space="preserve"><value>Ab Datum</value></data>
+  <data name="HistoryUntil" xml:space="preserve"><value>Vor Datum</value></data>
+  <data name="HistorySessions" xml:space="preserve"><value>Sitzungen</value></data>
+  <data name="HistoryResults" xml:space="preserve"><value>Suchergebnisse</value></data>
+  <data name="HistoryPrevious" xml:space="preserve"><value>Zurück</value></data>
+  <data name="HistoryNext" xml:space="preserve"><value>Weiter</value></data>
+  <data name="HistoryPage" xml:space="preserve"><value>Seite {0} · {1} angezeigt</value></data>
+  <data name="HistorySelect" xml:space="preserve"><value>Wähle eine Sitzung oder ein Suchergebnis, um den Zusammenhang zu lesen.</value></data>
+  <data name="HistoryEmptySessions" xml:space="preserve"><value>Keine gespeicherten Sitzungen entsprechen diesen Filtern.</value></data>
+  <data name="HistoryEmptyResults" xml:space="preserve"><value>Gib Suchwörter ein oder wähle eine Sitzung. Keine Treffer auf dieser Seite.</value></data>
+  <data name="HistoryLoading" xml:space="preserve"><value>Verlauf wird geladen...</value></data>
+  <data name="HistoryInvalidDates" xml:space="preserve"><value>Das Anfangsdatum muss vor dem Enddatum liegen.</value></data>
+  <data name="HistoryLoadFailed" xml:space="preserve"><value>Der Verlauf konnte nicht geladen werden. Versuche zu aktualisieren.</value></data>
+  <data name="HistoryDelete" xml:space="preserve"><value>Sitzung löschen</value></data>
+  <data name="HistoryDeletePrompt" xml:space="preserve"><value>Den gesamten lokalen Verlauf für {0} löschen? Dies kann nicht rückgängig gemacht werden.</value></data>
+  <data name="HistoryDeleteFailed" xml:space="preserve"><value>Die Sitzung konnte nicht gelöscht werden. Versuche es erneut.</value></data>
+  <data name="HistoryReceived" xml:space="preserve"><value>Empfangen</value></data>
+  <data name="HistorySent" xml:space="preserve"><value>Gesendet</value></data>
+  <data name="HistoryScript" xml:space="preserve"><value>Skript</value></data>
+  <data name="HistoryPrivate" xml:space="preserve"><value>Privat</value></data>
 </root>

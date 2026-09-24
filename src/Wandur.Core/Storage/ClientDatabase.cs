@@ -126,13 +126,13 @@ public sealed class ClientDatabase(string path)
     {
         using var version = connection.CreateCommand(); version.CommandText = "PRAGMA user_version";
         var schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 6) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 7) throw new IOException(L.DatabaseVersionUnsupported);
         using var journal = connection.CreateCommand(); journal.CommandText = "PRAGMA journal_mode=WAL"; journal.ExecuteScalar();
         using var transaction = connection.BeginTransaction(deferred: false);
         // A second database instance may have migrated while this connection waited for the write lock.
         version.Transaction = transaction;
         schemaVersion = Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (schemaVersion > 6) throw new IOException(L.DatabaseVersionUnsupported);
+        if (schemaVersion > 7) throw new IOException(L.DatabaseVersionUnsupported);
         using var schema = connection.CreateCommand(); schema.Transaction = transaction;
         schema.CommandText = """
             CREATE TABLE IF NOT EXISTS worlds(id TEXT PRIMARY KEY NOT NULL);
@@ -180,7 +180,29 @@ public sealed class ClientDatabase(string path)
             schema.CommandText = "ALTER TABLE world_usage ADD COLUMN last_character TEXT";
             schema.ExecuteNonQuery();
         }
-        schema.CommandText = "PRAGMA user_version=6";
+        if (schemaVersion < 7)
+        {
+            schema.CommandText = """
+                CREATE TABLE history_sessions(id TEXT PRIMARY KEY NOT NULL,world_key TEXT NOT NULL,world_name TEXT NOT NULL,character_name TEXT NOT NULL,started_at INTEGER NOT NULL,ended_at INTEGER);
+                CREATE INDEX history_sessions_started ON history_sessions(started_at DESC,id);
+                CREATE TABLE history_deletions(session_id TEXT PRIMARY KEY NOT NULL);
+                CREATE TABLE history_entries(id INTEGER PRIMARY KEY,session_id TEXT NOT NULL REFERENCES history_sessions(id) ON DELETE CASCADE,sequence INTEGER NOT NULL CHECK(sequence>=0),at INTEGER NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('received','sent','script','private')),text TEXT NOT NULL,UNIQUE(session_id,sequence));
+                CREATE INDEX history_entries_at ON history_entries(at DESC,id DESC);
+                CREATE VIRTUAL TABLE history_entries_fts USING fts5(text,content='history_entries',content_rowid='id');
+                CREATE TRIGGER history_entries_insert AFTER INSERT ON history_entries BEGIN
+                    INSERT INTO history_entries_fts(rowid,text) VALUES(new.id,new.text);
+                END;
+                CREATE TRIGGER history_entries_delete AFTER DELETE ON history_entries BEGIN
+                    INSERT INTO history_entries_fts(history_entries_fts,rowid,text) VALUES('delete',old.id,old.text);
+                END;
+                CREATE TRIGGER history_entries_update AFTER UPDATE ON history_entries BEGIN
+                    INSERT INTO history_entries_fts(history_entries_fts,rowid,text) VALUES('delete',old.id,old.text);
+                    INSERT INTO history_entries_fts(rowid,text) VALUES(new.id,new.text);
+                END;
+                """;
+            schema.ExecuteNonQuery();
+        }
+        schema.CommandText = "PRAGMA user_version=7";
         schema.ExecuteNonQuery();
         transaction.Commit();
     }

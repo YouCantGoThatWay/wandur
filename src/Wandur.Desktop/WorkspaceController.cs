@@ -34,9 +34,9 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     private bool _droppedOutput;
     private readonly DispatcherTimer _outputTimer;
 
-    public WorkspaceController(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null)
+    public WorkspaceController(Wandur.Desktop.Terminal.ITranscriptDisplayFactory displays, ISettingsStore store, IPasswordVault passwords, IRoomMapStore maps, IScriptRuntimeFactory scriptRuntimes, IWorldScriptLibraryStore scriptLibraryStore, IWorldKnowledgeStore? knowledge = null, IAgentClientServices? agents = null, Wandur.Core.Classification.RoomClassificationService? classification = null, Wandur.Core.History.IHistoryStore? history = null)
     {
-        _store = store; _knowledge = knowledge; Classification = classification;
+        _store = store; _knowledge = knowledge; Classification = classification; _historyStore = history;
         using (SessionOpenTrace.Measure("display create")) Display = displays.Create(Terminal);
         Passwords = passwords;
         _maps = maps;
@@ -56,7 +56,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         // tab that already staged a world theme is not overwritten by the personal preset.
         ThemeService.Apply(Settings, WorldTheme);
         if (loaded.Warning is not null) Notice = loaded.Warning;
-        _outputTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => { FlushOutput(); ReplayCachedState(); SaveMap(); ScriptLibrary.Tick(); });
+        ApplyHistorySettings();
+        _outputTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(60), DispatcherPriority.Background, (_, _) => { FlushOutput(); TickHistory(); ReplayCachedState(); SaveMap(); ScriptLibrary.Tick(); });
         _outputTimer.Start();
         Wandur.Core.Localization.UiLanguage.Changed += RefreshLanguage;
     }
@@ -118,6 +119,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
     {
         _store.Save(settings);
         ApplySettings(settings);
+        ApplyHistorySettings();
         SettingsSaved?.Invoke(settings);
     }
 
@@ -188,6 +190,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
             using (SessionOpenTrace.Measure("agent profile"))
                 Agent?.Configure(profile is null ? "demo" : $"{profile.Host.Trim().ToLowerInvariant()}:{profile.Port}:{profile.UseTls}");
             using (SessionOpenTrace.Measure("diagnostics reset")) { Diagnostics.ClearCommand.Execute(null); ConsoleLog.Clear(); }
+            _historyWorldKey = profile is null ? "demo" : ClientDatabase.CanonicalEndpoint($"{profile.Host}:{profile.Port}");
+            BeginHistory();
             _passwordPrompt = AutoLoginSequence.Compile(profile?.PasswordPrompt ?? AutoLoginSequence.DefaultPasswordPrompt);
             var wirePrivate = false;
             void ReceiveText(string text, bool containsPrivateText)
@@ -259,6 +263,7 @@ public sealed partial class WorkspaceController : IAsyncDisposable
 
     private void RefreshScriptState()
     {
+        if (IsPrivate || _login is not null) _historyRecorder?.Received("", true, _diagnosticSecrets);
         if (IsPrivate || _login is not null) { StopMapWalk("MapWalkPrivate"); if (_agentPublicText.Length > 0 || _agentProtocol.Length > 0 || _agentRunner?.IsBusy == true) ResetAgentContext(); }
         lock (_pendingLock)
         {
@@ -467,6 +472,8 @@ public sealed partial class WorkspaceController : IAsyncDisposable
         _connectionCancellation = null;
         cancellation?.Cancel();
         if (previous is not null) await previous.DisposeAsync();
+        EndHistory();
+        await FlushHistoryAsync();
         _diagnosticSecrets = [];
         cancellation?.Dispose();
         _serverPrivate = _promptPrivate = _manualPrivate = false;

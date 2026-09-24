@@ -78,10 +78,14 @@ public sealed record ClientSettings
     public bool ShowChannelsPanel { get; init; } = true;
     /// <summary>Whether the composer offers grayed completions from command history and words seen in the session.</summary>
     public bool ComposerSuggestions { get; init; } = true;
+    public bool HistoryEnabled { get; init; } = true;
+    /// <summary>Days of locally retained interactions; zero keeps history until explicitly deleted.</summary>
+    public int HistoryRetentionDays { get; init; } = 30;
     public List<UserTheme> CustomThemes { get; init; } = [];
     public List<ConnectionProfile> Profiles { get; init; } = [];
     public void Validate()
     {
+        if (HistoryRetentionDays is not (0 or 30 or 90 or 365)) throw new ArgumentException(L.HistoryRetentionInvalid);
         if (!Wandur.Core.Localization.UiLanguage.SupportedCodes.Contains(Language)) throw new ArgumentException(L.UnsupportedLanguage);
         if (CustomThemes is null || CustomThemes.Count > 100) throw new ArgumentException(L.InvalidCustomTheme);
         foreach (var custom in CustomThemes) { if (custom is null) throw new ArgumentException(L.InvalidCustomTheme); custom.Validate(); }
