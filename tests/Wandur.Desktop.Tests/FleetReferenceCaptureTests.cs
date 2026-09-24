@@ -20,7 +20,7 @@ public sealed class FleetReferenceCaptureTests
     [InlineData(1040, 680, "Legends of the Jedi")]
     [InlineData(1536, 1024, "Legends of the Jedi")]
     [InlineData(1040, 680, "Étoiles du Nord: Legends of the Outer Reaches and the Very Distant Stars")]
-    public async Task LiveSessionHasACenteredTitleDarkWorkAreaAndMatchingDocumentHeader(int width, int height, string worldName)
+    public async Task LiveSessionHasACenteredTitleAndDarkWorkAreaWithoutARedundantHeading(int width, int height, string worldName)
     {
         var path = Path.Combine(Path.GetTempPath(), "wandur-fleet-reference-" + Guid.NewGuid());
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -50,9 +50,10 @@ public sealed class FleetReferenceCaptureTests
             Assert.Equal(worldName.ToUpperInvariant(), title.Text);
             var plaque = window.GetVisualDescendants().OfType<ThemePlaque>().Single();
             Assert.Equal(width / 2d, plaque.TranslatePoint(new Point(plaque.Bounds.Width / 2, 0), window)!.Value.X, 1);
-            var header = window.GetVisualDescendants().OfType<Border>().SingleOrDefault(b => b.Name == "FleetDocumentHeader");
-            Assert.NotNull(header);
-            Assert.True(header.IsEffectivelyVisible);
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "FleetDocumentHeader");
+            var document = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentFrame");
+            var terminal = document.GetVisualDescendants().OfType<Wandur.Desktop.Views.TerminalView>().Single();
+            Assert.InRange(terminal.TranslatePoint(default, document)!.Value.Y, 0, 2);
             var mapToolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MapToolbar");
             Assert.True(mapToolbar.Bounds.Height <= 40, "Map controls should fit a single compact toolbar row at supported dock widths.");
             var mapTools = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "MapToolsToggle");
@@ -102,7 +103,6 @@ public sealed class FleetReferenceCaptureTests
             Capture(window, worldName.Length > 25 ? "fleet-long-title.png" : $"fleet-{width}x{height}.png");
 
             // Each side is optional; hidden tools must return their width to the real session content.
-            var document = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentFrame");
             var withBoth = document.Bounds.Width;
             window.ToggleMap(); window.ToggleChannels();
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
@@ -117,10 +117,10 @@ public sealed class FleetReferenceCaptureTests
             Assert.True(window.IsMapVisible && window.IsChannelsVisible && window.IsPanelVisible());
             window.Sessions.PreviewAppearanceSettings(new ClientSettings { Theme = "Paper" });
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-            Assert.True(header.IsEffectivelyVisible);
+            Assert.InRange(terminal.TranslatePoint(default, document)!.Value.Y, 0, 2);
             window.Sessions.EndAppearanceSettingsPreview();
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-            Assert.True(header.IsEffectivelyVisible);
+            Assert.InRange(terminal.TranslatePoint(default, document)!.Value.Y, 0, 2);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
     }

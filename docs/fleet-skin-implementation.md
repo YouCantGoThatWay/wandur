@@ -191,9 +191,9 @@ together in a 16-test focused run. Native Windows remains unverified.
 
 ## Compact chrome and directory refinements (2026-09-23)
 
-These refinements remain in `wandur-client-fleet`, branch
-`design/fleet-material-polish`, and are not yet merged into the original
-`wandur-client` checkout's `main`.
+These refinements were developed in `wandur-client-fleet`, branch
+`design/fleet-material-polish`, and merged into the normal `wandur-client`
+checkout's local `main` at `0461bf1`.
 
 - Side docks physically touching the main workspace's left or right edge omit
   that outside rim and margin. Interior edges and floating docks retain their
@@ -229,3 +229,38 @@ it passed in the focused rerun and the final full run. Updated layout tests
 now reflect 13-DIP toolbar text and floor controls behind More. Independent
 review found no remaining product issues. The pre-existing localization
 facade drift noted above remains unchanged; no localization files were edited.
+
+## Terminal heading removal and native caption inset
+
+The Terminal heading and its entire 38-DIP row are removed. The live terminal
+begins immediately inside the existing thin document frame. Dock headers and
+the Find a MUD heading remain. Palette switches, cached session views and
+hidden-toolbar clearance retain this layout.
+
+`Services/MacTrafficLightInset.cs` moves the existing native macOS close,
+minimize and zoom buttons 4 DIP right and 4 DIP down. A 3-DIP downward fallback
+is allowed when 4 would clip; if neither fits, native positioning is preserved.
+It uses AppKit's public `standardWindowButton:` and `setFrameOrigin:` methods,
+not replacement controls or private-view modifications. Windows and headless
+windows are unchanged. The Fleet title band remains 50 DIP, so this does not
+reintroduce competing native title-height writes.
+
+Each adjustment is based on the original position, accounting for native
+layout resets on either axis. Fullscreen/minimized windows restore native
+positions; restored windows get a single inset again. Work is coalesced onto
+the dispatcher with a bounded settling tail and detached on close. There are
+no recursive layout calls, native frame-size changes or idle polling.
+
+The isolated arm64 Mac probe in `artifacts/mac-traffic-light-probe/` measured
+all three buttons at exactly (+4,+4) through 22 preset switches and resizes,
+maximize/restore, minimize/restore, fullscreen/restore and activation. It
+checked containment, hit targets and unchanged action/target identities; the
+real native close action closed the probe. Native x64 ABI handling is included
+but has not been exercised on an Intel Mac. No live user sessions were used.
+
+Final verification: 536 Desktop tests and 725 Core tests passed. An initial
+Desktop run hit an untouched script-worker disposal race in
+`SessionAutomationTests.ReleasingAgentControlDoesNotReplayTopLevelScriptCommands`;
+the isolated rerun and final full suite passed without script-worker changes.
+Independent review found no remaining issues. Updated control renders are
+under `artifacts/header-refinement/`.

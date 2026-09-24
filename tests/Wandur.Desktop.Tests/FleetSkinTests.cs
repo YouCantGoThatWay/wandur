@@ -109,8 +109,8 @@ public sealed class FleetSkinTests
             window.ToolbarVisible = false;
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             var plaque = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PlaqueTitleHost");
-            var header = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentHeader");
-            Assert.True(header.TranslatePoint(default, window)!.Value.Y >=
+            var frame = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentFrame");
+            Assert.True(frame.TranslatePoint(default, window)!.Value.Y >=
                 plaque.TranslatePoint(new Point(0, plaque.Bounds.Height), window)!.Value.Y);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
@@ -203,8 +203,6 @@ public sealed class FleetSkinTests
             var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
             Assert.True(toolbar.TranslatePoint(default, window)!.Value.Y >= 50);
             var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
-            var documentHeader = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentHeader");
-            Assert.Equal(14, Assert.IsType<TextBlock>(documentHeader.Child).FontSize);
             Assert.Equal(13, picker.FontSize);
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }

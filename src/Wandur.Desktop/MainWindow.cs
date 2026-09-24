@@ -227,6 +227,7 @@ public sealed class MainWindow : Window
             Avalonia.Threading.DispatcherPriority.Background, async (_, _) => await RefreshCatalogAsync());
         Opened += async (_, _) => { _catalogRefreshTimer.Start(); await RefreshCatalogAsync(); };
         Closed += (_, _) => _catalogRefreshTimer.Stop();
+        _ = new MacTrafficLightInset(this);
         Refresh();
     }
 

@@ -47,9 +47,6 @@
   <Style Selector=":is(Control).fleet dc|ToolChromeControl /template/ Border#PART_Border">
     <Setter Property="BoxShadow" Value="{DynamicResource FleetHeaderShadow}" />
   </Style>
-  <Style Selector="Window.fleet Border#FleetDocumentHeader">
-    <Setter Property="BoxShadow" Value="{DynamicResource FleetHeaderShadow}" />
-  </Style>
   <Style Selector=":is(Control).fleet Border#MapToolbar :is(Button).command-bar-button, :is(Control).fleet Border#MapToolsPanel :is(Button).command-bar-button, :is(Control).fleet Border#MapEditorInspector :is(Button).command-bar-button">
     <Setter Property="Width" Value="26" />
     <Setter Property="Height" Value="26" />

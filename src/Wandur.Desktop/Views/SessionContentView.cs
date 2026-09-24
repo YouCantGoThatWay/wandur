@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Wandur.Core.Discovery;
 
@@ -10,7 +9,6 @@ public sealed class SessionContentView : UserControl
 {
     private readonly SessionWorkspace _sessions;
     private readonly ContentControl _content = new();
-    private readonly Border _fleetHeader;
     private readonly Border _frame;
     private readonly Dictionary<SessionTab, TerminalView> _views = [];
     private WorldBrowserView? _browser;
@@ -23,16 +21,7 @@ public sealed class SessionContentView : UserControl
     public SessionContentView(SessionWorkspace sessions, WorldCatalog? catalog = null, Action<WorkspaceController, int>? editAutomation = null)
     {
         _sessions = sessions; _catalog = catalog; _editAutomation = editAutomation;
-        var title = Ui.TextKey(nameof(Wandur.Core.Localization.Strings.SettingsTerminal), 14);
-        title.FontWeight = FontWeight.SemiBold;
-        title.VerticalAlignment = VerticalAlignment.Center;
-        _fleetHeader = new Border { Name = "FleetDocumentHeader", Padding = new Thickness(12, 0),
-            BorderThickness = new Thickness(0, 0, 0, 1), BorderBrush = Brush.Parse("#424743"), Child = title };
-        _fleetHeader.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("DockHeaderBrush"));
-        _fleetHeader.Bind(HeightProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("DockHeaderHeight"));
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { _fleetHeader, _content } };
-        Grid.SetRow(_content, 1);
-        _frame = new Border { Name = "FleetDocumentFrame", Child = layout };
+        _frame = new Border { Name = "FleetDocumentFrame", Child = _content };
         Content = _frame;
         ApplySkin();
         Refresh();
@@ -43,11 +32,9 @@ public sealed class SessionContentView : UserControl
     private void ApplySkin()
     {
         var fleet = FleetSkin.IsActive;
-        _fleetHeader.IsVisible = fleet && _content.Content is TerminalView;
         _frame.Padding = fleet ? new Thickness(1) : default;
         _frame.Background = fleet ? FleetSkin.DockMetal : Brushes.Transparent;
         _frame.BorderBrush = fleet ? FleetSkin.RimEdge : Brushes.Transparent;
-        _fleetHeader.BorderBrush = FleetSkin.RimEdge;
         _frame.BorderThickness = fleet ? new Thickness(1) : default;
         _frame.CornerRadius = fleet ? new CornerRadius(2) : default;
     }
@@ -60,7 +47,6 @@ public sealed class SessionContentView : UserControl
         foreach (var removed in _views.Keys.Where(t => !_sessions.Tabs.Contains(t)).ToArray()) _views.Remove(removed);
         if ((_sessions.IsBrowsing || !_sessions.Active.Controller.HasSession) && _catalog is not null)
         {
-            _fleetHeader.IsVisible = false;
             _browser ??= new WorldBrowserView(_sessions.Browser(_catalog), _catalog);
             _content.Content = _browser;
             return;
@@ -73,7 +59,6 @@ public sealed class SessionContentView : UserControl
             _views.Add(_sessions.Active, view);
         }
         _content.Content = view;
-        _fleetHeader.IsVisible = FleetSkin.IsActive;
         if (activated) view.FocusComposer();
     }
 }

@@ -34,7 +34,9 @@ public sealed class FleetPaletteTests
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             Assert.Equal(original, plaque.Bounds);
             Assert.Equal("fleet", window.GetVisualDescendants().OfType<ThemePlaque>().Single().Shape);
-            Assert.True(window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentHeader").IsEffectivelyVisible);
+            var frameHost = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentFrame");
+            var terminal = frameHost.GetVisualDescendants().OfType<Wandur.Desktop.Views.TerminalView>().Single();
+            Assert.InRange(terminal.TranslatePoint(default, frameHost)!.Value.Y, 0, 2);
             Assert.True(window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "FleetSettings").IsEffectivelyVisible);
             Assert.IsType<DrawingBrush>(window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar").Background);
             Assert.Equal(Color.Parse(UserTheme.FromPreset(palette).Colors["Terminal"]),

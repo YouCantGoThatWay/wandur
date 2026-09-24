@@ -86,15 +86,18 @@ public sealed class FleetMaterialPolishTests
                 button.IsEnabled = false; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
                 Assert.Equal(button.Foreground, presenter.Foreground);
             }
-            var header = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "FleetDocumentHeader");
+            var headers = window.GetVisualDescendants().OfType<Border>()
+                .Where(b => b.Name == "PART_Border" && b.TemplatedParent is Dock.Avalonia.Controls.ToolChromeControl).ToArray();
+            Assert.NotEmpty(headers);
             if (theme == "Slate")
             {
                 var edge = Assert.IsAssignableFrom<ISolidColorBrush>(frame.BorderBrush).Color;
                 Assert.True(edge.R < 140 && edge.G < 140 && edge.B < 140,
                     "Graphite must not inherit the silver frame's white outline.");
-                foreach (var shadow in header.BoxShadow)
-                    Assert.True(shadow.Color.A < 128 || shadow.Color.R < 160,
-                        "Dark headers must not inherit an opaque white bevel.");
+                foreach (var header in headers)
+                    foreach (var shadow in header.BoxShadow)
+                        Assert.True(shadow.Color.A < 128 || shadow.Color.R < 160,
+                            "Dark headers must not inherit an opaque white bevel.");
             }
         }
         finally { await window.Sessions.DisposeAsync(); window.Close(); }
