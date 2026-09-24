@@ -364,3 +364,24 @@ Verification: both titlebar tests failed on the missing app prefix before the
 change. All 12 focused title/layout/capture tests pass after it, along with the
 full solution suite (725 Core and 553 Desktop tests). The regenerated Slate
 capture and both site asset checks pass.
+
+The titleplate also carries the existing Wandur app icon at 32 DIP, followed
+by a 10-DIP gap and the title. The icon and text are centered as one group,
+with plaque sizing accounting for both and retaining native button clearance.
+The dark plate hugs that group with 40 DIP of padding on each side, plus its
+existing 44-DIP outer shoulders. There is no fixed minimum or maximum title
+width: the centered space between native controls and title actions is the cap.
+Long titles still ellipsize within the available plate width. The icon is not
+hit-testable, so the drag surface beneath it remains active, and it hides
+with the titlebar in fullscreen. Headless website captures use this same
+layout without adding imitation native window buttons.
+
+Verification for the icon and content-sized plate: 26 focused desktop tests
+and both site asset tests pass. The final full run passed 725 Core and 554
+Desktop tests, with one Avalonia headless UI-thread cleanup failure in
+`DiagnosticsConsoleTests.ConsoleTabAppearsOnlyWithALogAndHidesTheMessageBarWhileSelected`.
+All five DiagnosticsConsoleTests pass in isolation; that test creates plain
+Windows, not MainWindow or its titleplate. An earlier full run also encountered
+`SqliteMapStoreTests.SearchRoomsMatchesObservedTextOfTheStoredWorldOnly` with a
+disposed SQLite handle; subsequent full Core runs passed all 725 tests.
+Neither intermittent failure was changed as part of this visual update.

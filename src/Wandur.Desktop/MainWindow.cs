@@ -478,6 +478,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         RestoreWindowedChrome();
+        _titleBarLogo.IsVisible = FleetSkin.IsActive;
         _appTitle.FontWeight = FontWeight.SemiBold;
         SkinSize? header = null;
         SkinRect? headerText = null;
@@ -519,12 +520,15 @@ public sealed partial class MainWindow : Window
             _skinTitleActive = active;
             if (active && header is { } size)
             {
-                if (!ReferenceEquals(_appTitle.Parent, _plaque))
+                if (!ReferenceEquals(_appTitle.Parent, _plaqueIdentity))
                 {
                     _titleBarIdentity.Children.Remove(_appTitle);
-                    _plaque.Child = _appTitle;
+                    Grid.SetColumn(_appTitle, 1);
+                    _plaqueIdentity.Children.Add(_appTitle);
+                    _plaque.Child = _plaqueIdentity;
                     _plaqueTitleHost.Child = _plaque;
                 }
+                _plaqueIdentity.Width = double.NaN;
                 ApplyPlaque(slot?.Plaque);
                 _titleBarIdentity.IsVisible = false;
                 _metalDrag.IsVisible = true;
@@ -583,6 +587,7 @@ public sealed partial class MainWindow : Window
                     // leaves it parented and the move to the identity row throws.
                     _plaque.Child = null;
                     _plaqueTitleHost.Child = null;
+                    _plaqueIdentity.Children.Remove(_appTitle);
                     if (!_titleBarIdentity.Children.Contains(_appTitle))
                         _titleBarIdentity.Children.Add(_appTitle);
                 }
@@ -687,12 +692,11 @@ public sealed partial class MainWindow : Window
         var measure = new TextBlock { Text = _appTitle.Text, FontFamily = _appTitle.FontFamily,
             FontSize = _appTitle.FontSize, LetterSpacing = _appTitle.LetterSpacing, FontWeight = _appTitle.FontWeight };
         measure.Measure(new Size(double.PositiveInfinity, FleetTitleLayout.PlaqueHeight));
-        // OS traffic lights are native, not Avalonia children. Reserve their platform-safe span;
-        // decoration margins can enlarge it (for example when the native frame changes).
-        var left = Math.Max(WindowDecorationMargin.Left, OperatingSystem.IsMacOS() && WindowState != WindowState.FullScreen ? 88 : 0);
+        var left = Math.Max(WindowDecorationMargin.Left, OperatingSystem.IsMacOS() ? 88 : 0);
         var right = TitleActionsRightInset + TitleActionsWidth;
         PositionTitleActions();
-        var place = FleetTitleLayout.Calculate(width, left, right, measure.DesiredSize.Width);
+        var identityWidth = measure.DesiredSize.Width + TitleLogoSize + TitleLogoGap;
+        var place = FleetTitleLayout.Calculate(width, left, right, identityWidth);
         _windowSkin.TitleModuleBounds = place.Bounds;
         ApplyFleetToolbarSurface();
         _plaqueTitleHost.HorizontalAlignment = HorizontalAlignment.Left;
@@ -702,6 +706,7 @@ public sealed partial class MainWindow : Window
         _plaqueTitleHost.Height = place.Bounds.Height;
         _plaqueTitleHost.Margin = new Thickness(place.Bounds.X, place.Bounds.Y, 0, 0);
         _plaque.Padding = new Thickness(place.PlainTitle ? 4 : FleetTitleLayout.TextInset, 0);
+        _plaqueIdentity.Width = Math.Min(identityWidth, Math.Max(0, place.Bounds.Width - _plaque.Padding.Left - _plaque.Padding.Right));
         if (place.PlainTitle)
         {
             _plaque.Fill = null;

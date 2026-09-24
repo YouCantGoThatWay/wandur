@@ -54,6 +54,20 @@ public sealed class TitleActionsTests
                 var theme = Named<Button>(window, "TitleThemeButton");
                 var full = Named<Button>(window, "TitleFullScreenButton");
                 var plaque = Named<Border>(window, "PlaqueTitleHost");
+                var logo = Named<Image>(window, "TitleBarLogo");
+                Assert.NotNull(logo.Source);
+                Assert.True(logo.IsEffectivelyVisible);
+                Assert.False(logo.IsHitTestVisible, "The decorative icon must leave the titlebar draggable.");
+                var logoOrigin = logo.TranslatePoint(default, window)!.Value;
+                var title = Named<TextBlock>(window, "AppTitle");
+                var titleOrigin = title.TranslatePoint(default, window)!.Value;
+                Assert.InRange(logo.Bounds.Width, 30, 34);
+                Assert.True(logoOrigin.X > plaque.TranslatePoint(default, window)!.Value.X);
+                Assert.InRange(titleOrigin.X - logoOrigin.X - logo.Bounds.Width, 8, 12);
+                Assert.Equal(width / 2d, (logoOrigin.X + titleOrigin.X + title.Bounds.Width) / 2, 1);
+                // Odd text heights can land half a DIP off the even-sized icon after pixel snapping.
+                Assert.InRange(Math.Abs(logoOrigin.Y + logo.Bounds.Height / 2 - titleOrigin.Y - title.Bounds.Height / 2), 0, 0.5);
+                Assert.Equal(width / 2d, plaque.TranslatePoint(new Point(plaque.Bounds.Width / 2, 0), window)!.Value.X, 1);
                 var titleRight = plaque.TranslatePoint(new Point(plaque.Bounds.Width, 0), window)!.Value.X;
                 var themeOrigin = theme.TranslatePoint(default, window)!.Value;
                 var fullOrigin = full.TranslatePoint(default, window)!.Value;
@@ -100,6 +114,7 @@ public sealed class TitleActionsTests
             Assert.False(Named<Border>(window, "PlaqueTitleHost").IsEffectivelyVisible);
             Assert.False(Named<Border>(window, "MetalHeaderDrag").IsEffectivelyVisible);
             Assert.False(Named<TextBlock>(window, "AppTitle").IsEffectivelyVisible);
+            Assert.False(Named<Image>(window, "TitleBarLogo").IsEffectivelyVisible);
             Assert.True(dock.TranslatePoint(default, window)!.Value.Y <= before - 45);
             Assert.Equal(toolbarVisible, window.ToolbarVisible);
             Assert.True(Named<Button>(window, "ExitFullScreenButton").IsEffectivelyVisible);
@@ -111,6 +126,7 @@ public sealed class TitleActionsTests
             Settle(window);
             Assert.Equal(WindowState.Normal, window.WindowState);
             Assert.True(Named<Border>(window, "PlaqueTitleHost").IsEffectivelyVisible);
+            Assert.True(Named<Image>(window, "TitleBarLogo").IsEffectivelyVisible);
             Assert.Equal(toolbarVisible, window.ToolbarVisible);
             Assert.InRange(Math.Abs(dock.TranslatePoint(default, window)!.Value.Y - before), 0, 1);
         }

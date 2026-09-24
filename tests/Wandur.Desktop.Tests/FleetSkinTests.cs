@@ -156,8 +156,10 @@ public sealed class FleetSkinTests
     }
 
     [Theory]
-    [InlineData(1536, 88, 0, 300, 608)]
-    [InlineData(1536, 0, 144, 590, 718)]
+    [InlineData(1536, 88, 0, 100, 268)]
+    [InlineData(1536, 88, 0, 300, 468)]
+    [InlineData(1536, 0, 144, 590, 758)]
+    [InlineData(2000, 88, 0, 1000, 1168)]
     [InlineData(1040, 0, 144, 1000, 728)]
     [InlineData(400, 88, 0, 1000, 200)]
     public void TitleMeasuresContentButReservesBothCaptionSafeAreas(double width, double left,
@@ -193,6 +195,10 @@ public sealed class FleetSkinTests
             window.UpdateLayout();
             var host = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "PlaqueTitleHost");
             var width = host.Bounds.Width;
+            var identity = window.GetVisualDescendants().OfType<Grid>().Single(g => g.Name == "PlaqueIdentity");
+            // The inner dark plate starts 44 DIP inside the shoulders. Leave 40 DIP
+            // between it and the icon/title group, rather than a fixed-width empty plate.
+            Assert.InRange((width - identity.Bounds.Width) / 2 - 44, 39, 41);
             window.Width = 1920;
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             Assert.Equal(width, host.Bounds.Width, 1);

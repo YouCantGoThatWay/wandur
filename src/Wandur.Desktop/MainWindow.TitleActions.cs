@@ -10,9 +10,13 @@ namespace Wandur.Desktop;
 public sealed partial class MainWindow
 {
     private const double TitleActionsWidth = 80;
+    private const double TitleLogoSize = 32;
+    private const double TitleLogoGap = 10;
     private const string FullScreenGlyph = "M 1,6 V 1 H 6 M 10,1 H 15 V 6 M 15,10 V 15 H 10 M 6,15 H 1 V 10";
     private const string ExitFullScreenGlyph = "M 1,6 H 6 V 1 M 10,1 V 6 H 15 M 15,10 H 10 V 15 M 6,15 V 10 H 1";
     private StackPanel _titleActions = null!;
+    private Image _titleBarLogo = null!;
+    private Grid _plaqueIdentity = null!;
     private Button _exitFullScreenButton = null!;
     private ThemeMenuButton _themeMenuButton = null!;
     private bool _fullScreenChrome;
@@ -23,6 +27,20 @@ public sealed partial class MainWindow
 
     private void InitializeTitleActions()
     {
+        _titleBarLogo = AppLogo();
+        _titleBarLogo.Name = "TitleBarLogo";
+        _titleBarLogo.Width = _titleBarLogo.Height = TitleLogoSize;
+        _titleBarLogo.HorizontalAlignment = HorizontalAlignment.Left;
+        _titleBarLogo.VerticalAlignment = VerticalAlignment.Center;
+        _titleBarLogo.Margin = new Thickness(0, 0, TitleLogoGap, 0);
+        _titleBarLogo.IsHitTestVisible = false;
+        Avalonia.Automation.AutomationProperties.SetName(_titleBarLogo, "Wandur");
+        _plaqueIdentity = new Grid
+        {
+            Name = "PlaqueIdentity", ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false, Children = { _titleBarLogo }
+        };
         _themeMenuButton = new ThemeMenuButton(() => Controller);
         var fullScreen = ToolbarButton(FullScreenGlyph, "TitleFullScreenButton", nameof(Strings.FullScreen));
         fullScreen.Width = fullScreen.Height = 30;
@@ -54,6 +72,7 @@ public sealed partial class MainWindow
         _fullScreenChrome = true;
         _themeMenuButton.Flyout?.Hide();
         _titleActions.IsVisible = false;
+        _titleBarLogo.IsVisible = false;
         _plaqueTitleHost.IsVisible = false;
         _metalDrag.IsVisible = false;
         _titleBarIdentity.IsVisible = false;
