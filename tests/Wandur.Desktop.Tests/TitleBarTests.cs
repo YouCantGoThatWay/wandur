@@ -21,6 +21,7 @@ public sealed class TitleBarTests
         {
             window.Show();
             Dispatcher.UIThread.RunJobs();
+            Assert.Equal("WANDUR", window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle").Text);
             var disconnect = window.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "Disconnect");
             var icon = Assert.IsType<Avalonia.Controls.Shapes.Path>(disconnect.Content);
             await window.Controller.StartAsync();
@@ -32,12 +33,11 @@ public sealed class TitleBarTests
             Assert.NotNull(logo.Source);
 
             // The live session state remains in the footer rather than crowding the toolbar.
-            // AppTitle tracks the window Title (character · world · Wandur) once a session is open.
             var identity = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "TitleBarIdentity");
             var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle");
-            // The nameplate carries the world alone; the full string (character · world · Wandur) stays on
-            // the operating system's window title, where there is room for it.
-            Assert.Equal(window.Controller.WorldName, title.Text, ignoreCase: true);   // engraved in capitals
+            // The visible nameplate always identifies the app before the active world.
+            // The operating system title retains the more detailed character and session identity.
+            Assert.Equal("WANDUR - " + window.Controller.WorldName.ToUpperInvariant(), title.Text);
             Assert.Contains(window.Controller.WorldName, window.Title);
             Assert.Contains("Wandur", window.Title);
             Assert.Equal(FontWeight.Normal, title.FontWeight);
@@ -104,6 +104,7 @@ public sealed class TitleBarTests
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(second.Id, Assert.IsType<ConnectionProfile>(picker.SelectedItem).Id);
+            Assert.Equal("WANDUR - SECOND", window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle").Text);
         }
         finally
         {

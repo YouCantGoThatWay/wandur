@@ -47,7 +47,7 @@ public sealed class FleetReferenceCaptureTests
             window.Controller.FlushOutput();
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle");
-            Assert.Equal(worldName.ToUpperInvariant(), title.Text);
+            Assert.Equal("WANDUR - " + worldName.ToUpperInvariant(), title.Text);
             var plaque = window.GetVisualDescendants().OfType<ThemePlaque>().Single();
             Assert.Equal(width / 2d, plaque.TranslatePoint(new Point(plaque.Bounds.Width / 2, 0), window)!.Value.X, 1);
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<Border>(), b => b.Name == "FleetDocumentHeader");

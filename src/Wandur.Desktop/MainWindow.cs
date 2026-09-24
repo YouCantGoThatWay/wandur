@@ -373,7 +373,7 @@ public sealed partial class MainWindow : Window
             new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("ToolbarBrush"));
     }
 
-    /// <summary>The world's name as the nameplate shows it: engraved in capitals when there is a plate.</summary>
+    /// <summary>The app and world identity, engraved in capitals when there is a plate.</summary>
     private string PlateTitle() =>
         ThemeService.AppliedSkin?.Layout?.TitleBar?.Plaque is not null ? _plaqueLabel.ToUpperInvariant() : _plaqueLabel;
 
@@ -874,10 +874,10 @@ public sealed partial class MainWindow : Window
         }
         // Character first: it is what tells two sessions on one world apart at a glance; then the world, then the app.
         Title = !Controller.HasSession ? "Wandur" : Controller.CharacterName.Length == 0 ? $"{Controller.WorldName} · Wandur" : $"{Controller.CharacterName} · {Controller.WorldName} · Wandur";
-        // The plaque's readable window is a couple of inches of dark metal, so it carries the world's
-        // name alone. The full "character · world · Wandur" stays on the OS title, where there is room.
+        // Keep the app identity visible before the world, including when a long world name is trimmed.
+        // The full "character · world · Wandur" stays on the OS title, where there is room.
         var oldPlaqueLabel = _plaqueLabel;
-        _plaqueLabel = !Controller.HasSession || Controller.WorldName.Length == 0 ? "Wandur" : Controller.WorldName;
+        _plaqueLabel = !Controller.HasSession || Controller.WorldName.Length == 0 ? "Wandur" : $"Wandur - {Controller.WorldName}";
         _appTitle.Text = _skinTitleActive ? PlateTitle() : Title;
         if (FleetSkin.IsActive && oldPlaqueLabel != _plaqueLabel) ApplyTitleChrome();
         var connected = Sessions.Tabs.Count(t => t.Controller.IsConnected);

@@ -351,3 +351,16 @@ which passed when rerun alone.
 An earlier full run hit the existing worker-disposal null reference in
 `WorldScriptLibraryTests.AliasesUseLibraryOrderAndEveryRunningScriptReceivesPublicLines`,
 which passed in its focused rerun. Neither script subsystem was changed.
+
+## Branded nameplate
+
+The visible titleplate reads `WANDUR - <WORLD NAME>` for an open session and
+`WANDUR` without one. The existing centered layout, lamp-safe padding and
+ellipsis remain in use, so a long world name cannot crowd out the app prefix.
+The native OS title retains its character, world and app identity. The website
+capture uses the same title through the real MainWindow, not an image overlay.
+
+Verification: both titlebar tests failed on the missing app prefix before the
+change. All 12 focused title/layout/capture tests pass after it, along with the
+full solution suite (725 Core and 553 Desktop tests). The regenerated Slate
+capture and both site asset checks pass.

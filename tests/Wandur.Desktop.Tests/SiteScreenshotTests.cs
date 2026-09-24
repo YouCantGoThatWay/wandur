@@ -106,7 +106,7 @@ public sealed class SiteScreenshotTests
             Assert.Equal(3, window.GetVisualDescendants().OfType<ResourceBarsView>().Single()
                 .GetVisualDescendants().OfType<ProgressBar>().Count());
             Assert.Equal(5, window.GetVisualDescendants().OfType<ChannelMessageList>().Single().Rows.Count);
-            Assert.Equal("STARFALL REACH", window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle").Text);
+            Assert.Equal("WANDUR - STARFALL REACH", window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle").Text);
             AvaloniaHeadlessPlatform.ForceRenderTimerTick(4);
             using var image = window.CaptureRenderedFrame();
             Assert.NotNull(image);
