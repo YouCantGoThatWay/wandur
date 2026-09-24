@@ -13,6 +13,56 @@ namespace Wandur.Desktop.Tests;
 
 public sealed class FleetRefinementTests
 {
+    [AvaloniaFact]
+    public async Task IconOnlyConnectStaysBesideTheWorldPickerAcrossWidthsAndThemes()
+    {
+        var window = CreateWindow();
+        try
+        {
+            foreach (var theme in new[] { "Hull", "Slate", "Paper", "Hull" })
+            {
+                window.Sessions.PreviewAppearanceSettings(new ClientSettings { Theme = theme, UseWorldThemes = false });
+                foreach (var width in new[] { 1380, 1040 })
+                {
+                    window.Width = width;
+                    Settle(window);
+                    var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
+                    var picker = toolbar.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
+                    var connect = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "Connect");
+                    var stop = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "Disconnect");
+                    var search = toolbar.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "FindMud");
+                    var pickerRight = picker.TranslatePoint(new Point(picker.Bounds.Width, 0), toolbar)!.Value.X;
+                    var connectLeft = connect.TranslatePoint(default, toolbar)!.Value.X;
+                    Assert.InRange(connectLeft - pickerRight, 0, 8);
+                    Assert.InRange(connect.Bounds.Width, 28, 36);
+                    Assert.DoesNotContain(connect.GetVisualDescendants().OfType<TextBlock>(), t => !string.IsNullOrWhiteSpace(t.Text));
+                    Assert.NotNull(connect.Command);
+                    Assert.Equal(Wandur.Core.Localization.Strings.ConnectToTheSelectedWorldInASessionTab,
+                        Avalonia.Automation.AutomationProperties.GetName(connect));
+                    Assert.Equal(Wandur.Core.Localization.Strings.ConnectToTheSelectedWorldInASessionTab, ToolTip.GetTip(connect));
+                    var connectRight = connectLeft + connect.Bounds.Width;
+                    var stopLeft = stop.TranslatePoint(default, toolbar)!.Value.X;
+                    Assert.InRange(stopLeft - connectRight, 0, 8);
+                    Assert.True(search.TranslatePoint(default, toolbar)!.Value.X >= stopLeft + stop.Bounds.Width);
+                    foreach (var control in new Control[] { picker, connect, stop, search })
+                    {
+                        var origin = control.TranslatePoint(default, toolbar)!.Value;
+                        Assert.True(control.IsEffectivelyVisible);
+                        Assert.InRange(origin.X, 0, toolbar.Bounds.Width - control.Bounds.Width);
+                    }
+                    if (Environment.GetEnvironmentVariable("WANDUR_CAPTURE_DIR") is { Length: > 0 } directory)
+                    {
+                        Directory.CreateDirectory(directory);
+                        using var frame = window.CaptureRenderedFrame();
+                        Assert.NotNull(frame);
+                        frame.Save(Path.Combine(directory, $"connect-toolbar-{theme}-{width}.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                    }
+                }
+            }
+        }
+        finally { await window.Sessions.DisposeAsync(); window.Close(); ThemeService.Apply(new ClientSettings()); }
+    }
+
     private static MainWindow CreateWindow()
     {
         var store = new SettingsStore(Path.Combine(Path.GetTempPath(), "wandur-refinement-" + Guid.NewGuid(), "settings.json"));

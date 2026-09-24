@@ -38,6 +38,7 @@ public sealed class MainWindow : Window
     private readonly Border _toolbar;
     private (Size Size, Rect Title)? _fleetToolbarSurfaceKey;
     private readonly StackPanel _toolbarActions;
+    private readonly StackPanel _connectionControls;
     private readonly Border _footer;
     private readonly Border _windowHeader;
     private readonly Border _metalDrag;
@@ -112,6 +113,8 @@ public sealed class MainWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(_worldPicker, L.ChooseAWorld);
         _worldPicker.Classes.Add("toolbar-world-picker");
         var connect = _connect = ToolbarButton("M 4,2 L 14,8 L 4,14 Z", "Connect", nameof(L.ConnectToTheSelectedWorldInASessionTab), filled: true);
+        connect.Width = connect.Height = 32;
+        connect.Padding = new Thickness(7);
         connect.Command = _menus.Connect;
         _disconnect = ToolbarButton("M 3,3 H 13 V 13 H 3 Z", "Disconnect", nameof(L.DisconnectTheActiveSession), filled: true);
         _disconnect.Command = _menus.Disconnect;
@@ -122,8 +125,8 @@ public sealed class MainWindow : Window
         _fleetSettings.IsVisible = false;
         var divider = new Border { Width = 1, Height = 16, Margin = new Thickness(7, 0) };
         divider.Bind(Border.BackgroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("LineBrush"));
-        var connectionControls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(5, 0, 0, 0), Children = { connect, _disconnect } };
-        var actions = _toolbarActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { _worldPicker, connectionControls, divider, browse, _fleetSettings } };
+        var connectionControls = _connectionControls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Children = { _worldPicker, connect, _disconnect } };
+        var actions = _toolbarActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, Children = { connectionControls, divider, browse, _fleetSettings } };
         _toolbarStatus.Name = "SessionStatus";
         _toolbarStatus.VerticalAlignment = VerticalAlignment.Center;
         _toolbarStatus.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -236,8 +239,8 @@ public sealed class MainWindow : Window
         Classes.Set("fleet", FleetSkin.IsActive);
         _fleetToolbarSurfaceKey = null;
         _fleetSettings.IsVisible = FleetSkin.IsActive;
-        foreach (var button in new[] { _connect, _browse, _fleetSettings }) button.Classes.Set("fleet-action", FleetSkin.IsActive);
-        _connect.Content = FleetSkin.IsActive ? FleetIcons.Action(FleetIcons.Connect, nameof(L.Connect)) : Ui.ChromeGlyph("M 4,2 L 14,8 L 4,14 Z", true);
+        foreach (var button in new[] { _browse, _fleetSettings }) button.Classes.Set("fleet-action", FleetSkin.IsActive);
+        _connect.Content = FleetSkin.IsActive ? Ui.ChromeGlyph(FleetIcons.Connect) : Ui.ChromeGlyph("M 4,2 L 14,8 L 4,14 Z", true);
         _browse.Content = FleetSkin.IsActive ? FleetIcons.Action(FleetIcons.Search, nameof(L.FindAMUD)) : Ui.ChromeGlyph(FleetIcons.Search);
         _fleetSettings.Content = FleetIcons.Action(FleetIcons.Settings, nameof(L.SettingsTitle), true);
         // On Windows the fallback menu remains available, below the overlapping title/toolbar pair.
@@ -248,16 +251,16 @@ public sealed class MainWindow : Window
         _worldPicker.Height = FleetSkin.IsActive ? 32 : 28;
         if (_toolbar.Child is Grid toolbarGrid)
         {
-            if (FleetSkin.IsActive && _worldPicker.Parent == _toolbarActions)
+            if (FleetSkin.IsActive && _connectionControls.Parent == _toolbarActions)
             {
-                _toolbarActions.Children.Remove(_worldPicker);
-                Grid.SetColumn(_worldPicker, 0);
-                toolbarGrid.Children.Add(_worldPicker);
+                _toolbarActions.Children.Remove(_connectionControls);
+                Grid.SetColumn(_connectionControls, 0);
+                toolbarGrid.Children.Add(_connectionControls);
             }
-            else if (!FleetSkin.IsActive && _worldPicker.Parent == toolbarGrid)
+            else if (!FleetSkin.IsActive && _connectionControls.Parent == toolbarGrid)
             {
-                toolbarGrid.Children.Remove(_worldPicker);
-                _toolbarActions.Children.Insert(0, _worldPicker);
+                toolbarGrid.Children.Remove(_connectionControls);
+                _toolbarActions.Children.Insert(0, _connectionControls);
             }
         }
         if (!FleetSkin.IsActive)

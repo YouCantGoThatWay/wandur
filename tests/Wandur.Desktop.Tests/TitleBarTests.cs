@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Headless.XUnit;
@@ -30,7 +31,7 @@ public sealed class TitleBarTests
             var logo = window.GetVisualDescendants().OfType<Image>().Single(i => i.Name == "AppLogo");
             Assert.NotNull(logo.Source);
 
-            // Identity on the left, controls on the right, and the live session state down in the footer.
+            // The live session state remains in the footer rather than crowding the toolbar.
             // AppTitle tracks the window Title (character · world · Wandur) once a session is open.
             var identity = window.GetVisualDescendants().OfType<StackPanel>().Single(p => p.Name == "TitleBarIdentity");
             var title = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "AppTitle");
@@ -43,14 +44,15 @@ public sealed class TitleBarTests
             Assert.Contains(logo, identity.Children);
             Assert.Equal(0, Grid.GetColumn(identity));
             var picker = window.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "ToolbarWorlds");
+            var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
             // Hull keeps world selection on the left of the toolbar, separate from native drag chrome.
-            Assert.Equal(0, Grid.GetColumn(picker));
-            Assert.IsType<Grid>(picker.Parent);
+            var pickerOrigin = picker.TranslatePoint(default, toolbar)!.Value;
+            Assert.InRange(pickerOrigin.X, 0, 32);
+            Assert.InRange(pickerOrigin.Y, 0, toolbar.Bounds.Height - picker.Bounds.Height);
             var status = window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "SessionStatus");
             Assert.Contains(status.GetSelfAndVisualAncestors().OfType<StackPanel>(), p => p.Name == "FooterStatus");
 
             var header = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "WindowHeader");
-            var toolbar = window.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "MainToolbar");
             Assert.True(toolbar.Bounds.Height >= 40);
             window.ToolbarVisible = false;
             window.UpdateLayout();

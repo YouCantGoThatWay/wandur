@@ -287,3 +287,24 @@ previously observed, untouched `SessionAutomationTests.ReleasingAgentControlDoes
 null reference during `SessionScriptWorker.DisposeAsync`. That test passed
 when rerun in isolation. Independent review found no blocking issues in this
 surface fix.
+
+## Compact connection controls
+
+The world dropdown, icon-only Connect and Stop now stay together on the left
+of the main toolbar, with 3-DIP gaps. Connect uses a 32-DIP square target and
+keeps its localized tooltip, accessible name and existing command. Find a MUD
+and Settings remain on the right. Theme switches move the whole connection
+group instead of separating the picker from its actions.
+
+The regression test checks adjacency, clipping, icon-only content and accessible
+labels at 1040 and 1380 DIP through Hull, Slate, Paper and back to Hull.
+Rendered captures are under `artifacts/connect-toolbar/`.
+
+Verification: 19 focused toolbar/titlebar and script-worker tests passed after
+updating the old titlebar test's direct-parent assumption to a position check.
+The full run had two additional unrelated failures:
+`ModelPackageInstallerTests.DownloadsThroughHttpWithProgress` (HTTP listener
+port collision) and
+`SessionWorkerTests.ALibraryWithThreeEnabledScriptsStartsOneWorkerAndFansEachEventOutOnce`
+(the existing script-worker disposal null reference). Both passed on isolated
+reruns. Independent review found no actionable implementation issues.

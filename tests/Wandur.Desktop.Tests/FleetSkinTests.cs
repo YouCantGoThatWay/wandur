@@ -82,7 +82,7 @@ public sealed class FleetSkinTests
             Assert.True(settings.IsEffectivelyVisible);
             Assert.True(settings.TranslatePoint(default, window)!.Value.Y >= bottom);
             var labels = toolbar.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("fleet-action-label")).ToArray();
-            Assert.True(labels.Length >= 3);
+            Assert.True(labels.Length >= 2);
             Assert.All(labels, t => Assert.True(t.IsEffectivelyVisible));
             Assert.All(labels, t => Assert.DoesNotContain("▶", t.Text));
             window.Width = 800;
